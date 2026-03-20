@@ -1,4 +1,4 @@
-package com.example.road_mate_flutter
+package com.roadmate.re
 
 import android.annotation.SuppressLint
 import android.app.NotificationChannel

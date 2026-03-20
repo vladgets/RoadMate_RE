@@ -61,54 +61,23 @@
             android:foregroundServiceType="microphone|location"
             android:exported="false" />
 
-        <!-- Accessibility service for voice-controlled app interaction.
-             Subclasses AccessibilityListener to add double-tap button detection. -->
-        <service
-            android:name=".RoadMateAccessibilityService"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService"/>
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibilityservice"/>
-        </service>
-
-        <!-- Manifest-declared receiver — catches voice trigger broadcasts even when
-             MainActivity is not alive (no process / Activity destroyed).
-             Starts/resumes MainActivity with a TRIGGER_VOICE intent. -->
-        <receiver
-            android:name=".VoiceTriggerReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.example.road_mate_flutter.VOICE_TILE_TAPPED"/>
-            </intent-filter>
-        </receiver>
-
         <!-- Exported receiver for Flic button single-press.
-             Configure in Flic app: Send Intent → action com.example.road_mate_flutter.FLIC_SINGLE
+             Configure in Flic app: Send Intent → action com.roadmate.re.FLIC_SINGLE
              Works whether or not the app process is alive. -->
         <receiver
             android:name=".FlicButtonReceiver"
             android:exported="true">
             <intent-filter>
-                <action android:name="com.example.road_mate_flutter.FLIC_SINGLE"/>
+                <action android:name="com.roadmate.re.FLIC_SINGLE"/>
             </intent-filter>
         </receiver>
 
-
-        <!-- Quick Settings tile to start a voice session from any app (Android 7+) -->
+        <!-- Short-lived FGS that launches MainActivity from Flic broadcast context.
+             Required on Android 14+ where startActivity() is blocked from receivers. -->
         <service
-            android:name=".VoiceTileService"
-            android:icon="@drawable/ic_qs_voice"
-            android:label="RoadMate Voice"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE"/>
-            </intent-filter>
-        </service>
+            android:name=".FlicVoiceService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
 
         <activity
             android:name=".MainActivity"

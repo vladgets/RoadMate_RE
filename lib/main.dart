@@ -30,8 +30,6 @@ import 'services/conversation_store.dart';
 import 'services/photo_index_service.dart';
 import 'services/voice_memory_store.dart';
 import 'services/whatsapp_service.dart';
-import 'services/screenshot_service.dart';
-import 'services/app_control_service.dart';
 import 'services/driving_log_store.dart';
 import 'services/driving_monitor_service.dart';
 import 'services/named_places_store.dart';
@@ -233,11 +231,6 @@ Future<void> main() async {
   // Initialize driving log store and start background activity monitoring
   await DrivingLogStore.instance.init();
   await DrivingMonitorService.instance.start();
-
-  // Auto-start accessibility listener if already enabled
-  if (await AppControlService.instance.isAccessibilityEnabled()) {
-    AppControlService.instance.startListening();
-  }
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -445,22 +438,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
         _connect();
       }
 
-      // Listen for voice trigger events from the Quick Settings tile.
-      debugPrint('[VoicePage] Registering voice trigger listener (Quick Settings tile)');
-      AppControlService.instance.startListeningForButtonEvents(
-        // Tile tapped while inactive → start voice
-        () {
-          debugPrint('[VoicePage] Tile START trigger — connected=$_connected connecting=$_connecting');
-          if (!_connected && !_connecting) _connect();
-          _minimizeWhenFgsReady();
-        },
-        onStop: () {
-          // Tile tapped while active → stop voice
-          debugPrint('[VoicePage] Tile STOP trigger — connected=$_connected');
-          if (_connected || _connecting) _disconnect();
-          AppControlService.moveToBackground();
-        },
-      );
     });
   }
 
@@ -469,29 +446,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   bool _navigatedAway = false;
   String? _status;
   String? _error;
-
-  /// Waits until the foreground service has called startForeground(), then
-  /// sends the app to the background. This satisfies Android 14+'s rule that
-  /// a microphone-type FGS must call startForeground() while the app is still
-  /// in the foreground — a fixed delay is unreliable on slow networks because
-  /// _startForegroundService() is called after the HTTP token fetch.
-  Future<void> _minimizeWhenFgsReady() async {
-    // If already running (e.g. reconnect after tile was used before), go now.
-    if (await FlutterForegroundTask.isRunningService) {
-      await AppControlService.moveToBackground();
-      return;
-    }
-    // Poll every 100 ms until the service starts (max 10 s).
-    for (var i = 0; i < 100; i++) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (await FlutterForegroundTask.isRunningService) {
-        await AppControlService.moveToBackground();
-        return;
-      }
-    }
-    // Timed out — minimize anyway (connection may have failed).
-    await AppControlService.moveToBackground();
-  }
 
   @override
   void dispose() {
@@ -649,7 +603,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
         _connected = true;
         _status = "Connected. Talk!";
       });
-      AppControlService.setTileActive(true);
 
       // Send initial greeting if enabled
       final greetingEnabled = await Config.getInitialGreetingEnabled();
@@ -727,11 +680,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     } finally {
       // Disable wakelock when disconnecting
       await WakelockPlus.disable();
-
-      // Deactivate tile before stopping the FGS — the OS may call
-      // onStartListening when the FGS notification is removed, so the static
-      // flag must be false by then or the tile briefly re-shows as active.
-      await AppControlService.setTileActive(false);
 
       // Stop foreground service
       await _stopForegroundService();
@@ -961,24 +909,8 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     return await VoiceMemoryStore.instance.toolSearchMemories(args);
   },
   // WhatsApp tools
-  'take_screenshot': (args) async {
-    return await ScreenshotService.instance.takeScreenshot();
-  },
   'send_whatsapp_message': (args) async {
     return await WhatsAppService.instance.toolSendWhatsAppMessage(args);
-  },
-  // App voice control tools (Android only)
-  'tap_ui_button': (args) async {
-    return await AppControlService.instance.toolTapUiButton(args);
-  },
-  'get_foreground_app': (args) async {
-    return await AppControlService.instance.toolGetForegroundApp(args);
-  },
-  'launch_app': (args) async {
-    return await AppControlService.instance.toolLaunchApp(args);
-  },
-  'type_text': (args) async {
-    return await AppControlService.instance.toolTypeText(args);
   },
   // Driving log tool
   'get_driving_log': (args) async {

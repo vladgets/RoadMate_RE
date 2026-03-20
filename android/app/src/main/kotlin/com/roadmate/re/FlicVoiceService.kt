@@ -1,4 +1,4 @@
-package com.example.road_mate_flutter
+package com.roadmate.re
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -48,7 +48,7 @@ class FlicVoiceService : Service() {
 
         // From a running FGS, startActivity() is always permitted on Android 10+.
         val launch = Intent(this, MainActivity::class.java).apply {
-            action = "com.example.road_mate_flutter.TRIGGER_VOICE"
+            action = "com.roadmate.re.TRIGGER_VOICE"
             putExtra("FLIC_BACKGROUND", true)
             addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or
