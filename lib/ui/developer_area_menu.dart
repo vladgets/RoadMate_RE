@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
 import 'package:flutter/material.dart';
-import 'youtube_history_screen.dart';
 import 'driving_log_screen.dart';
 import 'activity_settings_screen.dart';
 import '../services/photo_index_service.dart';
@@ -70,18 +69,6 @@ class _SettingsScreenState extends State<DeveloperAreaScreen> {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ActivitySettingsScreen()),
-              );
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.video_library),
-            title: const Text('YouTube history'),
-            subtitle: const Text('Videos from subscriptions (last month)'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const YouTubeHistoryScreen()),
               );
             },
           ),

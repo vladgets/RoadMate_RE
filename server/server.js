@@ -1,7 +1,6 @@
 import express from "express";
 import { registerGmailRoutes } from "./gmail.js";
 import { registerGoogleMapsRoutes } from "./google_maps.js";
-import { registerYouTubeRoutes } from "./youtube.js";
 import { registerCollageRoutes } from "./collage.js";
 import { registerWhatsAppBaileysRoutes } from "./whatsapp_baileys.js";
 import { registerNominatimRoutes } from "./nominatim.js";
@@ -11,7 +10,6 @@ app.use(express.json());
 
 registerGmailRoutes(app);
 registerGoogleMapsRoutes(app);
-registerYouTubeRoutes(app);
 registerCollageRoutes(app);
 registerWhatsAppBaileysRoutes(app);
 registerNominatimRoutes(app);

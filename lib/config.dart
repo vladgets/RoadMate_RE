@@ -396,32 +396,6 @@ $trimmedPrefs''';
         "required": ["id"]
       },
     },    
-    /// YouTube tools
-    {
-      "type": "function",
-      "name": "youtube_subscriptions_feed",
-      "description": "Get latest videos from YouTube subscriptions.",
-      "parameters": {"type": "object", "properties": {}}
-    },
-    {
-      "type": "function",
-      "name": "youtube_open_video",
-      "description": "Open a YouTube video.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string",
-            "description": "video URL"
-          },
-          "startSeconds": {
-            "type": "integer",
-            "description": "Optional start time in seconds. Defaults to 0."
-          }
-        },
-        "required": ["url"]
-      }
-    },
     // Photo album search tool
     {
       "type": "function",

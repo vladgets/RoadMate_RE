@@ -25,7 +25,6 @@ import 'services/gmail_client.dart';
 import 'services/map_navigation.dart';
 import 'services/phone_call.dart';
 import 'services/reminders.dart';
-import 'services/youtube_client.dart';
 import 'services/conversation_store.dart';
 import 'services/photo_index_service.dart';
 import 'services/voice_memory_store.dart';
@@ -356,9 +355,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   // Gmail client (multi-user): initialized with per-install client id.
   late final GmailClient gmailClient;
   String? _clientId;
-  // YouTube client
-  late final YouTubeClient youtubeClient;
-
   // Deduplicate tool calls (Realtime may emit in_progress + completed, and can resend events).
   final Set<String> _handledToolCallIds = <String>{};
 
@@ -416,7 +412,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     ClientIdStore.getOrCreate().then((cid) {
       _clientId = cid;
       gmailClient = GmailClient(baseUrl: Config.serverUrl, clientId: cid);
-      youtubeClient = YouTubeClient(baseUrl: Config.serverUrl, clientId: cid);
       debugPrint('[ClientId] $cid');
       if (mounted) setState(() {});
     });
@@ -886,13 +881,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   'reminder_cancel': (args) async {
     return await RemindersService.instance.toolCancel(args);
   },
-  // YouTube tools
-  'youtube_subscriptions_feed': (_) async {
-    return await youtubeClient.getSubscriptionsFeedTool();
-  },
-  'youtube_open_video': (args) async {
-    return await openYoutubeVideoTool(args);
-  },
   // Photo album search tool
   'search_photos': (args) async {
     return await PhotoIndexService.instance.toolSearchPhotos(args);
@@ -950,7 +938,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       'gmail_search',
       'gmail_read_email',
       'traffic_eta',
-      'youtube_get_subscriptions_feed',
     };
 
     // Start thinking sound for long-running tools

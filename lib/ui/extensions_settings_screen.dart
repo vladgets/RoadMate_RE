@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/calendar.dart';
 import '../services/gmail_client.dart';
-import '../services/youtube_client.dart';
 import '../config.dart';
 
 class ExtensionsSettingsScreen extends StatefulWidget {
@@ -23,13 +22,8 @@ class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
   bool _gmailChecking = false;
   String? _clientId;
 
-  bool _youtubeEnabled = false;
-  bool _youtubeAuthorized = false;
-  bool _youtubeChecking = false;
-
   static const String _prefKeyCalendarEnabled = 'calendar_extension_enabled';
   static const String _prefKeyGmailEnabled = 'gmail_extension_enabled';
-  static const String _prefKeyYoutubeEnabled = 'youtube_extension_enabled';
 
   @override
   void initState() {
@@ -42,113 +36,10 @@ class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
     setState(() {
       _calendarEnabled = prefs.getBool(_prefKeyCalendarEnabled) ?? false;
       _gmailEnabled = prefs.getBool(_prefKeyGmailEnabled) ?? false;
-      _youtubeEnabled = prefs.getBool(_prefKeyYoutubeEnabled) ?? false;
       _clientId = prefs.getString(Config.prefKeyClientId);
     });
     await _checkCalendarPermissions();
     await _checkGmailAuthorization();
-    await _checkYouTubeAuthorization();
-  }
-
-  YouTubeClient _youtubeClient() {
-    return YouTubeClient(baseUrl: Config.serverUrl, clientId: _clientId);
-  }
-
-  Future<void> _checkYouTubeAuthorization() async {
-    if (_clientId == null || _clientId!.isEmpty) {
-      setState(() {
-        _youtubeAuthorized = false;
-      });
-      return;
-    }
-    if (_youtubeChecking) return;
-    setState(() {
-      _youtubeChecking = true;
-    });
-
-    try {
-      await _youtubeClient().getSubscriptionsFeed();
-      if (mounted) {
-        setState(() {
-          _youtubeAuthorized = true;
-        });
-      }
-    } catch (e) {
-      final msg = e.toString();
-      if (mounted) {
-        setState(() {
-          _youtubeAuthorized = !msg.contains('Not authorized');
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _youtubeChecking = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _authorizeYouTubeInBrowser() async {
-    if (_clientId == null || _clientId!.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Client id is not initialized yet. Please restart the app.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-    final uri = Uri.parse('${Config.serverUrl}/oauth/youtube/start?client_id=$_clientId');
-
-    final ok = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
-
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open browser for YouTube authorization.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _toggleYouTube(bool value) async {
-    if (_loading) return;
-
-    setState(() {
-      _loading = true;
-      _youtubeEnabled = value;
-    });
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_prefKeyYoutubeEnabled, _youtubeEnabled);
-
-      if (_youtubeEnabled) {
-        await _checkYouTubeAuthorization();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
-    }
   }
 
   GmailClient _gmailClient() {
@@ -429,52 +320,6 @@ class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
                 _clientId == null || _clientId!.isEmpty
                     ? 'Client id not initialized yet. Restart the app.'
                     : 'Authorize Gmail in a browser: ${Config.serverUrl}/oauth/google/start?client_id=$_clientId',
-                style: TextStyle(
-                  color: Colors.orange.shade700,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.play_circle_outline),
-            title: const Text('YouTube'),
-            subtitle: Text(
-              _clientId == null || _clientId!.isEmpty
-                  ? 'Client id not initialized'
-                  : (_youtubeChecking
-                      ? 'Checking authorization…'
-                      : (_youtubeAuthorized
-                          ? 'Authorized on server'
-                          : 'Not authorized (tap Authorize)')),
-            ),
-            trailing: _loading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextButton(
-                        onPressed: _youtubeEnabled ? _authorizeYouTubeInBrowser : null,
-                        child: const Text('Authorize'),
-                      ),
-                      Switch(
-                        value: _youtubeEnabled,
-                        onChanged: _toggleYouTube,
-                      ),
-                    ],
-                  ),
-          ),
-          if (_youtubeEnabled && !_youtubeAuthorized)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                _clientId == null || _clientId!.isEmpty
-                    ? 'Client id not initialized yet. Restart the app.'
-                    : 'Authorize YouTube in a browser: ${Config.serverUrl}/oauth/youtube/start?client_id=$_clientId',
                 style: TextStyle(
                   color: Colors.orange.shade700,
                   fontSize: 12,

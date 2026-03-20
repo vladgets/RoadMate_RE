@@ -241,7 +241,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
 
               const Center(
                 child: Text(
-                  'You can set up Gmail & YouTube later in settings',
+                  'You can set up Gmail later in settings',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey,
