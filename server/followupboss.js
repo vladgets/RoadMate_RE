@@ -20,15 +20,30 @@ function fubHeaders() {
 export function registerFollowUpBossRoutes(app) {
   /**
    * GET /fub/tasks
-   * Returns tasks for the authenticated user, optionally filtered by date.
-   * Query params: ?dueDate=YYYY-MM-DD (optional)
+   * Returns incomplete tasks, optionally filtered by due date.
+   *
+   * Query params:
+   *   dueDate=YYYY-MM-DD  - exact due date (default: from 7 days ago to +30 days)
+   *   all=true            - skip date window, return all incomplete tasks
    */
   app.get("/fub/tasks", async (req, res) => {
     try {
       const params = new URLSearchParams();
-      if (req.query.dueDate) params.set("dueDate", req.query.dueDate);
-      params.set("limit", "20");
+      params.set("isCompleted", "false");  // only incomplete tasks
+      params.set("limit", "25");
       params.set("sort", "dueDate");
+
+      if (req.query.dueDate) {
+        params.set("dueDate", req.query.dueDate);
+      } else if (!req.query.all) {
+        // Default window: 7 days ago → 30 days from now
+        const from = new Date();
+        from.setDate(from.getDate() - 7);
+        const to = new Date();
+        to.setDate(to.getDate() + 30);
+        params.set("dueDateFrom", from.toISOString().slice(0, 10));
+        params.set("dueDateTo", to.toISOString().slice(0, 10));
+      }
 
       const url = `${FUB_BASE}/tasks?${params}`;
       const r = await fetch(url, { headers: fubHeaders() });
@@ -38,7 +53,6 @@ export function registerFollowUpBossRoutes(app) {
         return res.status(r.status).json({ ok: false, error: data?.message || "FUB error" });
       }
 
-      // Simplify the response for voice
       const tasks = (data.tasks || []).map(t => ({
         id: t.id,
         description: t.description || t.name || "",

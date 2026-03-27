@@ -557,7 +557,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_tasks",
-      "description": "Get tasks from Follow Up Boss CRM. Use this when the user asks about their to-do list, follow-ups, tasks, or what they need to do today in their CRM.",
+      "description": "Get incomplete tasks from Follow Up Boss CRM for the current period (last 7 days to next 30 days). Use this when the user asks about their to-do list, follow-ups, tasks, or what they need to do today in their CRM.",
       "parameters": {
         "type": "object",
         "properties": {
