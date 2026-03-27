@@ -65,9 +65,15 @@ export function registerFollowUpBossRoutes(app) {
 
       let tasks = allTasks;
 
+      // Filter by assigned agent name (case-insensitive partial match)
+      if (req.query.agent) {
+        const agentQ = req.query.agent.toLowerCase();
+        tasks = tasks.filter(t => t.assignedTo?.name?.toLowerCase().includes(agentQ));
+      }
+
       if (req.query.dueDate) {
         // Exact date filter
-        tasks = allTasks.filter(t => t.dueDate?.startsWith(req.query.dueDate));
+        tasks = tasks.filter(t => t.dueDate?.startsWith(req.query.dueDate));
       } else if (!req.query.all) {
         // Default: overdue tasks from last 90 days + tasks due within next N days.
         // The 90-day lookback avoids surfacing ancient forgotten tasks while still

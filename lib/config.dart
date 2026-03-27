@@ -557,13 +557,17 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_tasks",
-      "description": "Get incomplete tasks from Follow Up Boss CRM. Returns overdue tasks (up to 90 days back) plus upcoming tasks (next 30 days). Use when the user asks about their to-do list, CRM follow-ups, overdue tasks, or what they need to do. Summarize by grouping overdue vs upcoming.",
+      "description": "Get incomplete tasks from Follow Up Boss CRM. Returns overdue tasks (up to 90 days back) plus upcoming tasks (next 30 days). Use when the user asks about their to-do list, CRM follow-ups, overdue tasks, or what they need to do. Summarize by grouping overdue vs upcoming. If the user asks for a specific agent's tasks, pass their name in agent_name.",
       "parameters": {
         "type": "object",
         "properties": {
           "due_date": {
             "type": "string",
             "description": "Filter tasks by due date in YYYY-MM-DD format. Omit to get all upcoming tasks."
+          },
+          "agent_name": {
+            "type": "string",
+            "description": "Filter tasks by assigned agent name (e.g. 'Roman', 'Sarah'). Omit to get tasks for all agents."
           }
         }
       }

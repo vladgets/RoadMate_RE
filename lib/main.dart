@@ -715,7 +715,8 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   // Follow Up Boss CRM tools
   'fub_get_tasks': (args) async {
     final dueDate = (args is Map) ? args['due_date'] as String? : null;
-    return await FubClient().getTasks(dueDate: dueDate);
+    final agentName = (args is Map) ? args['agent_name'] as String? : null;
+    return await FubClient().getTasks(dueDate: dueDate, agentName: agentName);
   },
 };
 
