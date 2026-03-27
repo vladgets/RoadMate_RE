@@ -13,7 +13,7 @@
   "type": "module",
   "dependencies": {
     "express": "^5.2.1",
-    "googleapis": "^169.0.0",
+    "googleapis": "^144.0.0",
     "@whiskeysockets/baileys": "^6.7.18",
     "qrcode": "^1.5.4",
     "pino": "^9.6.0"

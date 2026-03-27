@@ -4,6 +4,10 @@ import { registerGoogleMapsRoutes } from "./google_maps.js";
 import { registerCollageRoutes } from "./collage.js";
 import { registerWhatsAppBaileysRoutes } from "./whatsapp_baileys.js";
 import { registerNominatimRoutes } from "./nominatim.js";
+import { fileURLToPath } from "url";
+import path from "path";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(express.json());
@@ -200,6 +204,15 @@ app.post("/generate", async (req, res) => {
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e) });
   }
+});
+
+// Serve Flutter web build as static files (API routes above take priority).
+const webBuildPath = path.join(__dirname, "..", "build", "web");
+app.use(express.static(webBuildPath));
+
+// SPA fallback: Flutter uses client-side routing, serve index.html for unknown paths.
+app.get("/{*splat}", (_req, res) => {
+  res.sendFile(path.join(webBuildPath, "index.html"));
 });
 
 app.listen(3000, () => console.log("Token server on :3000"));

@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:activity_recognition_flutter/activity_recognition_flutter.dart';
+import 'package:activity_recognition_flutter/activity_recognition_flutter.dart'
+    if (dart.library.html) '../stubs/activity_event_stub.dart';
 import 'package:flutter/material.dart';
 import 'driving_log_screen.dart';
 import 'activity_settings_screen.dart';
