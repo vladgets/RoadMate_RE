@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'platform/background_services.dart';
+import 'platform/web_audio_player.dart';
 import 'config.dart';
 import 'ui/main_settings_menu.dart';
 import 'ui/onboarding_screen.dart';
@@ -340,9 +341,13 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       // On mobile, WebRTC audio generally plays via native audio output automatically.
       _pc!.onTrack = (RTCTrackEvent e) async {
         if (e.track.kind == 'audio') {
-          // Force loudspeaker on iOS
-          await Helper.setSpeakerphoneOn(true);
-
+          if (kIsWeb) {
+            // On web, browser doesn't auto-play remote tracks — attach to <audio>.
+            attachRemoteAudio(e.streams.isNotEmpty ? e.streams.first : null);
+          } else {
+            // Force loudspeaker on iOS.
+            await Helper.setSpeakerphoneOn(true);
+          }
           setState(() => _status = "Assistant connected. Talk!");
         }
       };
@@ -461,6 +466,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   Future<void> _disconnect() async {
     // Stop thinking sound if it's playing (non-blocking)
     _stopThinkingSound();
+    detachRemoteAudio();
 
     try {
       await _dc?.close();
