@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/geo_time_tools.dart';
 import 'services/memory_store.dart';
@@ -51,9 +52,12 @@ Date: {{CURRENT_DATE_READABLE}}
   static bool get isFemaleVoice => voice == femaleVoice;
   static String voice = femaleVoice;
 
-  // Our server URL and preference keys
-  static const serverUrl = "https://roadmate-flutter.onrender.com";
-  // static const serverUrl = "http://10.0.0.219:3000"; // local test   
+  // Our server URL and preference keys.
+  // On web, use empty string so all API paths are relative to the page origin
+  // (works both locally and on Render without rebuilding).
+  // On mobile, use the absolute production URL.
+  static final serverUrl = kIsWeb ? '' : 'https://roadmate-flutter.onrender.com';
+  // static final serverUrl = kIsWeb ? '' : 'http://10.0.0.219:3000'; // local test
   static const prefKeyClientId = 'roadmate_client_id';
   static const prefKeyVoice = 'roadmate_voice';
   static const prefKeyInitialGreetingEnabled = 'roadmate_initial_greeting_enabled';

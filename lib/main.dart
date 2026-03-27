@@ -126,8 +126,8 @@ class VoiceButtonPage extends StatefulWidget {
 }
 
 
-// final String tokenServerUrl = "http://10.0.2.2:3000/token";
-const tokenServerUrl = '${Config.serverUrl}/token';
+// On web, Config.serverUrl is '' so this becomes '/token' (relative to page origin).
+final tokenServerUrl = '${Config.serverUrl}/token';
 
 class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingObserver {
   RTCPeerConnection? _pc;
