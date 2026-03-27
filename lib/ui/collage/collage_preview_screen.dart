@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import '../../models/collage_composition.dart';
 import '../../services/collage_composer.dart';
 import 'collage_painter.dart';
+import 'collage_share.dart';
 
 class CollagePreviewScreen extends StatefulWidget {
   final CollageComposition composition;
@@ -30,28 +28,10 @@ class _CollagePreviewScreenState extends State<CollagePreviewScreen> {
     });
 
     try {
-      // Export to PNG
       final pngBytes = await CollageComposer.instance.exportToPng(
         _repaintBoundaryKey,
       );
-
-      // Save to temp directory
-      final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/collage_${DateTime.now().millisecondsSinceEpoch}.png');
-      await file.writeAsBytes(pngBytes);
-
-      // Share
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: 'Check out my photo collage!',
-      );
-
-      // Clean up
-      Future.delayed(const Duration(seconds: 5), () {
-        if (file.existsSync()) {
-          file.delete();
-        }
-      });
+      await shareCollageBytes(pngBytes);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
