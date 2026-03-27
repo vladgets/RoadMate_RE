@@ -200,7 +200,21 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
         if (mounted) setState(() {});
       };
 
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      setState(() {});
+
+      // On web, chat is the primary screen — navigate there instantly (no animation).
+      // Back button on ChatScreen returns to the voice screen.
+      if (kIsWeb) {
+        Navigator.of(context).push(PageRouteBuilder(
+          pageBuilder: (_, __, ___) => ChatScreen(
+            conversationStore: store,
+            toolExecutor: executeTool,
+          ),
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+        ));
+      }
     });
 
     // Ensure we have a stable client id for Gmail token storage on the server.
