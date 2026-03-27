@@ -53,11 +53,11 @@ Future<void> main() async {
   PhotoIndexService.instance.buildIndexInBackground();
   PhotoIndexService.instance.startChangeListener();
 
-  // Initialize voice memory store
-  await VoiceMemoryStore.instance.init();
+  // Initialize voice memory store (uses path_provider — not available on web)
+  if (!kIsWeb) await VoiceMemoryStore.instance.init();
 
   // Initialize driving log store and start background activity monitoring
-  await DrivingLogStore.instance.init();
+  if (!kIsWeb) await DrivingLogStore.instance.init();
   await DrivingMonitorService.instance.start();
 
   if (!kIsWeb) {
@@ -167,8 +167,8 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     // Pre-load thinking sound for instant playback
     _preloadThinkingSound();
 
-    // Initialize conversation store and create new session on app launch
-    ConversationStore.create().then((store) async {
+    // Initialize conversation store (uses path_provider — skipped on web)
+    if (!kIsWeb) ConversationStore.create().then((store) async {
       _conversationStore = store;
       // Create a new session on every app launch
       if (!store.hasSessions) {
