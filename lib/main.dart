@@ -80,7 +80,12 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _checkOnboardingStatus();
+    if (kIsWeb) {
+      // On web, always skip onboarding — browser handles mic permission natively.
+      _hasCompletedOnboarding = true;
+    } else {
+      _checkOnboardingStatus();
+    }
   }
 
   Future<void> _checkOnboardingStatus() async {
