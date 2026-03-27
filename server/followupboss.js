@@ -94,6 +94,11 @@ export function registerFollowUpBossRoutes(app) {
         assignedTo: t.assignedTo?.name || null,
       }));
 
+      // Log sample of raw tasks for debugging
+      if (allTasks.length > 0) {
+        const sample = allTasks.slice(0, 3).map(t => ({ id: t.id, dueDate: t.dueDate, isCompleted: t.isCompleted, name: t.name || t.description }));
+        console.log(`[FUB] sample tasks:`, JSON.stringify(sample));
+      }
       console.log(`[FUB] tasks: ${allTasks.length} total incomplete, ${tasks.length} in window, returning ${result.length}`);
 
       res.json({ ok: true, tasks: result, total: result.length });
