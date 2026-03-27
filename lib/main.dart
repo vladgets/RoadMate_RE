@@ -860,25 +860,24 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
           IconButton(
             tooltip: 'Chat',
             icon: const Icon(Icons.chat_bubble_outline),
-            onPressed: _conversationStore == null
-                ? null
-                : () async {
-                    _navigatedAway = true;
-                    await _disconnect();
+            onPressed: () async {
+              if (_conversationStore == null) return;
+              _navigatedAway = true;
+              await _disconnect();
 
-                    if (!mounted) return;
+              if (!mounted) return;
 
-                    // ignore: use_build_context_synchronously
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ChatScreen(
-                          conversationStore: _conversationStore!,
-                          toolExecutor: executeTool,
-                        ),
-                      ),
-                    );
-                    _navigatedAway = false;
-                  },
+              // ignore: use_build_context_synchronously
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ChatScreen(
+                    conversationStore: _conversationStore!,
+                    toolExecutor: executeTool,
+                  ),
+                ),
+              );
+              _navigatedAway = false;
+            },
           ),
           IconButton(
             tooltip: 'Settings',

@@ -102441,7 +102441,7 @@ return A.k($async$M_,r)},
 J(a){var s,r,q,p,o=this,n=null,m=o.at,l=o.ax,k=l?"Tap to stop":"Tap to talk",j=l?B.Mb:B.fP
 l=A.dp(n,n,n,B.rc,n,n,new A.aKH(o,a),n,n,"Voice Notes",n)
 s=t.p
-l=A.h1(A.b([A.dp(n,n,n,B.N_,n,n,o.as==null?n:new A.aKI(o,a),n,n,"Chat",n),A.dp(n,n,n,B.ra,n,n,new A.aKJ(o,a),n,n,"Settings",n)],s),B.l,0,B.r9,l,n)
+l=A.h1(A.b([A.dp(n,n,n,B.N_,n,n,new A.aKI(o,a),n,n,"Chat",n),A.dp(n,n,n,B.ra,n,n,new A.aKJ(o,a),n,n,"Settings",n)],s),B.l,0,B.r9,l,n)
 r=o.ch
 if(r==null)r=m?"Working\u2026":"Ready."
 r=A.b([A.al(r,n,n,n,B.a2H,B.cu,n)],s)
@@ -102921,7 +102921,8 @@ A.aKI.prototype={
 $0(){var s=0,r=A.l(t.H),q,p=this,o
 var $async$$0=A.h(function(a,b){if(a===1)return A.i(b,r)
 for(;;)switch(s){case 0:o=p.a
-o.ay=!0
+if(o.as==null){s=1
+break}o.ay=!0
 s=3
 return A.e(o.iy(),$async$$0)
 case 3:if(o.c==null){s=1
