@@ -557,7 +557,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_tasks",
-      "description": "Get incomplete tasks from Follow Up Boss CRM for the current period (last 7 days to next 30 days). Use this when the user asks about their to-do list, follow-ups, tasks, or what they need to do today in their CRM.",
+      "description": "Get incomplete tasks from Follow Up Boss CRM. Returns overdue tasks (up to 90 days back) plus upcoming tasks (next 30 days). Use when the user asks about their to-do list, CRM follow-ups, overdue tasks, or what they need to do. Summarize by grouping overdue vs upcoming.",
       "parameters": {
         "type": "object",
         "properties": {

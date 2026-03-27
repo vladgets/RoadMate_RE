@@ -69,9 +69,13 @@ export function registerFollowUpBossRoutes(app) {
         // Exact date filter
         tasks = allTasks.filter(t => t.dueDate?.startsWith(req.query.dueDate));
       } else if (!req.query.all) {
-        // Default: all overdue tasks + tasks due within next N days
-        // No lower bound so overdue tasks are included regardless of how old they are.
+        // Default: overdue tasks from last 90 days + tasks due within next N days.
+        // The 90-day lookback avoids surfacing ancient forgotten tasks while still
+        // catching genuinely recent overdue items.
         const days = parseInt(req.query.days || "30", 10);
+        const from = new Date();
+        from.setDate(from.getDate() - 90);
+        from.setHours(0, 0, 0, 0);
         const to = new Date();
         to.setDate(to.getDate() + days);
         to.setHours(23, 59, 59, 999);
@@ -79,7 +83,7 @@ export function registerFollowUpBossRoutes(app) {
         tasks = allTasks.filter(t => {
           if (!t.dueDate) return false;
           const due = new Date(t.dueDate);
-          return due <= to;
+          return due >= from && due <= to;
         });
       }
 
