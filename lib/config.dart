@@ -551,7 +551,23 @@ $trimmedPrefs''';
         },
         "required": ["label"]
       }
-    }
+    },
+
+    // Follow Up Boss CRM tools
+    {
+      "type": "function",
+      "name": "fub_get_tasks",
+      "description": "Get tasks from Follow Up Boss CRM. Use this when the user asks about their to-do list, follow-ups, tasks, or what they need to do today in their CRM.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "due_date": {
+            "type": "string",
+            "description": "Filter tasks by due date in YYYY-MM-DD format. Omit to get all upcoming tasks."
+          }
+        }
+      }
+    },
   ];
 
 

@@ -4,6 +4,7 @@ import { registerGoogleMapsRoutes } from "./google_maps.js";
 import { registerCollageRoutes } from "./collage.js";
 import { registerWhatsAppBaileysRoutes } from "./whatsapp_baileys.js";
 import { registerNominatimRoutes } from "./nominatim.js";
+import { registerFollowUpBossRoutes } from "./followupboss.js";
 import { fileURLToPath } from "url";
 import path from "path";
 
@@ -17,6 +18,7 @@ registerGoogleMapsRoutes(app);
 registerCollageRoutes(app);
 registerWhatsAppBaileysRoutes(app);
 registerNominatimRoutes(app);
+registerFollowUpBossRoutes(app);
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 

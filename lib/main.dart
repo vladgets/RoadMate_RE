@@ -29,6 +29,7 @@ import 'services/photo_index_service.dart';
 import 'services/voice_memory_store.dart';
 import 'services/whatsapp_service.dart';
 import 'services/driving_log_store.dart';
+import 'services/fub_client.dart';
 import 'services/driving_monitor_service.dart';
 import 'services/named_places_store.dart';
 import 'ui/voice_memories_screen.dart';
@@ -696,6 +697,11 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   'save_named_place': (args) async {
     final location = await getCurrentLocation();
     return await NamedPlacesStore.instance.toolSaveNamedPlace(args, location);
+  },
+  // Follow Up Boss CRM tools
+  'fub_get_tasks': (args) async {
+    final dueDate = (args is Map) ? args['due_date'] as String? : null;
+    return await FubClient().getTasks(dueDate: dueDate);
   },
 };
 
