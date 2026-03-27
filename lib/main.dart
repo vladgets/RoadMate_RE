@@ -311,6 +311,10 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     try {
       // 1) Get ephemeral key from your backend
       final tokenResp = await http.get(Uri.parse(tokenServerUrl));
+      if (tokenResp.statusCode != 200) {
+        final preview = tokenResp.body.length > 200 ? tokenResp.body.substring(0, 200) : tokenResp.body;
+        throw Exception('Token server returned HTTP ${tokenResp.statusCode}: $preview');
+      }
       final tokenJson = jsonDecode(tokenResp.body) as Map<String, dynamic>;
       final ephemeralKey = tokenJson['value'] as String?;
       if (ephemeralKey == null) {
