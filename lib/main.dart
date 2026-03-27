@@ -312,7 +312,11 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       // 1) Get ephemeral key from your backend
       final tokenResp = await http.get(Uri.parse(tokenServerUrl));
       final tokenJson = jsonDecode(tokenResp.body) as Map<String, dynamic>;
-      final ephemeralKey = tokenJson['value'] as String;
+      final ephemeralKey = tokenJson['value'] as String?;
+      if (ephemeralKey == null) {
+        final serverError = tokenJson['error']?['message'] ?? tokenJson['error'] ?? tokenJson.toString();
+        throw Exception('Token server error: $serverError');
+      }
 
       setState(() => _status = "Creating peer connection…");
 
