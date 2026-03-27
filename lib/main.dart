@@ -107,7 +107,7 @@ class _MyAppState extends State<MyApp> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: _hasCompletedOnboarding!
+      home: (kIsWeb || _hasCompletedOnboarding!)
           ? const VoiceButtonPage()
           : const OnboardingScreen(),
       routes: {
