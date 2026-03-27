@@ -18,10 +18,54 @@ function fubHeaders() {
 }
 
 /**
- * Fetch all pages of incomplete tasks from FUB (FUB API doesn't support
- * date-range filtering, so we fetch and filter server-side).
+ * Fetch all FUB users and return a map of lowercase-name → userId.
+ * Cached in memory for 5 minutes to avoid repeated API calls.
  */
-async function fetchAllIncompleteTasks() {
+let _usersCache = null;
+let _usersCacheAt = 0;
+
+async function getFubUsers() {
+  if (_usersCache && Date.now() - _usersCacheAt < 5 * 60 * 1000) {
+    return _usersCache;
+  }
+  const r = await fetch(`${FUB_BASE}/users?limit=200`, { headers: fubHeaders() });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+
+  const users = data.users || [];
+  const map = {}; // name (lowercase) → { id, name }
+  for (const u of users) {
+    if (u.name) map[u.name.toLowerCase()] = { id: u.id, name: u.name };
+  }
+  _usersCache = map;
+  _usersCacheAt = Date.now();
+  console.log(`[FUB] loaded ${users.length} users`);
+  return map;
+}
+
+/**
+ * Resolve a partial agent name string to a FUB userId.
+ * Returns null if not found.
+ */
+async function resolveAgentId(agentQuery) {
+  const users = await getFubUsers();
+  const q = agentQuery.toLowerCase();
+  // Exact match first, then partial
+  for (const [name, u] of Object.entries(users)) {
+    if (name === q) return u.id;
+  }
+  for (const [name, u] of Object.entries(users)) {
+    if (name.includes(q)) return u.id;
+  }
+  return null;
+}
+
+/**
+ * Fetch all pages of incomplete tasks from FUB.
+ * If userId is provided, FUB filters server-side (efficient).
+ * Date filtering is done server-side since FUB API doesn't support it.
+ */
+async function fetchAllIncompleteTasks({ userId } = {}) {
   const allTasks = [];
   let offset = 0;
   const limit = 100;
@@ -33,6 +77,7 @@ async function fetchAllIncompleteTasks() {
       offset: String(offset),
       sort: "dueDate",
     });
+    if (userId) params.set("userId", String(userId));
 
     const r = await fetch(`${FUB_BASE}/tasks?${params}`, { headers: fubHeaders() });
     const data = await r.json();
@@ -41,7 +86,6 @@ async function fetchAllIncompleteTasks() {
     const batch = data.tasks || [];
     allTasks.push(...batch);
 
-    // Stop if we've fetched everything
     if (allTasks.length >= (data.total || 0) || batch.length < limit) break;
     offset += limit;
   }
@@ -51,33 +95,48 @@ async function fetchAllIncompleteTasks() {
 
 export function registerFollowUpBossRoutes(app) {
   /**
+   * GET /fub/users
+   * Returns list of FUB users (agents) with their IDs and names.
+   */
+  app.get("/fub/users", async (req, res) => {
+    try {
+      const users = await getFubUsers();
+      res.json({ ok: true, users: Object.values(users) });
+    } catch (e) {
+      console.error("[FUB] users error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
    * GET /fub/tasks
-   * Returns incomplete tasks in a relevant date window, filtered server-side.
+   * Returns incomplete tasks in a relevant date window.
    *
    * Query params:
+   *   agent=NAME          filter by agent name (resolved to userId for efficient API filtering)
    *   dueDate=YYYY-MM-DD  exact due date filter
-   *   all=true            skip date filter (return all incomplete tasks)
+   *   all=true            skip date filter
    *   days=N              tasks due within next N days (default: 30)
    */
   app.get("/fub/tasks", async (req, res) => {
     try {
-      const allTasks = await fetchAllIncompleteTasks();
-
-      let tasks = allTasks;
-
-      // Filter by assigned agent name (case-insensitive partial match)
+      // Resolve agent name → userId for efficient server-side filtering
+      let userId = null;
       if (req.query.agent) {
-        const agentQ = req.query.agent.toLowerCase();
-        tasks = tasks.filter(t => t.assignedTo?.name?.toLowerCase().includes(agentQ));
+        userId = await resolveAgentId(req.query.agent);
+        if (!userId) {
+          return res.json({ ok: true, tasks: [], total: 0, warning: `No agent found matching "${req.query.agent}"` });
+        }
+        console.log(`[FUB] filtering by agent "${req.query.agent}" → userId ${userId}`);
       }
 
+      const allTasks = await fetchAllIncompleteTasks({ userId });
+      let tasks = allTasks;
+
       if (req.query.dueDate) {
-        // Exact date filter
         tasks = tasks.filter(t => t.dueDate?.startsWith(req.query.dueDate));
       } else if (!req.query.all) {
-        // Default: overdue tasks from last 90 days + tasks due within next N days.
-        // The 90-day lookback avoids surfacing ancient forgotten tasks while still
-        // catching genuinely recent overdue items.
+        // Overdue tasks from last 90 days + upcoming tasks within next N days
         const days = parseInt(req.query.days || "30", 10);
         const from = new Date();
         from.setDate(from.getDate() - 90);
@@ -86,7 +145,7 @@ export function registerFollowUpBossRoutes(app) {
         to.setDate(to.getDate() + days);
         to.setHours(23, 59, 59, 999);
 
-        tasks = allTasks.filter(t => {
+        tasks = tasks.filter(t => {
           if (!t.dueDate) return false;
           const due = new Date(t.dueDate);
           return due >= from && due <= to;
@@ -102,12 +161,7 @@ export function registerFollowUpBossRoutes(app) {
         assignedTo: t.assignedTo?.name || null,
       }));
 
-      // Log sample of raw tasks for debugging
-      if (allTasks.length > 0) {
-        const sample = allTasks.slice(0, 3).map(t => ({ id: t.id, dueDate: t.dueDate, isCompleted: t.isCompleted, name: t.name || t.description }));
-        console.log(`[FUB] sample tasks:`, JSON.stringify(sample));
-      }
-      console.log(`[FUB] tasks: ${allTasks.length} total incomplete, ${tasks.length} in window, returning ${result.length}`);
+      console.log(`[FUB] tasks: ${allTasks.length} fetched, ${tasks.length} in window, returning ${result.length}`);
 
       res.json({ ok: true, tasks: result, total: result.length });
     } catch (e) {
