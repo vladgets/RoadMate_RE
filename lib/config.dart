@@ -40,6 +40,8 @@ Reminders:
 - AI content: "Send me an inspiring quote every day at 6am" → recurrence='daily', ai_prompt='inspiring quote, 1-2 sentences', text='Morning quote'
 - AI + style: "Inspiring quote every Monday at 8am in style of Jensen Huang" → recurrence='weekly', day_of_week=1, ai_prompt='inspiring quote in style of Jensen Huang, 1-2 sentences', text='Monday inspiration'
 
+FUB CRM: fub_get_tasks defaults to agent_name='me'. Only omit agent_name when user explicitly asks for the whole team.
+
 Date: {{CURRENT_DATE_READABLE}}
 ''';
 
@@ -557,17 +559,17 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_tasks",
-      "description": "Get incomplete tasks from Follow Up Boss CRM. Returns overdue tasks (up to 90 days back) plus upcoming tasks (next 30 days). Use when the user asks about their to-do list, CRM follow-ups, overdue tasks, or what they need to do. Summarize by grouping overdue vs upcoming. If the user asks for a specific agent's tasks, pass their name in agent_name.",
+      "description": "Get incomplete tasks from Follow Up Boss CRM. ALWAYS pass agent_name='me' by default unless the user explicitly asks for a specific agent or the whole team. Use when the user asks about tasks, to-do list, CRM follow-ups, or what they need to do. Summarize by grouping overdue vs upcoming.",
       "parameters": {
         "type": "object",
         "properties": {
           "due_date": {
             "type": "string",
-            "description": "Filter tasks by due date in YYYY-MM-DD format. Omit to get all upcoming tasks."
+            "description": "Filter tasks by due date in YYYY-MM-DD format. Omit to get all tasks."
           },
           "agent_name": {
             "type": "string",
-            "description": "Filter tasks by assigned agent name (e.g. 'Roman', 'Sarah'). Use 'me' when the user asks for their own tasks ('my tasks', 'what do I have'). Omit to get tasks for all agents."
+            "description": "Agent to fetch tasks for. Default: 'me' (the current user). Use a name like 'Roman' or 'Sarah' for a specific agent. Omit only when the user explicitly asks for the whole team's tasks."
           }
         }
       }
