@@ -153,18 +153,31 @@ export function registerFollowUpBossRoutes(app) {
 
       const tasks = await fetchIncompleteTasks({ assignedUserId, dueDateFrom, dueDateTo });
 
-      // Log first raw task to reveal actual field names
-      if (tasks.length > 0) {
-        console.log("[FUB] raw task sample:", JSON.stringify(tasks[0]));
+      const page = tasks.slice(0, 50);
+
+      // Batch-fetch contact names for all unique personIds
+      const personIds = [...new Set(page.map(t => t.personId).filter(Boolean))];
+      const personNames = {};
+      if (personIds.length > 0) {
+        try {
+          const pr = await fetch(`${FUB_BASE}/people?ids=${personIds.join(",")}&limit=200`, { headers: fubHeaders() });
+          const pd = await pr.json();
+          for (const p of (pd.people || [])) {
+            personNames[p.id] = p.name || null;
+          }
+        } catch (e) {
+          console.warn("[FUB] person lookup failed:", e.message);
+        }
       }
 
-      const result = tasks.slice(0, 50).map(t => ({
+      const result = page.map(t => ({
         id: t.id,
-        description: t.description || t.notes || t.type || "",
+        type: t.type || "",
+        description: t.name || "",
         dueDate: t.dueDate || null,
-        isCompleted: t.isCompleted || false,
-        contactName: t.person?.name || t.personName || null,
-        assignedTo: t.assignedTo || t.assignedToName || null,
+        isCompleted: !!t.isCompleted,
+        contactName: personNames[t.personId] || null,
+        assignedTo: t.AssignedTo || null,
       }));
 
       console.log(`[FUB] tasks: ${tasks.length} fetched, returning ${result.length}`);
