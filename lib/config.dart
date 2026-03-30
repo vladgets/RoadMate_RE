@@ -567,7 +567,7 @@ $trimmedPrefs''';
           },
           "agent_name": {
             "type": "string",
-            "description": "Filter tasks by assigned agent name (e.g. 'Roman', 'Sarah'). Omit to get tasks for all agents."
+            "description": "Filter tasks by assigned agent name (e.g. 'Roman', 'Sarah'). Use 'me' when the user asks for their own tasks ('my tasks', 'what do I have'). Omit to get tasks for all agents."
           }
         }
       }

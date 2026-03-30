@@ -47,10 +47,32 @@ async function getFubUsers() {
 }
 
 /**
+ * Fetch the authenticated user's profile from FUB (/me).
+ * Cached in memory for 5 minutes.
+ */
+let _meCache = null;
+let _meCacheAt = 0;
+
+async function getFubMe() {
+  if (_meCache && Date.now() - _meCacheAt < 5 * 60 * 1000) return _meCache;
+  const r = await fetch(`${FUB_BASE}/me`, { headers: fubHeaders() });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+  _meCache = data;
+  _meCacheAt = Date.now();
+  return data;
+}
+
+/**
  * Resolve a partial agent name to a FUB user ID.
+ * Supports the special value "me" to resolve to the API key owner.
  * Returns null if not found.
  */
 async function resolveAgentId(agentQuery) {
+  if (agentQuery.toLowerCase() === "me") {
+    const me = await getFubMe();
+    return me.id;
+  }
   const users = await getFubUsers();
   const q = agentQuery.toLowerCase();
   for (const [name, u] of Object.entries(users)) {
@@ -97,6 +119,20 @@ async function fetchIncompleteTasks({ assignedUserId } = {}) {
 }
 
 export function registerFollowUpBossRoutes(app) {
+  /**
+   * GET /fub/me
+   * Returns the authenticated user's profile.
+   */
+  app.get("/fub/me", async (req, res) => {
+    try {
+      const me = await getFubMe();
+      res.json({ ok: true, user: { id: me.id, name: me.name, email: me.email } });
+    } catch (e) {
+      console.error("[FUB] me error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
   /**
    * GET /fub/users
    */
