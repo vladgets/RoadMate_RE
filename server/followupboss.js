@@ -138,9 +138,8 @@ export function registerFollowUpBossRoutes(app) {
         // Exact date: set both from and to to the same date
         dueDateFrom = req.query.dueDate;
         dueDateTo = req.query.dueDate;
-      } else if (!req.query.all && !assignedUserId) {
-        // No agent filter: use date window to avoid fetching thousands of old tasks.
-        // Overdue up to 90 days back + upcoming next N days.
+      } else if (!req.query.all) {
+        // Always apply date window: overdue up to 90 days back + upcoming next N days.
         const days = parseInt(req.query.days || "30", 10);
         const from = new Date();
         from.setDate(from.getDate() - 90);
@@ -149,7 +148,6 @@ export function registerFollowUpBossRoutes(app) {
         to.setDate(to.getDate() + days);
         dueDateTo = to.toISOString().slice(0, 10);
       }
-      // When agent is specified: no date filter — return all their incomplete tasks.
 
       const tasks = await fetchIncompleteTasks({ assignedUserId, dueDateFrom, dueDateTo });
 
