@@ -2,6 +2,9 @@
  * Follow Up Boss CRM proxy routes.
  * Auth: API key via HTTP Basic Auth (key as username, blank password).
  * Docs: https://docs.followupboss.com/reference/common-filters
+ *
+ * NOTE: FUB API ignores dueDateFrom/dueDateTo and isCompleted filters silently.
+ * All date filtering and completion filtering is done server-side.
  */
 
 const FUB_BASE = "https://api.followupboss.com/v1";
@@ -61,12 +64,10 @@ async function resolveAgentId(agentQuery) {
 
 /**
  * Fetch all pages of incomplete tasks from FUB.
- *
- * Uses assignedUserId (correct FUB param) for agent filtering.
- * Uses dueDateFrom/dueDateTo for date filtering at the API level.
- * Falls back to no date filter for agent-specific queries (return all their tasks).
+ * assignedUserId is the only API-level filter that actually works.
+ * Everything else is filtered server-side.
  */
-async function fetchIncompleteTasks({ assignedUserId, dueDateFrom, dueDateTo } = {}) {
+async function fetchIncompleteTasks({ assignedUserId } = {}) {
   const allTasks = [];
   let offset = 0;
   const limit = 100;
@@ -79,15 +80,14 @@ async function fetchIncompleteTasks({ assignedUserId, dueDateFrom, dueDateTo } =
       sort: "dueDate",
     });
     if (assignedUserId) params.set("assignedUserId", String(assignedUserId));
-    if (dueDateFrom) params.set("dueDateFrom", dueDateFrom);
-    if (dueDateTo) params.set("dueDateTo", dueDateTo);
 
     const r = await fetch(`${FUB_BASE}/tasks?${params}`, { headers: fubHeaders() });
     const data = await r.json();
     if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
 
     const batch = data.tasks || [];
-    allTasks.push(...batch);
+    // Filter completed tasks server-side (API ignores isCompleted param)
+    allTasks.push(...batch.filter(t => !t.isCompleted));
 
     if (allTasks.length >= (data.total || 0) || batch.length < limit) break;
     offset += limit;
@@ -99,7 +99,6 @@ async function fetchIncompleteTasks({ assignedUserId, dueDateFrom, dueDateTo } =
 export function registerFollowUpBossRoutes(app) {
   /**
    * GET /fub/users
-   * Returns list of FUB agents with their IDs and names.
    */
   app.get("/fub/users", async (req, res) => {
     try {
@@ -117,8 +116,9 @@ export function registerFollowUpBossRoutes(app) {
    * Query params:
    *   agent=NAME          filter by agent name (resolved to assignedUserId)
    *   dueDate=YYYY-MM-DD  exact due date filter
-   *   all=true            skip date filter (return all incomplete tasks)
-   *   days=N              tasks due within next N days (default: 30)
+   *   all=true            skip date filter
+   *   days=N              upcoming window in days (default: 30)
+   *   overdueDays=N       overdue lookback in days (default: 90)
    */
   app.get("/fub/tasks", async (req, res) => {
     try {
@@ -132,24 +132,36 @@ export function registerFollowUpBossRoutes(app) {
         console.log(`[FUB] agent "${req.query.agent}" → assignedUserId ${assignedUserId}`);
       }
 
-      let dueDateFrom, dueDateTo;
+      const allTasks = await fetchIncompleteTasks({ assignedUserId });
 
+      // Server-side date filtering
+      let tasks = allTasks;
       if (req.query.dueDate) {
-        // Exact date: set both from and to to the same date
-        dueDateFrom = req.query.dueDate;
-        dueDateTo = req.query.dueDate;
+        tasks = allTasks.filter(t => t.dueDate?.startsWith(req.query.dueDate));
       } else if (!req.query.all) {
-        // Always apply date window: overdue up to 90 days back + upcoming next N days.
-        const days = parseInt(req.query.days || "30", 10);
+        const futureDays = parseInt(req.query.days || "30", 10);
+        const overdueDays = parseInt(req.query.overdueDays || "90", 10);
         const from = new Date();
-        from.setDate(from.getDate() - 90);
-        dueDateFrom = from.toISOString().slice(0, 10);
+        from.setDate(from.getDate() - overdueDays);
+        from.setHours(0, 0, 0, 0);
         const to = new Date();
-        to.setDate(to.getDate() + days);
-        dueDateTo = to.toISOString().slice(0, 10);
+        to.setDate(to.getDate() + futureDays);
+        to.setHours(23, 59, 59, 999);
+
+        tasks = allTasks.filter(t => {
+          if (!t.dueDate) return false;
+          const due = new Date(t.dueDate);
+          return due >= from && due <= to;
+        });
       }
 
-      const tasks = await fetchIncompleteTasks({ assignedUserId, dueDateFrom, dueDateTo });
+      // Sort by closest to today: recent overdue first, then upcoming
+      const today = Date.now();
+      tasks.sort((a, b) => {
+        const distA = Math.abs(new Date(a.dueDate) - today);
+        const distB = Math.abs(new Date(b.dueDate) - today);
+        return distA - distB;
+      });
 
       const page = tasks.slice(0, 50);
 
@@ -178,7 +190,7 @@ export function registerFollowUpBossRoutes(app) {
         assignedTo: t.AssignedTo || null,
       }));
 
-      console.log(`[FUB] tasks: ${tasks.length} fetched, returning ${result.length}`);
+      console.log(`[FUB] ${allTasks.length} fetched, ${tasks.length} in window, returning ${result.length}`);
 
       res.json({ ok: true, tasks: result, total: result.length });
     } catch (e) {
