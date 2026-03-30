@@ -139,19 +139,17 @@ export function registerFollowUpBossRoutes(app) {
       if (req.query.dueDate) {
         tasks = allTasks.filter(t => t.dueDate?.startsWith(req.query.dueDate));
       } else if (!req.query.all) {
+        // Include all overdue tasks (no lower bound) + upcoming within N days.
+        // Proximity sort below ensures most recent overdue + soonest upcoming appear first,
+        // pushing ancient tasks to the bottom where they're cut by the 50-task cap.
         const futureDays = parseInt(req.query.days || "30", 10);
-        const overdueDays = parseInt(req.query.overdueDays || "90", 10);
-        const from = new Date();
-        from.setDate(from.getDate() - overdueDays);
-        from.setHours(0, 0, 0, 0);
         const to = new Date();
         to.setDate(to.getDate() + futureDays);
         to.setHours(23, 59, 59, 999);
 
         tasks = allTasks.filter(t => {
           if (!t.dueDate) return false;
-          const due = new Date(t.dueDate);
-          return due >= from && due <= to;
+          return new Date(t.dueDate) <= to;
         });
       }
 
