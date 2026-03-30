@@ -38,7 +38,6 @@ Reminders:
 - Daily: "Remind me every morning at 7am to drink water" → recurrence='daily'
 - Weekly: "Remind me every Monday at 8am" → recurrence='weekly', day_of_week=1
 - AI content: "Send me an inspiring quote every day at 6am" → recurrence='daily', ai_prompt='inspiring quote, 1-2 sentences', text='Morning quote'
-- AI + style: "Inspiring quote every Monday at 8am in style of Jensen Huang" → recurrence='weekly', day_of_week=1, ai_prompt='inspiring quote in style of Jensen Huang, 1-2 sentences', text='Monday inspiration'
 
 FUB CRM: fub_get_tasks defaults to agent_name='me'. Only omit agent_name when user explicitly asks for the whole team.
 
@@ -569,7 +568,7 @@ $trimmedPrefs''';
           },
           "agent_name": {
             "type": "string",
-            "description": "Agent to fetch tasks for. Default: 'me' (the current user). Use a name like 'Roman' or 'Sarah' for a specific agent. Omit only when the user explicitly asks for the whole team's tasks."
+            "description": "Agent to fetch tasks for. Omit to get current user's tasks (default). Use a name like 'Roman' or 'Sarah' for a specific agent. Use 'all' only when user explicitly asks for the whole team's tasks."
           }
         }
       }

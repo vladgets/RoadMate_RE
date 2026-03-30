@@ -158,14 +158,17 @@ export function registerFollowUpBossRoutes(app) {
    */
   app.get("/fub/tasks", async (req, res) => {
     try {
-      // Resolve agent name → assignedUserId
+      // Resolve agent name → assignedUserId.
+      // Default to "me" (API key owner) when no agent specified, to avoid
+      // fetching thousands of tasks across all agents.
+      const agentQuery = req.query.agent || "me";
       let assignedUserId = null;
-      if (req.query.agent) {
-        assignedUserId = await resolveAgentId(req.query.agent);
+      if (agentQuery !== "all") {
+        assignedUserId = await resolveAgentId(agentQuery);
         if (!assignedUserId) {
-          return res.json({ ok: true, tasks: [], total: 0, warning: `No agent found matching "${req.query.agent}"` });
+          return res.json({ ok: true, tasks: [], total: 0, warning: `No agent found matching "${agentQuery}"` });
         }
-        console.log(`[FUB] agent "${req.query.agent}" → assignedUserId ${assignedUserId}`);
+        console.log(`[FUB] agent "${agentQuery}" → assignedUserId ${assignedUserId}`);
       }
 
       const allTasks = await fetchIncompleteTasks({ assignedUserId });
