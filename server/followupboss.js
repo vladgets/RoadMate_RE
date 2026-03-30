@@ -77,7 +77,6 @@ async function fetchIncompleteTasks({ assignedUserId, dueDateFrom, dueDateTo } =
       limit: String(limit),
       offset: String(offset),
       sort: "dueDate",
-      fields: "allFields",
     });
     if (assignedUserId) params.set("assignedUserId", String(assignedUserId));
     if (dueDateFrom) params.set("dueDateFrom", dueDateFrom);
