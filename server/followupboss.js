@@ -200,7 +200,7 @@ export function registerFollowUpBossRoutes(app) {
         return distA - distB;
       });
 
-      const page = tasks.slice(0, 50);
+      const page = tasks.slice(0, 10);
 
       // Batch-fetch contact names for all unique personIds
       const personIds = [...new Set(page.map(t => t.personId).filter(Boolean))];
