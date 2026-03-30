@@ -1,7 +1,7 @@
 /**
  * Follow Up Boss CRM proxy routes.
  * Auth: API key via HTTP Basic Auth (key as username, blank password).
- * Docs: https://docs.followupboss.com/
+ * Docs: https://docs.followupboss.com/reference/common-filters
  */
 
 const FUB_BASE = "https://api.followupboss.com/v1";
@@ -18,8 +18,8 @@ function fubHeaders() {
 }
 
 /**
- * Fetch all FUB users and return a map of lowercase-name → userId.
- * Cached in memory for 5 minutes to avoid repeated API calls.
+ * Fetch all FUB users and return a map of lowercase-name → { id, name }.
+ * Cached in memory for 5 minutes.
  */
 let _usersCache = null;
 let _usersCacheAt = 0;
@@ -33,7 +33,7 @@ async function getFubUsers() {
   if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
 
   const users = data.users || [];
-  const map = {}; // name (lowercase) → { id, name }
+  const map = {};
   for (const u of users) {
     if (u.name) map[u.name.toLowerCase()] = { id: u.id, name: u.name };
   }
@@ -44,13 +44,12 @@ async function getFubUsers() {
 }
 
 /**
- * Resolve a partial agent name string to a FUB userId.
+ * Resolve a partial agent name to a FUB user ID.
  * Returns null if not found.
  */
 async function resolveAgentId(agentQuery) {
   const users = await getFubUsers();
   const q = agentQuery.toLowerCase();
-  // Exact match first, then partial
   for (const [name, u] of Object.entries(users)) {
     if (name === q) return u.id;
   }
@@ -62,10 +61,12 @@ async function resolveAgentId(agentQuery) {
 
 /**
  * Fetch all pages of incomplete tasks from FUB.
- * If userId is provided, FUB filters server-side (efficient).
- * Date filtering is done server-side since FUB API doesn't support it.
+ *
+ * Uses assignedUserId (correct FUB param) for agent filtering.
+ * Uses dueDateFrom/dueDateTo for date filtering at the API level.
+ * Falls back to no date filter for agent-specific queries (return all their tasks).
  */
-async function fetchAllIncompleteTasks({ userId } = {}) {
+async function fetchIncompleteTasks({ assignedUserId, dueDateFrom, dueDateTo } = {}) {
   const allTasks = [];
   let offset = 0;
   const limit = 100;
@@ -77,7 +78,9 @@ async function fetchAllIncompleteTasks({ userId } = {}) {
       offset: String(offset),
       sort: "dueDate",
     });
-    if (userId) params.set("userId", String(userId));
+    if (assignedUserId) params.set("assignedUserId", String(assignedUserId));
+    if (dueDateFrom) params.set("dueDateFrom", dueDateFrom);
+    if (dueDateTo) params.set("dueDateTo", dueDateTo);
 
     const r = await fetch(`${FUB_BASE}/tasks?${params}`, { headers: fubHeaders() });
     const data = await r.json();
@@ -96,7 +99,7 @@ async function fetchAllIncompleteTasks({ userId } = {}) {
 export function registerFollowUpBossRoutes(app) {
   /**
    * GET /fub/users
-   * Returns list of FUB users (agents) with their IDs and names.
+   * Returns list of FUB agents with their IDs and names.
    */
   app.get("/fub/users", async (req, res) => {
     try {
@@ -110,58 +113,56 @@ export function registerFollowUpBossRoutes(app) {
 
   /**
    * GET /fub/tasks
-   * Returns incomplete tasks in a relevant date window.
    *
    * Query params:
-   *   agent=NAME          filter by agent name (resolved to userId for efficient API filtering)
+   *   agent=NAME          filter by agent name (resolved to assignedUserId)
    *   dueDate=YYYY-MM-DD  exact due date filter
-   *   all=true            skip date filter
+   *   all=true            skip date filter (return all incomplete tasks)
    *   days=N              tasks due within next N days (default: 30)
    */
   app.get("/fub/tasks", async (req, res) => {
     try {
-      // Resolve agent name → userId for efficient server-side filtering
-      let userId = null;
+      // Resolve agent name → assignedUserId
+      let assignedUserId = null;
       if (req.query.agent) {
-        userId = await resolveAgentId(req.query.agent);
-        if (!userId) {
+        assignedUserId = await resolveAgentId(req.query.agent);
+        if (!assignedUserId) {
           return res.json({ ok: true, tasks: [], total: 0, warning: `No agent found matching "${req.query.agent}"` });
         }
-        console.log(`[FUB] filtering by agent "${req.query.agent}" → userId ${userId}`);
+        console.log(`[FUB] agent "${req.query.agent}" → assignedUserId ${assignedUserId}`);
       }
 
-      const allTasks = await fetchAllIncompleteTasks({ userId });
-      let tasks = allTasks;
+      let dueDateFrom, dueDateTo;
 
       if (req.query.dueDate) {
-        tasks = tasks.filter(t => t.dueDate?.startsWith(req.query.dueDate));
-      } else if (!req.query.all) {
-        // Overdue tasks from last 90 days + upcoming tasks within next N days
+        // Exact date: set both from and to to the same date
+        dueDateFrom = req.query.dueDate;
+        dueDateTo = req.query.dueDate;
+      } else if (!req.query.all && !assignedUserId) {
+        // No agent filter: use date window to avoid fetching thousands of old tasks.
+        // Overdue up to 90 days back + upcoming next N days.
         const days = parseInt(req.query.days || "30", 10);
         const from = new Date();
         from.setDate(from.getDate() - 90);
-        from.setHours(0, 0, 0, 0);
+        dueDateFrom = from.toISOString().slice(0, 10);
         const to = new Date();
         to.setDate(to.getDate() + days);
-        to.setHours(23, 59, 59, 999);
-
-        tasks = tasks.filter(t => {
-          if (!t.dueDate) return false;
-          const due = new Date(t.dueDate);
-          return due >= from && due <= to;
-        });
+        dueDateTo = to.toISOString().slice(0, 10);
       }
+      // When agent is specified: no date filter — return all their incomplete tasks.
+
+      const tasks = await fetchIncompleteTasks({ assignedUserId, dueDateFrom, dueDateTo });
 
       const result = tasks.slice(0, 50).map(t => ({
         id: t.id,
-        description: t.description || t.name || "",
+        description: t.description || t.notes || "",
         dueDate: t.dueDate || null,
         isCompleted: t.isCompleted || false,
         contactName: t.person?.name || null,
-        assignedTo: t.assignedTo?.name || null,
+        assignedTo: t.assignedTo || null,
       }));
 
-      console.log(`[FUB] tasks: ${allTasks.length} fetched, ${tasks.length} in window, returning ${result.length}`);
+      console.log(`[FUB] tasks: ${tasks.length} fetched, returning ${result.length}`);
 
       res.json({ ok: true, tasks: result, total: result.length });
     } catch (e) {
