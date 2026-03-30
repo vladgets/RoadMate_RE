@@ -77,6 +77,7 @@ async function fetchIncompleteTasks({ assignedUserId, dueDateFrom, dueDateTo } =
       limit: String(limit),
       offset: String(offset),
       sort: "dueDate",
+      fields: "allFields",
     });
     if (assignedUserId) params.set("assignedUserId", String(assignedUserId));
     if (dueDateFrom) params.set("dueDateFrom", dueDateFrom);
@@ -153,13 +154,18 @@ export function registerFollowUpBossRoutes(app) {
 
       const tasks = await fetchIncompleteTasks({ assignedUserId, dueDateFrom, dueDateTo });
 
+      // Log first raw task to reveal actual field names
+      if (tasks.length > 0) {
+        console.log("[FUB] raw task sample:", JSON.stringify(tasks[0]));
+      }
+
       const result = tasks.slice(0, 50).map(t => ({
         id: t.id,
-        description: t.description || t.notes || "",
+        description: t.description || t.notes || t.type || "",
         dueDate: t.dueDate || null,
         isCompleted: t.isCompleted || false,
-        contactName: t.person?.name || null,
-        assignedTo: t.assignedTo || null,
+        contactName: t.person?.name || t.personName || null,
+        assignedTo: t.assignedTo || t.assignedToName || null,
       }));
 
       console.log(`[FUB] tasks: ${tasks.length} fetched, returning ${result.length}`);
