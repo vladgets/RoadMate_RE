@@ -558,7 +558,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_tasks",
-      "description": "Get incomplete tasks from Follow Up Boss CRM. ALWAYS pass agent_name='me' by default unless the user explicitly asks for a specific agent or the whole team. Use when the user asks about tasks, to-do list, CRM follow-ups, or what they need to do. Summarize by grouping overdue vs upcoming.",
+      "description": "Get incomplete tasks from Follow Up Boss CRM including contact details (name, phone, email, address). ALWAYS pass agent_name='me' by default unless the user asks for a specific agent or the whole team. For 'today's meetings/tasks/clients', pass due_date=today's date in YYYY-MM-DD format. Summarize by grouping overdue vs upcoming.",
       "parameters": {
         "type": "object",
         "properties": {

@@ -202,30 +202,46 @@ export function registerFollowUpBossRoutes(app) {
 
       const page = tasks.slice(0, 10);
 
-      // Batch-fetch contact names for all unique personIds
+      // Batch-fetch full contact details for all unique personIds
       const personIds = [...new Set(page.map(t => t.personId).filter(Boolean))];
-      const personNames = {};
+      const contacts = {}; // personId → { name, phone, email, address }
       if (personIds.length > 0) {
         try {
           const pr = await fetch(`${FUB_BASE}/people?ids=${personIds.join(",")}&limit=200`, { headers: fubHeaders() });
           const pd = await pr.json();
           for (const p of (pd.people || [])) {
-            personNames[p.id] = p.name || null;
+            const phones = (p.phones || []).map(ph => ({ number: ph.value, type: ph.type }));
+            const emails = (p.emails || []).map(em => ({ address: em.value, type: em.type }));
+            const addr = p.addresses?.[0];
+            contacts[p.id] = {
+              name: p.name || null,
+              phones,
+              emails,
+              address: addr ? [addr.street, addr.city, addr.state, addr.code].filter(Boolean).join(", ") : null,
+            };
           }
         } catch (e) {
           console.warn("[FUB] person lookup failed:", e.message);
         }
       }
 
-      const result = page.map(t => ({
-        id: t.id,
-        type: t.type || "",
-        description: t.name || "",
-        dueDate: t.dueDate || null,
-        isCompleted: !!t.isCompleted,
-        contactName: personNames[t.personId] || null,
-        assignedTo: t.AssignedTo || null,
-      }));
+      const result = page.map(t => {
+        const contact = contacts[t.personId] || {};
+        return {
+          id: t.id,
+          type: t.type || "",
+          description: t.name || "",
+          dueDate: t.dueDate || null,
+          isCompleted: !!t.isCompleted,
+          assignedTo: t.AssignedTo || null,
+          contact: t.personId ? {
+            name: contact.name || null,
+            phones: contact.phones || [],
+            emails: contact.emails || [],
+            address: contact.address || null,
+          } : null,
+        };
+      });
 
       console.log(`[FUB] ${allTasks.length} fetched, ${tasks.length} in window, returning ${result.length}`);
 
