@@ -207,7 +207,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       // Back button on ChatScreen returns to the voice screen.
       if (kIsWeb) {
         Navigator.of(context).push(PageRouteBuilder(
-          pageBuilder: (_, __, ___) => ChatScreen(
+          pageBuilder: (_, _, _) => ChatScreen(
             conversationStore: store,
             toolExecutor: executeTool,
           ),

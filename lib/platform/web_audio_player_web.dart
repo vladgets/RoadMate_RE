@@ -1,7 +1,6 @@
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
-import 'package:dart_webrtc/src/media_stream_impl.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:dart_webrtc/dart_webrtc.dart';
 import 'package:web/web.dart' as web;
 
 web.HTMLAudioElement? _audioEl;
