@@ -22,28 +22,6 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
-	<key>NSCalendarsUsageDescription</key>
-	<string>RoadMate needs calendar access to help you manage your schedule and answer questions about your events.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>RoadMate uses your location to provide navigation and nearby assistance.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>RoadMate needs microphone access for voice conversations.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>RoadMate needs access to your photos to help you find and view them by location and time.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>RoadMate needs camera access to take photos for your conversations.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>RoadMate needs permission to save photos to your library.</string>
-	<key>NSUserNotificationUsageDescription</key>
-	<string>RoadMate sends reminders you create.</string>
-	<key>NSMotionUsageDescription</key>
-	<string>RoadMate uses motion data to detect when you start and end driving, so it can log your trip history automatically.</string>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -55,12 +33,36 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>whatsapp</string>
 		<string>tel</string>
 		<string>maps</string>
 	</array>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSCalendarsUsageDescription</key>
+	<string>RoadMate needs calendar access to help you manage your schedule and answer questions about your events.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>RoadMate needs camera access to take photos for your conversations.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>RoadMate uses your location to provide navigation and nearby assistance while driving.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>RoadMate uses your location to provide navigation and nearby assistance.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>RoadMate needs microphone access for voice conversations.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>RoadMate uses motion data to detect when you start and end driving, so it can log your trip history automatically.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>RoadMate needs permission to save photos to your library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>RoadMate needs access to your photos to help you find and view them by location and time.</string>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>RoadMate sends reminders you create.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

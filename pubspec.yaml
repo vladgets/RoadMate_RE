@@ -51,7 +51,7 @@ flutter:
     - assets/icon/app_icon_round.png
     - assets/sounds/thinking.mp3
 
-flutter_icons:
+flutter_launcher_icons:
   android: true
   ios: true
   # iPhgone
