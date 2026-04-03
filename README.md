@@ -1,171 +1,138 @@
 # RoadMate
 
-A cross-platform Flutter voice assistant app designed for drivers, powered by OpenAI's Realtime API with WebRTC for real-time voice interaction.
+**RoadMate** is a hands-free AI voice assistant built for real estate agents — designed to be used safely while driving between showings, client meetings, and the office.
 
-## Features
+Real estate agents spend hours in the car every day. RoadMate turns that windshield time into productive time: check your CRM tasks, review your schedule, respond to leads, and navigate to your next showing — all by voice, without touching your phone.
 
-- **Real-time Voice Interaction**: Direct WebRTC connection to OpenAI for natural conversations
-- **Hands-free Operation**: Designed specifically for safe use while driving
-- **Rich Tool Integration**:
-  - Location & Navigation (GPS, traffic, ETA)
-  - Calendar integration
-  - Gmail (OAuth-based email search and reading)
-  - YouTube (OAuth-based subscriptions and playback)
-  - Web search capabilities
-  - Reminders with local notifications
-  - Phone calls with contact resolution
-  - Long-term memory and user preferences
-- **Multi-platform**: iOS, Android, macOS, Linux, Web
-- **Onboarding Flow**: First-time user tutorial with permission requests
+---
 
-## Quick Start
+## Who It's For
 
-### Prerequisites
+Real estate agents and brokerages who want to:
+- Stay on top of Follow Up Boss tasks and leads while driving
+- Handle emails, calendar, and reminders hands-free
+- Reduce the time between a lead appearing and a first contact
+- Eliminate the distraction of checking a phone at the wheel
 
-- Flutter SDK
-- Node.js (for backend server)
-- OpenAI API key
+---
 
-### Backend Server
+## Core Capabilities
 
-The Node.js server must be running for the app to function. It provides ephemeral tokens and OAuth endpoints.
+### CRM Integration (Follow Up Boss)
+Ask about your tasks, overdue follow-ups, and today's client list. RoadMate fetches your assigned tasks and reads them aloud with contact details — name, phone, email, address — so you can act immediately.
 
-```bash
-cd server
-npm install
-export OPENAI_API_KEY=<your_key>  # Required
-node server.js                     # Starts on port 3000
-```
+> *"What do I need to do today?"*
+> *"Who do I need to follow up with this week?"*
 
-Production server: `https://roadmate-flutter.onrender.com`
+Each agent in a brokerage identifies themselves during onboarding. RoadMate scopes all CRM queries to that agent automatically.
 
-### Flutter App
+### Navigation & Traffic
+Get real-time traffic conditions and open turn-by-turn navigation to any address — including client addresses pulled directly from your CRM.
 
-```bash
-# Install dependencies
-flutter pub get
+> *"Navigate to my next client."*
+> *"What's the traffic like to the office?"*
 
-# Run the app
-flutter run
+### Calendar & Schedule
+Read and create calendar events synced with Google Calendar. Know what's coming up without ever unlocking your phone.
 
-# Build for specific platforms
-flutter build apk          # Android
-flutter build ios          # iOS (requires macOS)
+> *"What's on my calendar this afternoon?"*
+> *"Schedule a showing at 123 Main Street tomorrow at 2pm."*
 
-# Run tests
-flutter test
+### Email (Gmail)
+Search and read emails by voice. Useful for quickly checking if a client responded before you pull up to their driveway.
 
-# Analyze code
-flutter analyze
-```
+> *"Do I have any emails from Sarah?"*
+> *"Read my latest unread emails."*
 
-## Architecture
+### Reminders
+Set voice reminders that fire as local notifications — no calendar sync required.
 
-### Voice Interaction Flow
+> *"Remind me in 30 minutes to call the listing agent."*
+> *"Set a daily reminder at 8am to check my leads."*
 
-1. **Connection**: WebRTC peer connection established via OpenAI Realtime API
-2. **Audio Streaming**: Microphone input sent to OpenAI; assistant audio streamed back
-3. **Tool Calls**: OpenAI model executes function calls via WebRTC data channel
-4. **Local Execution**: App executes tools and returns results to continue conversation
+### Memory
+Tell RoadMate facts to remember across sessions — client preferences, property notes, personal context.
 
-### Key Components
+> *"Remember that John Smith prefers the north side of town."*
+> *"What do you know about the Millers?"*
 
-- **`lib/main.dart`**: WebRTC connection logic, tool execution, UI
-- **`lib/config.dart`**: System prompt, tool definitions, configuration
-- **`lib/services/`**: Tool implementations (location, calendar, Gmail, YouTube, etc.)
-- **`lib/ui/`**: UI screens (main app, settings, onboarding)
-- **`server/`**: Node.js backend for tokens, OAuth, and API proxying
+### Web Search
+Ask factual questions or look up current information on the fly.
 
-### Tool System
+> *"What's the current mortgage rate?"*
+> *"Search for open houses in Westside this weekend."*
 
-Tools are defined in `lib/config.dart` with JSON schemas and executed in `lib/main.dart`. Each tool:
-- Has a schema passed to OpenAI
-- Maps to a Dart function returning `Map<String, dynamic>`
-- Receives events via WebRTC data channel
-- Returns results to continue the conversation
+### Phone Calls
+Initiate calls to contacts by name. RoadMate resolves the contact and dials.
 
-### State Management
+> *"Call my client Mike Johnson."*
 
-- `StatefulWidget` for UI state
-- `SharedPreferences` for persistence (voice preference, client ID, onboarding)
-- Local files for memory and preferences
-- Singleton services (e.g., `RemindersService.instance`)
+---
 
-## Tech Stack
+## How It Works
 
-- **Frontend**: Flutter (Dart)
-- **Backend**: Node.js + Express
-- **Voice AI**: OpenAI Realtime API (gpt-realtime-mini-2025-12-15)
-- **Communication**: WebRTC via `flutter_webrtc`
-- **OAuth**: Google APIs (Gmail, YouTube)
-- **Notifications**: `flutter_local_notifications`
-- **Permissions**: `permission_handler`
+RoadMate uses a direct **WebRTC voice connection** to OpenAI's Realtime API — audio goes straight from your microphone to the model and back, with near-zero latency. There is no push-to-talk; the assistant listens continuously and you can interrupt it mid-sentence.
 
-## Configuration
-
-Edit `lib/config.dart` to modify:
-- System prompt and personality
-- Tool definitions
-- Voice selection (marin, echo)
-- Server URL
-- Model selection
-
-## Development
-
-### Adding a New Tool
-
-1. Define schema in `lib/config.dart:tools`
-2. Implement handler function in `lib/services/`
-3. Add mapping in `lib/main.dart:_tools`
-4. Update system prompt if needed
-
-### Permissions
-
-The app requires:
-- **Microphone** (required): Voice input
-- **Location** (optional): Navigation and traffic
-- **Calendar** (optional): Schedule queries
-- **Notifications** (optional): Reminders
-
-### OAuth Setup
-
-Gmail and YouTube use device-based OAuth flow:
-1. App requests auth URL from server
-2. Opens system browser for user authorization
-3. Server stores tokens keyed by unique `client_id`
-4. App makes API calls with `client_id` header
-
-## Project Structure
+When the assistant needs real-world data (your tasks, your calendar, your location), it calls tools that run locally on the device or via the RoadMate backend server. Results are spoken back in a natural, concise summary.
 
 ```
-lib/
-├── main.dart                      # App entry point, WebRTC logic
-├── config.dart                    # Configuration, tools, prompts
-├── services/                      # Tool implementations
-│   ├── geo_time_tools.dart       # Location, time/date
-│   ├── memory_store.dart         # Long-term memory
-│   ├── calendar.dart             # Calendar integration
-│   ├── gmail_client.dart         # Gmail OAuth & API
-│   ├── youtube_client.dart       # YouTube OAuth & API
-│   ├── web_search.dart           # Web search
-│   ├── reminders.dart            # Local notifications
-│   └── ...
-└── ui/                           # User interface screens
-    ├── onboarding_screen.dart    # First-time tutorial
-    ├── main_settings_menu.dart   # Settings menu
-    └── ...
-
-server/
-├── server.js                     # Main server
-├── gmail.js                      # Gmail OAuth routes
-├── youtube.js                    # YouTube OAuth routes
-└── ...
+You (voice)
+    ↓ WebRTC audio
+OpenAI Realtime API
+    ↓ tool call
+RoadMate app / server
+    ↓ result
+OpenAI Realtime API
+    ↓ WebRTC audio
+You (spoken response)
 ```
+
+The backend server handles OAuth tokens (Gmail, YouTube), Follow Up Boss API proxying, and ephemeral OpenAI key issuance. It runs on Render.com and requires no setup from agents.
+
+---
+
+## Agent Onboarding
+
+On first launch, agents:
+1. Grant device permissions (microphone required; location, calendar, notifications optional)
+2. Select their name from the brokerage's FUB user list — this scopes all CRM data to them
+3. Start talking
+
+Identity can be changed at any time under **Settings → CRM Identity**.
+
+---
+
+## Platform Support
+
+| Platform | Status |
+|----------|--------|
+| iOS | Primary |
+| Android | Primary |
+| macOS | Supported |
+| Web | Supported |
+
+---
+
+## Brokerage Setup
+
+RoadMate is configured per brokerage by setting a Follow Up Boss API key on the backend server. Agents do not need to manage API keys themselves — they simply identify themselves by name during onboarding.
+
+See [Technical Architecture](docs/TECHNICAL_ARCHITECTURE.md) for deployment and configuration details.
+
+---
+
+## Documentation
+
+- [Technical Architecture](docs/TECHNICAL_ARCHITECTURE.md) — system design, tool system, WebRTC setup, adding features, deployment
+- [Background Driving Detection](docs/BACKGROUND_DRIVING_DETECTION.md)
+- [MLS / Spark API Integration](docs/MLS_SPARK_API_INTEGRATION.md)
+- [ShowingTime Access](docs/SHOWINGTIME_ACCESS.md)
+- [Voice App Control](docs/VOICE_APP_CONTROL.md)
+- [Quick Settings Tile](docs/QS_TILE_VOICE_TRIGGER.md)
+- [Photo Collage Feature](docs/PHOTO_COLLAGE_FEATURE.md)
+
+---
 
 ## License
 
 [Add your license here]
-
-## Contributing
-
-[Add contribution guidelines here]
