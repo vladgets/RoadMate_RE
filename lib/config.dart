@@ -39,7 +39,7 @@ Reminders:
 - Weekly: "Remind me every Monday at 8am" → recurrence='weekly', day_of_week=1
 - AI content: "Send me an inspiring quote every day at 6am" → recurrence='daily', ai_prompt='inspiring quote, 1-2 sentences', text='Morning quote'
 
-FUB CRM: fub_get_tasks defaults to agent_name='me'. Only omit agent_name when user explicitly asks for the whole team.
+FUB CRM: {{FUB_AGENT_LINE}}
 
 Date: {{CURRENT_DATE_READABLE}}
 ''';
@@ -63,6 +63,11 @@ Date: {{CURRENT_DATE_READABLE}}
   static const prefKeyVoice = 'roadmate_voice';
   static const prefKeyInitialGreetingEnabled = 'roadmate_initial_greeting_enabled';
   static const prefKeyInitialGreetingPhrase = 'roadmate_initial_greeting_phrase';
+  static const prefKeyFubAgentName = 'fub_agent_name';
+  static const prefKeyFubAgentId = 'fub_agent_id';
+
+  /// Currently identified FUB agent name (in-memory, loaded at startup).
+  static String? fubAgentName;
 
   /// Read saved voice from SharedPreferences (call during app startup).
   static Future<void> loadSavedVoice() async {
@@ -129,18 +134,57 @@ Date: {{CURRENT_DATE_READABLE}}
     }
   }
 
+  /// Load the saved FUB agent name from SharedPreferences into [fubAgentName].
+  static Future<void> loadFubAgent() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      fubAgentName = prefs.getString(prefKeyFubAgentName);
+    } catch (_) {}
+  }
+
+  /// Persist the selected FUB agent and update the in-memory value.
+  static Future<void> setFubAgent(String name, int id) async {
+    fubAgentName = name;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(prefKeyFubAgentName, name);
+      await prefs.setInt(prefKeyFubAgentId, id);
+    } catch (_) {}
+  }
+
+  /// Clear the stored FUB agent identity.
+  static Future<void> clearFubAgent() async {
+    fubAgentName = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(prefKeyFubAgentName);
+      await prefs.remove(prefKeyFubAgentId);
+    } catch (_) {}
+  }
+
+  /// Returns the FUB CRM instruction line based on whether an agent is identified.
+  static String _fubAgentLine() {
+    if (fubAgentName != null && fubAgentName!.isNotEmpty) {
+      return "You are agent $fubAgentName. Always pass agent_name='$fubAgentName' to fub_get_tasks by default. Only omit agent_name when user explicitly asks for the whole team.";
+    }
+    return "fub_get_tasks defaults to agent_name='me'. Only omit agent_name when user explicitly asks for the whole team.";
+  }
+
+  static String _applyPlaceholders(String template) {
+    return template
+        .replaceAll('{{CURRENT_DATE_READABLE}}', getCurrentReadableDate())
+        .replaceAll('{{FUB_AGENT_LINE}}', _fubAgentLine());
+  }
+
   /// Build the system prompt with the current readable date
   static String buildSystemPrompt() {
-    return systemPromptTemplate.replaceAll('{{CURRENT_DATE_READABLE}}', getCurrentReadableDate());
+    return _applyPlaceholders(systemPromptTemplate);
   }
 
   /// Build the system prompt with current readable date + user preferences (preferences.txt).
   /// Preferences are optional and may be empty.
   static Future<String> buildSystemPromptWithPreferences() async {
-    final base = systemPromptTemplate.replaceAll(
-      '{{CURRENT_DATE_READABLE}}',
-      getCurrentReadableDate(),
-    );
+    final base = _applyPlaceholders(systemPromptTemplate);
 
     // Read local preferences file (may be empty / missing).
     final prefs = await PreferencesStore.readAll();

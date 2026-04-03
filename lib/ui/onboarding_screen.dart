@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../config.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -15,11 +18,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
   bool _calendarGranted = false;
   bool _notificationsGranted = false;
 
+  // FUB agent identity
+  List<_OnboardingFubUser> _fubUsers = [];
+  bool _fubLoading = true;
+  String? _selectedAgentName;
+  int? _selectedAgentId;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkInitialPermissions();
+    _loadFubUsers();
   }
 
   @override
@@ -88,6 +98,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     });
   }
 
+  Future<void> _loadFubUsers() async {
+    try {
+      final uri = Uri.parse('${Config.serverUrl}/fub/users');
+      final resp = await http.get(uri);
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      if (body['ok'] == true) {
+        final list = (body['users'] as List)
+            .map((u) => _OnboardingFubUser(id: u['id'] as int, name: u['name'] as String))
+            .toList();
+        list.sort((a, b) => a.name.compareTo(b.name));
+        if (mounted) setState(() { _fubUsers = list; _fubLoading = false; });
+      } else {
+        if (mounted) setState(() => _fubLoading = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _fubLoading = false);
+    }
+  }
+
   Future<void> _completeOnboarding() async {
     if (!_microphoneGranted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -97,6 +126,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
         ),
       );
       return;
+    }
+
+    if (_selectedAgentName != null && _selectedAgentId != null) {
+      await Config.setFubAgent(_selectedAgentName!, _selectedAgentId!);
     }
 
     final prefs = await SharedPreferences.getInstance();
@@ -214,6 +247,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
 
               const SizedBox(height: 48),
 
+              // FUB Identity Section
+              const Text(
+                'Who are you?',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Select your name so RoadMate shows only your CRM tasks. You can skip this and set it later in Settings.',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              _buildAgentPicker(),
+
+              const SizedBox(height: 48),
+
               // Get Started / Done Button
               SizedBox(
                 width: double.infinity,
@@ -321,6 +369,64 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     );
   }
 
+  Widget _buildAgentPicker() {
+    if (_fubLoading) {
+      return const Center(child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: CircularProgressIndicator(),
+      ));
+    }
+    if (_fubUsers.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text(
+          'CRM agents unavailable — you can set your identity later in Settings.',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: _fubUsers.map((user) {
+          final selected = user.name == _selectedAgentName;
+          return ListTile(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: CircleAvatar(
+              backgroundColor: selected ? Colors.blue : Colors.grey.shade200,
+              child: Text(
+                user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                style: TextStyle(
+                  color: selected ? Colors.white : Colors.grey.shade700,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            title: Text(user.name,
+                style: TextStyle(fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
+            trailing: selected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
+            onTap: () => setState(() {
+              if (selected) {
+                _selectedAgentName = null;
+                _selectedAgentId = null;
+              } else {
+                _selectedAgentName = user.name;
+                _selectedAgentId = user.id;
+              }
+            }),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _buildExampleCommand(String command) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -347,4 +453,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
       ),
     );
   }
+}
+
+class _OnboardingFubUser {
+  final int id;
+  final String name;
+  const _OnboardingFubUser({required this.id, required this.name});
 }

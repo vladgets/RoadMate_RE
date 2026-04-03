@@ -4,6 +4,8 @@ import 'reminders_screen.dart';
 import 'voice_memories_screen.dart';
 import 'developer_area_menu.dart';
 import 'app_configuration_screen.dart';
+import 'fub_identity_screen.dart';
+import '../config.dart';
 
 
 class SettingsScreen extends StatefulWidget {
@@ -14,6 +16,13 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  String? _fubAgentName;
+
+  @override
+  void initState() {
+    super.initState();
+    _fubAgentName = Config.fubAgentName;
+  }
 
   @override
   void dispose() {
@@ -38,6 +47,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AppConfigurationScreen()),
               );
+            },
+          ),
+          const Divider(),
+
+          ListTile(
+            leading: const Icon(Icons.badge_outlined),
+            title: const Text('CRM Identity'),
+            subtitle: Text(_fubAgentName != null
+                ? 'Signed in as $_fubAgentName'
+                : 'Not set — tap to identify yourself'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const FubIdentityScreen(standalone: true)),
+              );
+              setState(() => _fubAgentName = Config.fubAgentName);
             },
           ),
           const Divider(),

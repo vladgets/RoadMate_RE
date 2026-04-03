@@ -46,6 +46,7 @@ Future<void> main() async {
 
   // some initial setup
   await Config.loadSavedVoice();
+  await Config.loadFubAgent();
 
   // Initialize reminders service
   await RemindersService.instance.init();
