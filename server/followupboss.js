@@ -320,4 +320,82 @@ export function registerFollowUpBossRoutes(app) {
       res.status(500).json({ ok: false, error: String(e) });
     }
   });
+
+  /**
+   * POST /fub/text
+   *
+   * Send a text message to a FUB contact on behalf of an agent.
+   * Resolves client by name (scoped to agent's contacts) if person_id not provided.
+   * When multiple name matches exist, picks the most recently active contact.
+   *
+   * Body: { agent, message, person_id?, client_name? }
+   */
+  app.post("/fub/text", async (req, res) => {
+    try {
+      const { agent, message, person_id, client_name } = req.body || {};
+
+      if (!message?.trim()) {
+        return res.status(400).json({ ok: false, error: "message is required" });
+      }
+      if (!agent) {
+        return res.status(400).json({ ok: false, error: "agent is required" });
+      }
+
+      // Resolve agent → userId
+      const userId = await resolveAgentId(agent);
+      if (!userId) {
+        return res.status(400).json({ ok: false, error: `No agent found matching "${agent}"` });
+      }
+
+      // Resolve personId — use directly if provided, otherwise search by name
+      let personId = person_id ? Number(person_id) : null;
+      let resolvedName = null;
+
+      if (!personId) {
+        if (!client_name?.trim()) {
+          return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
+        }
+
+        // Search people scoped to this agent, sorted by last activity
+        const params = new URLSearchParams({
+          name: client_name.trim(),
+          assignedUserId: String(userId),
+          sort: "lastActivityDate",
+          direction: "desc",
+          limit: "10",
+        });
+        const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+
+        const matches = data.people || [];
+        if (matches.length === 0) {
+          return res.json({ ok: false, error: `No contact found matching "${client_name}" for this agent` });
+        }
+
+        // First result is most recently active (sorted by lastActivityDate desc)
+        personId = matches[0].id;
+        resolvedName = matches[0].name;
+        if (matches.length > 1) {
+          console.log(`[FUB] text: "${client_name}" matched ${matches.length} contacts, using most recent: ${resolvedName}`);
+        }
+      }
+
+      // Send text message via FUB
+      const payload = { userId, personId, message: message.trim() };
+      const r = await fetch(`${FUB_BASE}/textMessages`, {
+        method: "POST",
+        headers: fubHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+
+      console.log(`[FUB] text sent to personId=${personId} by userId=${userId}`);
+      res.json({ ok: true, personId, resolvedName, messageId: data.id || null });
+    } catch (e) {
+      console.error("[FUB] text error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
 }

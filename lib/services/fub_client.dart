@@ -31,4 +31,25 @@ class FubClient {
     final resp = await http.get(uri);
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> sendText({
+    required String agentName,
+    required String message,
+    int? personId,
+    String? clientName,
+  }) async {
+    final uri = Uri.parse('$baseUrl/fub/text');
+    final body = <String, dynamic>{
+      'agent': agentName,
+      'message': message,
+      if (personId != null) 'person_id': personId,
+      if (clientName != null) 'client_name': clientName,
+    };
+    final resp = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
 }
