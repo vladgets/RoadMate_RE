@@ -621,7 +621,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_recent_contacts",
-      "description": "Get the most recently contacted clients for an agent from Follow Up Boss CRM, sorted by last activity date with most recent first. Use when the user asks 'who are my latest clients', 'recent contacts', 'who did I work with recently', or similar.",
+      "description": "Get the most recently contacted clients for an agent from Follow Up Boss CRM, sorted by last activity date with most recent first. Use when the user asks 'who are my latest clients', 'recent contacts', 'who did I work with recently', or similar. Always include lastActivityDate in your response for each contact.",
       "parameters": {
         "type": "object",
         "properties": {
