@@ -165,9 +165,9 @@ Date: {{CURRENT_DATE_READABLE}}
   /// Returns the FUB CRM instruction line based on whether an agent is identified.
   static String _fubAgentLine() {
     if (fubAgentName != null && fubAgentName!.isNotEmpty) {
-      return "You are agent $fubAgentName. Always pass agent_name='$fubAgentName' to fub_get_tasks, fub_get_recent_contacts, and fub_send_text. Only omit agent_name when the user explicitly asks for the whole team.";
+      return "You are agent $fubAgentName. Always pass agent_name='$fubAgentName' to all fub_ tools. Only omit agent_name when the user explicitly asks for the whole team.";
     }
-    return "agent_name is required for fub_get_tasks, fub_get_recent_contacts, and fub_send_text. Use 'me' unless the user specifies a different agent or the whole team.";
+    return "agent_name is required for all fub_ tools. Use 'me' unless the user specifies a different agent or the whole team.";
   }
 
   static String _applyPlaceholders(String template) {
@@ -616,6 +616,33 @@ $trimmedPrefs''';
           }
         },
         "required": ["agent_name"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "fub_create_note",
+      "description": "Create an internal note on a FUB client's timeline on behalf of the agent. Notes are not sent to the client — they are private CRM records. Use when the agent wants to log something about a client (e.g. 'note that John called about pricing'). Prefer person_id when the client was already resolved in this conversation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "description": "Agent creating the note. Use the agent's name from your identity (e.g. 'Roman') or 'me'."
+          },
+          "body": {
+            "type": "string",
+            "description": "The note content to save."
+          },
+          "person_id": {
+            "type": "number",
+            "description": "FUB person ID of the contact. Use this when the contact was already resolved in this conversation."
+          },
+          "client_name": {
+            "type": "string",
+            "description": "Full or partial name of the client to look up. Used when person_id is not already known."
+          }
+        },
+        "required": ["agent_name", "body"]
       }
     },
     {

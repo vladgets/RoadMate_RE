@@ -735,6 +735,19 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     final days = (args is Map && args['days'] != null) ? (args['days'] as num).toInt() : null;
     return await FubClient().getRecentContacts(agentName: agentName, limit: limit, days: days);
   },
+  'fub_create_note': (args) async {
+    final raw = (args is Map) ? args['agent_name'] as String? : null;
+    final agentName = _resolveFubAgent(raw) ?? 'me';
+    final body = (args is Map) ? args['body'] as String? ?? '' : '';
+    final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
+    final clientName = (args is Map) ? args['client_name'] as String? : null;
+    return await FubClient().createNote(
+      agentName: agentName,
+      body: body,
+      personId: personId,
+      clientName: clientName,
+    );
+  },
   'fub_send_text': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
     final agentName = _resolveFubAgent(raw) ?? 'me';

@@ -398,4 +398,80 @@ export function registerFollowUpBossRoutes(app) {
       res.status(500).json({ ok: false, error: String(e) });
     }
   });
+
+  /**
+   * POST /fub/note
+   *
+   * Create a note on a FUB contact on behalf of an agent.
+   * Resolves client by name (scoped to agent's contacts) if person_id not provided.
+   * When multiple name matches exist, picks the most recently active contact.
+   *
+   * Body: { agent, body, person_id?, client_name? }
+   */
+  app.post("/fub/note", async (req, res) => {
+    try {
+      const { agent, body: noteBody, person_id, client_name } = req.body || {};
+
+      if (!noteBody?.trim()) {
+        return res.status(400).json({ ok: false, error: "body is required" });
+      }
+      if (!agent) {
+        return res.status(400).json({ ok: false, error: "agent is required" });
+      }
+
+      // Resolve agent → userId
+      const userId = await resolveAgentId(agent);
+      if (!userId) {
+        return res.status(400).json({ ok: false, error: `No agent found matching "${agent}"` });
+      }
+
+      // Resolve personId — use directly if provided, otherwise search by name
+      let personId = person_id ? Number(person_id) : null;
+      let resolvedName = null;
+
+      if (!personId) {
+        if (!client_name?.trim()) {
+          return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
+        }
+
+        const params = new URLSearchParams({
+          name: client_name.trim(),
+          assignedUserId: String(userId),
+          sort: "lastActivityDate",
+          direction: "desc",
+          limit: "10",
+        });
+        const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+
+        const matches = data.people || [];
+        if (matches.length === 0) {
+          return res.json({ ok: false, error: `No contact found matching "${client_name}" for this agent` });
+        }
+
+        personId = matches[0].id;
+        resolvedName = matches[0].name;
+        if (matches.length > 1) {
+          console.log(`[FUB] note: "${client_name}" matched ${matches.length} contacts, using most recent: ${resolvedName}`);
+        }
+      }
+
+      // Create note via FUB
+      const payload = { userId, personId, body: noteBody.trim() };
+      const r = await fetch(`${FUB_BASE}/notes`, {
+        method: "POST",
+        headers: fubHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+
+      console.log(`[FUB] note created for personId=${personId} by userId=${userId}`);
+      res.json({ ok: true, personId, resolvedName, noteId: data.id || null });
+    } catch (e) {
+      console.error("[FUB] note error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
 }
