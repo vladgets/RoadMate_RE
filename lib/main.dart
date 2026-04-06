@@ -598,6 +598,14 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     });
   }
 
+/// Resolves agent name for FUB queries.
+  /// If the model passes 'me' or omits the agent, substitute the identified agent
+  /// so requests are always scoped to the current user, not the API key owner.
+  String? _resolveFubAgent(String? raw) {
+    if (raw == null || raw == 'me') return Config.fubAgentName ?? raw;
+    return raw;
+  }
+
 /// Tool handlers map
  late final Map<String, Future<Map<String, dynamic>> Function(dynamic args)> _tools = {
    'get_current_location': (_) async {
@@ -716,11 +724,13 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   // Follow Up Boss CRM tools
   'fub_get_tasks': (args) async {
     final dueDate = (args is Map) ? args['due_date'] as String? : null;
-    final agentName = (args is Map) ? args['agent_name'] as String? : null;
+    final raw = (args is Map) ? args['agent_name'] as String? : null;
+    final agentName = _resolveFubAgent(raw);
     return await FubClient().getTasks(dueDate: dueDate, agentName: agentName);
   },
   'fub_get_recent_contacts': (args) async {
-    final agentName = (args is Map) ? args['agent_name'] as String? : null;
+    final raw = (args is Map) ? args['agent_name'] as String? : null;
+    final agentName = _resolveFubAgent(raw);
     final limit = (args is Map && args['limit'] != null) ? (args['limit'] as num).toInt() : 5;
     final days = (args is Map && args['days'] != null) ? (args['days'] as num).toInt() : null;
     return await FubClient().getRecentContacts(agentName: agentName, limit: limit, days: days);
