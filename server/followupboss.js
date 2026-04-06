@@ -251,4 +251,73 @@ export function registerFollowUpBossRoutes(app) {
       res.status(500).json({ ok: false, error: String(e) });
     }
   });
+
+  /**
+   * GET /fub/contacts/recent
+   *
+   * Returns the most recently contacted clients for an agent, sorted by
+   * lastActivityDate descending.
+   *
+   * Query params:
+   *   agent=NAME   agent name (default: "me")
+   *   limit=N      number of contacts to return (default: 5, max: 50)
+   *   days=N       only include contacts active within the last N days
+   */
+  app.get("/fub/contacts/recent", async (req, res) => {
+    try {
+      const agentQuery = req.query.agent || "me";
+      const limit = Math.min(parseInt(req.query.limit || "5", 10), 50);
+      const days = req.query.days ? parseInt(req.query.days, 10) : null;
+
+      let assignedUserId = null;
+      if (agentQuery !== "all") {
+        assignedUserId = await resolveAgentId(agentQuery);
+        if (!assignedUserId) {
+          return res.json({ ok: true, contacts: [], total: 0, warning: `No agent found matching "${agentQuery}"` });
+        }
+        console.log(`[FUB] recent contacts: agent "${agentQuery}" → assignedUserId ${assignedUserId}`);
+      }
+
+      const params = new URLSearchParams({
+        sort: "lastActivityDate",
+        direction: "desc",
+        limit: String(limit),
+      });
+      if (assignedUserId) params.set("assignedUserId", String(assignedUserId));
+
+      const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+
+      let people = data.people || [];
+
+      // Filter by days if specified
+      if (days !== null) {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
+        people = people.filter(p => p.lastActivityDate && new Date(p.lastActivityDate) >= cutoff);
+      }
+
+      const contacts = people.map(p => {
+        const phones = (p.phones || []).map(ph => ({ number: ph.value, type: ph.type }));
+        const emails = (p.emails || []).map(em => ({ address: em.value, type: em.type }));
+        const addr = p.addresses?.[0];
+        return {
+          id: p.id,
+          name: p.name || null,
+          phones,
+          emails,
+          address: addr ? [addr.street, addr.city, addr.state, addr.code].filter(Boolean).join(", ") : null,
+          lastActivityDate: p.lastActivityDate || null,
+          stage: p.stage || null,
+        };
+      });
+
+      console.log(`[FUB] recent contacts: returning ${contacts.length}`);
+      res.json({ ok: true, contacts, total: contacts.length });
+    } catch (e) {
+      console.error("[FUB] recent contacts error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
 }

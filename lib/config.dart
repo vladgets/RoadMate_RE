@@ -165,9 +165,9 @@ Date: {{CURRENT_DATE_READABLE}}
   /// Returns the FUB CRM instruction line based on whether an agent is identified.
   static String _fubAgentLine() {
     if (fubAgentName != null && fubAgentName!.isNotEmpty) {
-      return "You are agent $fubAgentName. Always pass agent_name='$fubAgentName' to fub_get_tasks by default. Only omit agent_name when user explicitly asks for the whole team.";
+      return "You are agent $fubAgentName. Always pass agent_name='$fubAgentName' to fub_get_tasks and fub_get_recent_contacts. Only omit agent_name when the user explicitly asks for the whole team.";
     }
-    return "fub_get_tasks defaults to agent_name='me'. Only omit agent_name when user explicitly asks for the whole team.";
+    return "agent_name is required for fub_get_tasks and fub_get_recent_contacts. Use 'me' unless the user specifies a different agent or the whole team.";
   }
 
   static String _applyPlaceholders(String template) {
@@ -602,7 +602,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_tasks",
-      "description": "Get incomplete tasks from Follow Up Boss CRM including contact details (name, phone, email, address). ALWAYS pass agent_name='me' by default unless the user asks for a specific agent or the whole team. For 'today's meetings/tasks/clients', pass due_date=today's date in YYYY-MM-DD format. Summarize by grouping overdue vs upcoming.",
+      "description": "Get incomplete tasks from Follow Up Boss CRM including contact details (name, phone, email, address). agent_name is required — always pass the agent's name from your identity or 'me'. For 'today's meetings/tasks/clients', pass due_date=today's date in YYYY-MM-DD format. Summarize by grouping overdue vs upcoming.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -612,9 +612,33 @@ $trimmedPrefs''';
           },
           "agent_name": {
             "type": "string",
-            "description": "Agent to fetch tasks for. Omit to get current user's tasks (default). Use a name like 'Roman' or 'Sarah' for a specific agent. Use 'all' only when user explicitly asks for the whole team's tasks."
+            "description": "Agent to fetch tasks for. Use the agent's name from your identity (e.g. 'Roman') or 'me'. Use 'all' only when user explicitly asks for the whole team's tasks."
           }
-        }
+        },
+        "required": ["agent_name"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "fub_get_recent_contacts",
+      "description": "Get the most recently contacted clients for an agent from Follow Up Boss CRM, sorted by last activity date with most recent first. Use when the user asks 'who are my latest clients', 'recent contacts', 'who did I work with recently', or similar.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "description": "Agent whose contacts to fetch. Use the agent's name from your identity (e.g. 'Roman') or 'me'. Use 'all' only when user explicitly asks for the whole team."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Number of contacts to return. Default is 5 if not specified by the user."
+          },
+          "days": {
+            "type": "number",
+            "description": "Only include contacts active within the last N days. Omit to return the most recent regardless of timeframe."
+          }
+        },
+        "required": ["agent_name"]
       }
     },
   ];
