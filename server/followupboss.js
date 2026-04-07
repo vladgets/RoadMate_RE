@@ -655,4 +655,79 @@ export function registerFollowUpBossRoutes(app) {
       res.status(500).json({ ok: false, error: String(e) });
     }
   });
+
+  /**
+   * GET /fub/stages
+   *
+   * Returns all available lead stages from FUB.
+   */
+  app.get("/fub/stages", async (req, res) => {
+    try {
+      const r = await fetch(`${FUB_BASE}/stages`, { headers: fubHeaders() });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+      const stages = (data.stages || []).map(s => ({ id: s.id, name: s.name }));
+      res.json({ ok: true, stages });
+    } catch (e) {
+      console.error("[FUB] stages error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
+   * POST /fub/contact/stage
+   *
+   * Update the stage of a FUB contact.
+   * Resolves contact by name (substring scan) if person_id not provided.
+   *
+   * Body: { agent_id?, agent?, person_id?, client_name?, stage }
+   */
+  app.post("/fub/contact/stage", async (req, res) => {
+    try {
+      const { person_id, client_name, stage } = req.body || {};
+
+      if (!stage?.trim()) {
+        return res.status(400).json({ ok: false, error: "stage is required" });
+      }
+
+      const userId = await resolveAgentFromRequest(req);
+      if (!userId) {
+        return res.status(400).json({ ok: false, error: "Could not resolve agent identity" });
+      }
+
+      // Resolve personId — use directly if provided, otherwise substring scan by name
+      let personId = person_id ? Number(person_id) : null;
+      let resolvedName = null;
+
+      if (!personId) {
+        if (!client_name?.trim()) {
+          return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
+        }
+        const match = await resolvePersonByName(client_name.trim(), userId);
+        if (!match) {
+          return res.json({ ok: false, error: `No contact found matching "${client_name}" for this agent` });
+        }
+        personId = match.id;
+        resolvedName = match.name;
+        console.log(`[FUB] stage update: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
+      }
+
+      const r = await fetch(`${FUB_BASE}/people/${personId}`, {
+        method: "PUT",
+        headers: fubHeaders(),
+        body: JSON.stringify({ stage: stage.trim() }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        console.error(`[FUB] stage API error ${r.status}:`, JSON.stringify(data));
+        throw new Error(data?.message || data?.error || `FUB error ${r.status}`);
+      }
+
+      console.log(`[FUB] stage updated for personId=${personId} to "${stage}"`);
+      res.json({ ok: true, personId, resolvedName: resolvedName || data.name || null, stage: data.stage || stage });
+    } catch (e) {
+      console.error("[FUB] stage update error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
 }

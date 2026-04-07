@@ -715,6 +715,43 @@ $trimmedPrefs''';
     },
     {
       "type": "function",
+      "name": "fub_get_stages",
+      "description": "Get all available lead stages from Follow Up Boss CRM. Use when the user asks what stages are available, or before updating a stage to confirm the exact stage name.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "type": "function",
+      "name": "fub_update_stage",
+      "description": "Update the stage of a FUB contact (e.g. 'move John to Hot Lead', 'set RoadMate stage to Active Buyer'). ALWAYS pass person_id when the client was already resolved in this conversation. If you are unsure of the exact stage name, call fub_get_stages first.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "description": "Agent performing the update. Use the agent's name from your identity or 'me'."
+          },
+          "stage": {
+            "type": "string",
+            "description": "The stage name to set (must match exactly a stage from FUB, e.g. 'Hot Lead', 'Active Buyer')."
+          },
+          "person_id": {
+            "type": "number",
+            "description": "FUB person ID of the contact. Use this when the contact was already resolved in this conversation."
+          },
+          "client_name": {
+            "type": "string",
+            "description": "Full or partial name of the client. Used when person_id is not already known."
+          }
+        },
+        "required": ["agent_name", "stage"]
+      }
+    },
+    {
+      "type": "function",
       "name": "fub_get_recent_contacts",
       "description": "Get the most recently contacted clients for an agent from Follow Up Boss CRM, sorted by last activity date with most recent first. Use when the user asks 'who are my latest clients', 'recent contacts', 'who did I work with recently', or similar. Always include lastActivityDate in your response for each contact.",
       "parameters": {

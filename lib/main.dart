@@ -766,6 +766,22 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       limit: limit,
     );
   },
+  'fub_get_stages': (_) async {
+    return await FubClient().getStages();
+  },
+  'fub_update_stage': (args) async {
+    final raw = (args is Map) ? args['agent_name'] as String? : null;
+    final stage = (args is Map) ? args['stage'] as String? ?? '' : '';
+    final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
+    final clientName = (args is Map) ? args['client_name'] as String? : null;
+    return await FubClient().updateStage(
+      stage: stage,
+      agentId: _resolveFubAgentId(raw),
+      agentName: _resolveFubAgent(raw) ?? 'me',
+      personId: personId,
+      clientName: clientName,
+    );
+  },
   'fub_create_note': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
     final body = (args is Map) ? args['body'] as String? ?? '' : '';
