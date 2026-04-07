@@ -663,11 +663,23 @@ export function registerFollowUpBossRoutes(app) {
    */
   app.get("/fub/stages", async (req, res) => {
     try {
-      const r = await fetch(`${FUB_BASE}/stages`, { headers: fubHeaders() });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
-      const stages = (data.stages || []).map(s => ({ id: s.id, name: s.name }));
-      res.json({ ok: true, stages });
+      const allStages = [];
+      let offset = 0;
+      const limit = 100;
+
+      while (true) {
+        const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+        const r = await fetch(`${FUB_BASE}/stages?${params}`, { headers: fubHeaders() });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+        const batch = data.stages || [];
+        allStages.push(...batch);
+        if (batch.length < limit) break;
+        offset += limit;
+      }
+
+      const stages = allStages.map(s => ({ id: s.id, name: s.name }));
+      res.json({ ok: true, stages, total: stages.length });
     } catch (e) {
       console.error("[FUB] stages error:", e);
       res.status(500).json({ ok: false, error: String(e) });
