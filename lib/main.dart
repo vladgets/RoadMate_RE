@@ -723,7 +723,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   },
   'stop_session': (_) async {
     // Let the model finish speaking before disconnecting
-    Future.delayed(const Duration(milliseconds: 1500), _disconnect);
+    Future.delayed(const Duration(milliseconds: 3500), _disconnect);
     return {'ok': true};
   },
   // Follow Up Boss CRM tools
