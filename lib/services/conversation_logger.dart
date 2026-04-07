@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
 import '../models/chat_message.dart';
 
@@ -17,18 +18,27 @@ class ConversationLogger {
   }
 
   /// Upload the current session transcript to the server.
+  /// Resolves clientId from SharedPreferences if not provided.
   /// Overwrites the file for this session if it already exists.
   static Future<void> upload({
-    required String clientId,
+    String? clientId,
     required String sessionStart,
     required List<ChatMessage> messages,
     String? agentName,
   }) async {
     if (messages.isEmpty) return;
     try {
+      // Resolve clientId from SharedPreferences if not passed in
+      String? cid = clientId;
+      if (cid == null || cid.isEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        cid = prefs.getString(Config.prefKeyClientId);
+      }
+      if (cid == null || cid.isEmpty) return;
+
       final uri = Uri.parse('${Config.serverUrl}/conversation/save');
       final body = jsonEncode({
-        'client_id': clientId,
+        'client_id': cid,
         'platform': _platform,
         'session_start': sessionStart,
         'agent_name': agentName,
