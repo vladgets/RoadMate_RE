@@ -36,7 +36,11 @@ class ConversationLogger {
       }
       if (cid == null || cid.isEmpty) return;
 
-      final uri = Uri.parse('${Config.serverUrl}/conversation/save');
+      // Config.serverUrl is '' on web — use absolute URL via Uri.base
+      final base = Config.serverUrl.isNotEmpty
+          ? Config.serverUrl
+          : '${Uri.base.scheme}://${Uri.base.host}${Uri.base.port != 80 && Uri.base.port != 443 ? ":${Uri.base.port}" : ""}';
+      final uri = Uri.parse('$base/conversation/save');
       final body = jsonEncode({
         'client_id': cid,
         'platform': _platform,
