@@ -333,11 +333,15 @@ export function registerFollowUpBossRoutes(app) {
         if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
 
         const batch = data.people || [];
+        const ids = batch.map(p => p.id);
+        console.log(`[FUB] search page offset=${offset}: ${batch.length} people, ids ${ids[0]}..${ids[ids.length-1]}, total reported=${data.total}`);
         allPeople.push(...batch);
 
         if (batch.length < pageSize) break; // reached end
         offset += pageSize;
       }
+      console.log(`[FUB] search total fetched: ${allPeople.length}, looking for "${q}" (id 113774 present: ${allPeople.some(p => p.id === 113774)})`);
+
 
       const qWords = qLower.split(/\s+/).filter(Boolean);
       const matched = allPeople.filter(p => {
