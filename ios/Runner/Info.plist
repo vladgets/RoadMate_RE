@@ -43,6 +43,8 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSCalendarsUsageDescription</key>
 	<string>RoadMate needs calendar access to help you manage your schedule and answer questions about your events.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
