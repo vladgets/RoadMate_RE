@@ -15,6 +15,20 @@ function ensureDir() {
   if (!fs.existsSync(CONV_DIR)) fs.mkdirSync(CONV_DIR, { recursive: true });
 }
 
+async function getLocationFromIp(ip) {
+  try {
+    // Strip IPv6 prefix if present (e.g. "::ffff:1.2.3.4" → "1.2.3.4")
+    const cleanIp = ip.replace(/^::ffff:/, "");
+    if (cleanIp === "127.0.0.1" || cleanIp === "::1") return null;
+    const r = await fetch(`http://ip-api.com/json/${cleanIp}?fields=city,regionName,country,status`);
+    const d = await r.json();
+    if (d.status !== "success") return null;
+    return [d.city, d.regionName, d.country].filter(Boolean).join(", ");
+  } catch {
+    return null;
+  }
+}
+
 function safeTs(iso) {
   return iso.replace(/[:.]/g, "-").replace("T", "_").replace("Z", "").substring(0, 19);
 }
@@ -76,10 +90,21 @@ export function registerConversationRoutes(app) {
       const fname = buildFilename(client_id, platform || "unknown", session_start);
       const fpath = path.join(CONV_DIR, fname);
 
+      // Read existing location if file already exists (avoid re-fetching on every update)
+      let location = null;
+      if (fs.existsSync(fpath)) {
+        try { location = JSON.parse(fs.readFileSync(fpath, "utf8")).location || null; } catch {}
+      }
+      if (!location) {
+        const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+        location = await getLocationFromIp(ip);
+      }
+
       const data = {
         client_id,
         platform: platform || "unknown",
         agent_name: agent_name || null,
+        location: location || null,
         session_start,
         last_updated: new Date().toISOString(),
         message_count: messages.length,
@@ -114,12 +139,13 @@ export function registerConversationRoutes(app) {
               client_id: d.client_id || "—",
               platform: d.platform || "unknown",
               agent_name: d.agent_name || "—",
+              location: d.location || null,
               session_start: d.session_start || null,
               last_updated: d.last_updated || null,
               message_count: d.message_count || d.messages?.length || 0,
             };
           } catch {
-            return { filename: f, error: true, client_id: "—", platform: "—", agent_name: "—", session_start: null, last_updated: null, message_count: 0 };
+            return { filename: f, error: true, client_id: "—", platform: "—", agent_name: "—", location: null, session_start: null, last_updated: null, message_count: 0 };
           }
         })
         .sort((a, b) => (b.last_updated || "").localeCompare(a.last_updated || ""));
@@ -129,6 +155,7 @@ export function registerConversationRoutes(app) {
           <td>${platformIcon(f.platform)} ${escapeHtml(f.platform)}</td>
           <td>${escapeHtml(f.agent_name)}</td>
           <td title="${escapeHtml(f.client_id)}">${escapeHtml(f.client_id.substring(0, 8))}…</td>
+          <td>${escapeHtml(f.location || "—")}</td>
           <td>${formatDate(f.session_start)}</td>
           <td>${formatDate(f.last_updated)}</td>
           <td style="text-align:center">${f.message_count}</td>
@@ -166,10 +193,10 @@ export function registerConversationRoutes(app) {
 <div class="container">
 <table>
   <thead><tr>
-    <th>Platform</th><th>Agent</th><th>Client ID</th>
+    <th>Platform</th><th>Agent</th><th>Client ID</th><th>Location</th>
     <th>Started</th><th>Last Active</th><th>Messages</th><th></th>
   </tr></thead>
-  <tbody>${rows || '<tr><td colspan="7" class="empty">No conversations yet</td></tr>'}</tbody>
+  <tbody>${rows || '<tr><td colspan="8" class="empty">No conversations yet</td></tr>'}</tbody>
 </table>
 </div>
 <script>
@@ -245,7 +272,7 @@ async function deleteConv(filename) {
   <a class="back" href="/admin/conversations">← All Conversations</a>
   <div class="header-info">
     <h2>${platformIcon(d.platform)} ${escapeHtml(d.agent_name || "Unknown agent")} &nbsp;·&nbsp; ${escapeHtml(d.platform)}</h2>
-    <p>${formatDate(d.session_start)} &nbsp;·&nbsp; ${messages.length} message${messages.length !== 1 ? "s" : ""} &nbsp;·&nbsp; Client: ${escapeHtml(d.client_id)}</p>
+    <p>${formatDate(d.session_start)} &nbsp;·&nbsp; ${messages.length} message${messages.length !== 1 ? "s" : ""}${d.location ? " &nbsp;·&nbsp; 📍 " + escapeHtml(d.location) : ""} &nbsp;·&nbsp; Client: ${escapeHtml(d.client_id)}</p>
   </div>
 </div>
 <div class="chat">
