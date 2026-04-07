@@ -45,6 +45,8 @@
 	<true/>
 	<key>NSCalendarsUsageDescription</key>
 	<string>RoadMate needs calendar access to help you manage your schedule and answer questions about your events.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>RoadMate needs calendar access to help you manage your schedule and answer questions about your events.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>RoadMate needs camera access to take photos for your conversations.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
