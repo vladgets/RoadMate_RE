@@ -290,6 +290,53 @@ export function registerFollowUpBossRoutes(app) {
   });
 
   /**
+   * GET /fub/contacts
+   *
+   * Returns all contacts for an agent, paginated.
+   *
+   * Query params:
+   *   agent_id=N   agent user ID (preferred)
+   *   agent=NAME   agent name (fallback)
+   *   limit=N      max results (default: 50, max: 200)
+   *   offset=N     pagination offset (default: 0)
+   */
+  app.get("/fub/contacts", async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit || "50", 10), 200);
+      const offset = parseInt(req.query.offset || "0", 10);
+      const assignedUserId = req.query.agent === "all" ? null : await resolveAgentFromRequest(req);
+
+      const params = new URLSearchParams({
+        sort: "id",
+        direction: "desc",
+        limit: String(limit),
+        offset: String(offset),
+      });
+      if (assignedUserId) params.set("assignedUserId", String(assignedUserId));
+
+      const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+
+      const contacts = (data.people || []).map(p => ({
+        id: p.id,
+        name: p.name || null,
+        stage: p.stage || null,
+        lastActivityDate: p.lastActivity || null,
+        created: p.created || null,
+        assignedUserId: p.assignedUserId || null,
+        assignedTo: p.assignedTo || null,
+      }));
+
+      console.log(`[FUB] contacts: offset=${offset} limit=${limit} assignedUserId=${assignedUserId} → ${contacts.length} results (total=${data.total})`);
+      res.json({ ok: true, contacts, total: data.total, returned: contacts.length, offset });
+    } catch (e) {
+      console.error("[FUB] contacts error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
    * GET /fub/contacts/search
    *
    * Search contacts by partial name (case-insensitive), scoped to agent.
