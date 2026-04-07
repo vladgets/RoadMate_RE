@@ -364,7 +364,7 @@ export function registerFollowUpBossRoutes(app) {
       // appear at the top and are found quickly even before a full scan.
       const allPeople = [];
       let offset = 0;
-      const pageSize = 200;
+      const pageSize = 100; // FUB API max limit per request
 
       while (true) {
         const params = new URLSearchParams({
