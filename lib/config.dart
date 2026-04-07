@@ -631,6 +631,29 @@ $trimmedPrefs''';
     },
     {
       "type": "function",
+      "name": "fub_search_contacts",
+      "description": "Search for FUB contacts by partial name (case-insensitive), scoped to the agent. Use when user asks to find or look up a client by name (e.g. 'find all my Johns', 'look up Smith', 'search for William'). Returns full contact details. Prefer person_id from results in subsequent tool calls.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "description": "Agent whose contacts to search. Use the agent's name from your identity or 'me'."
+          },
+          "query": {
+            "type": "string",
+            "description": "Partial or full name to search for. Case-insensitive."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max number of results to return (default 10)."
+          }
+        },
+        "required": ["agent_name", "query"]
+      }
+    },
+    {
+      "type": "function",
       "name": "fub_create_note",
       "description": "Create an internal note on a FUB client's timeline on behalf of the agent. Notes are not sent to the client — they are private CRM records. Use when the agent wants to log something about a client (e.g. 'note that John called about pricing'). Prefer person_id when the client was already resolved in this conversation.",
       "parameters": {

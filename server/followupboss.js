@@ -253,6 +253,70 @@ export function registerFollowUpBossRoutes(app) {
   });
 
   /**
+   * GET /fub/contacts/search
+   *
+   * Search contacts by partial name (case-insensitive), scoped to agent.
+   *
+   * Query params:
+   *   agent=NAME   agent name (default: "me")
+   *   q=QUERY      partial name to search (required)
+   *   limit=N      max results (default: 10, max: 50)
+   */
+  app.get("/fub/contacts/search", async (req, res) => {
+    try {
+      const q = req.query.q?.trim();
+      if (!q) {
+        return res.status(400).json({ ok: false, error: "q (search query) is required" });
+      }
+
+      const agentQuery = req.query.agent || "me";
+      const limit = Math.min(parseInt(req.query.limit || "10", 10), 50);
+
+      let assignedUserId = null;
+      if (agentQuery !== "all") {
+        assignedUserId = await resolveAgentId(agentQuery);
+        if (!assignedUserId) {
+          return res.json({ ok: true, contacts: [], total: 0, warning: `No agent found matching "${agentQuery}"` });
+        }
+      }
+
+      const params = new URLSearchParams({
+        name: q,
+        sort: "lastActivityDate",
+        direction: "desc",
+        limit: String(limit),
+      });
+      if (assignedUserId) params.set("assignedUserId", String(assignedUserId));
+
+      const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+
+      const contacts = (data.people || []).map(p => {
+        const phones = (p.phones || []).map(ph => ({ number: ph.value, type: ph.type }));
+        const emails = (p.emails || []).map(em => ({ address: em.value, type: em.type }));
+        const addr = p.addresses?.[0];
+        return {
+          id: p.id,
+          name: p.name || null,
+          phones,
+          emails,
+          address: addr ? [addr.street, addr.city, addr.state, addr.code].filter(Boolean).join(", ") : null,
+          lastActivityDate: p.lastActivityDate || null,
+          stage: p.stage || null,
+          created: p.created || null,
+        };
+      });
+
+      console.log(`[FUB] contact search "${q}": ${contacts.length} results`);
+      res.json({ ok: true, contacts, total: contacts.length });
+    } catch (e) {
+      console.error("[FUB] contact search error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
    * GET /fub/contacts/recent
    *
    * Returns the most recently contacted clients for an agent, sorted by
