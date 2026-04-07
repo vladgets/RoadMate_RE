@@ -51,6 +51,14 @@ function escapeHtml(str) {
 
 export function registerConversationRoutes(app) {
 
+  /** GET /admin/debug — shows disk contents for troubleshooting */
+  app.get("/admin/debug", (req, res) => {
+    const dataExists = fs.existsSync("/data");
+    const convExists = fs.existsSync(CONV_DIR);
+    const files = convExists ? fs.readdirSync(CONV_DIR) : [];
+    res.json({ CONV_DIR, dataExists, convExists, files });
+  });
+
   /**
    * POST /conversation/save
    * Flutter app calls this to save/update the current session transcript.
