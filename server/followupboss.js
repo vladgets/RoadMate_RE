@@ -64,6 +64,32 @@ async function getFubMe() {
 }
 
 /**
+ * Resolve agent identity from a request.
+ * Prefers agent_id (direct, unambiguous) over agent name resolution.
+ * Works for both GET (query params) and POST (body) requests.
+ * Returns null if agent=all or no identity provided.
+ */
+async function resolveAgentFromRequest(req) {
+  // Check query params first, then body
+  const agentId = req.query.agent_id ?? req.body?.agent_id;
+  const agentName = req.query.agent ?? req.body?.agent;
+
+  if (agentId) {
+    const id = Number(agentId);
+    if (!isNaN(id)) {
+      console.log(`[FUB] agent resolved via ID: ${id}`);
+      return id;
+    }
+  }
+
+  if (!agentName || agentName === "all") return null;
+
+  const id = await resolveAgentId(agentName);
+  if (id) console.log(`[FUB] agent "${agentName}" resolved to ID: ${id}`);
+  return id;
+}
+
+/**
  * Resolve a partial agent name to a FUB user ID.
  * Supports the special value "me" to resolve to the API key owner.
  * Returns null if not found.
@@ -159,16 +185,12 @@ export function registerFollowUpBossRoutes(app) {
   app.get("/fub/tasks", async (req, res) => {
     try {
       // Resolve agent name → assignedUserId.
-      // Default to "me" (API key owner) when no agent specified, to avoid
-      // fetching thousands of tasks across all agents.
-      const agentQuery = req.query.agent || "me";
-      let assignedUserId = null;
-      if (agentQuery !== "all") {
-        assignedUserId = await resolveAgentId(agentQuery);
-        if (!assignedUserId) {
-          return res.json({ ok: true, tasks: [], total: 0, warning: `No agent found matching "${agentQuery}"` });
-        }
-        console.log(`[FUB] agent "${agentQuery}" → assignedUserId ${assignedUserId}`);
+      // Default to current agent when no identity provided.
+      const assignedUserId = req.query.agent === "all"
+        ? null
+        : (await resolveAgentFromRequest(req) ?? await resolveAgentId("me"));
+      if (!assignedUserId && req.query.agent !== "all") {
+        return res.json({ ok: true, tasks: [], total: 0, warning: "Could not resolve agent identity" });
       }
 
       const allTasks = await fetchIncompleteTasks({ assignedUserId });
@@ -269,16 +291,8 @@ export function registerFollowUpBossRoutes(app) {
         return res.status(400).json({ ok: false, error: "q (search query) is required" });
       }
 
-      const agentQuery = req.query.agent || "me";
       const limit = Math.min(parseInt(req.query.limit || "10", 10), 50);
-
-      let assignedUserId = null;
-      if (agentQuery !== "all") {
-        assignedUserId = await resolveAgentId(agentQuery);
-        if (!assignedUserId) {
-          return res.json({ ok: true, contacts: [], total: 0, warning: `No agent found matching "${agentQuery}"` });
-        }
-      }
+      const assignedUserId = req.query.agent === "all" ? null : await resolveAgentFromRequest(req);
 
       // FUB does not support substring name search — fetch all agent contacts
       // and filter client-side (case-insensitive substring match on name).
@@ -351,18 +365,9 @@ export function registerFollowUpBossRoutes(app) {
    */
   app.get("/fub/contacts/recent", async (req, res) => {
     try {
-      const agentQuery = req.query.agent || "me";
       const limit = Math.min(parseInt(req.query.limit || "5", 10), 50);
       const days = req.query.days ? parseInt(req.query.days, 10) : null;
-
-      let assignedUserId = null;
-      if (agentQuery !== "all") {
-        assignedUserId = await resolveAgentId(agentQuery);
-        if (!assignedUserId) {
-          return res.json({ ok: true, contacts: [], total: 0, warning: `No agent found matching "${agentQuery}"` });
-        }
-        console.log(`[FUB] recent contacts: agent "${agentQuery}" → assignedUserId ${assignedUserId}`);
-      }
+      const assignedUserId = req.query.agent === "all" ? null : await resolveAgentFromRequest(req);
 
       const params = new URLSearchParams({
         sort: "lastActivityDate",
@@ -418,19 +423,15 @@ export function registerFollowUpBossRoutes(app) {
    */
   app.post("/fub/text", async (req, res) => {
     try {
-      const { agent, message, person_id, client_name } = req.body || {};
+      const { message, person_id, client_name } = req.body || {};
 
       if (!message?.trim()) {
         return res.status(400).json({ ok: false, error: "message is required" });
       }
-      if (!agent) {
-        return res.status(400).json({ ok: false, error: "agent is required" });
-      }
 
-      // Resolve agent → userId
-      const userId = await resolveAgentId(agent);
+      const userId = await resolveAgentFromRequest(req);
       if (!userId) {
-        return res.status(400).json({ ok: false, error: `No agent found matching "${agent}"` });
+        return res.status(400).json({ ok: false, error: "Could not resolve agent identity" });
       }
 
       // Resolve personId — use directly if provided, otherwise search by name
@@ -496,19 +497,15 @@ export function registerFollowUpBossRoutes(app) {
    */
   app.post("/fub/note", async (req, res) => {
     try {
-      const { agent, body: noteBody, person_id, client_name } = req.body || {};
+      const { body: noteBody, person_id, client_name } = req.body || {};
 
       if (!noteBody?.trim()) {
         return res.status(400).json({ ok: false, error: "body is required" });
       }
-      if (!agent) {
-        return res.status(400).json({ ok: false, error: "agent is required" });
-      }
 
-      // Resolve agent → userId
-      const userId = await resolveAgentId(agent);
+      const userId = await resolveAgentFromRequest(req);
       if (!userId) {
-        return res.status(400).json({ ok: false, error: `No agent found matching "${agent}"` });
+        return res.status(400).json({ ok: false, error: "Could not resolve agent identity" });
       }
 
       // Resolve personId — use directly if provided, otherwise search by name

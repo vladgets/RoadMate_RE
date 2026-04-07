@@ -70,6 +70,9 @@ Date: {{CURRENT_DATE_READABLE}}
   /// Currently identified FUB agent name (in-memory, loaded at startup).
   static String? fubAgentName;
 
+  /// Currently identified FUB agent ID (in-memory, loaded at startup).
+  static int? fubAgentId;
+
   /// Read saved voice from SharedPreferences (call during app startup).
   static Future<void> loadSavedVoice() async {
     try {
@@ -140,6 +143,8 @@ Date: {{CURRENT_DATE_READABLE}}
     try {
       final prefs = await SharedPreferences.getInstance();
       fubAgentName = prefs.getString(prefKeyFubAgentName);
+      final savedId = prefs.getInt(prefKeyFubAgentId);
+      fubAgentId = savedId;
     } catch (_) {}
   }
 
@@ -156,6 +161,7 @@ Date: {{CURRENT_DATE_READABLE}}
   /// Clear the stored FUB agent identity.
   static Future<void> clearFubAgent() async {
     fubAgentName = null;
+    fubAgentId = null;
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(prefKeyFubAgentName);

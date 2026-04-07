@@ -6,10 +6,33 @@ class FubClient {
   final String baseUrl;
   FubClient() : baseUrl = Config.serverUrl;
 
-  Future<Map<String, dynamic>> getTasks({String? dueDate, String? agentName}) async {
+  /// Adds agent identity params to a query map.
+  /// Prefers agent_id (unambiguous) over agent name.
+  void _addAgent(Map<String, String> params, {int? agentId, String? agentName}) {
+    if (agentId != null) {
+      params['agent_id'] = agentId.toString();
+    } else if (agentName != null) {
+      params['agent'] = agentName;
+    }
+  }
+
+  /// Adds agent identity fields to a JSON body map.
+  void _addAgentToBody(Map<String, dynamic> body, {int? agentId, String? agentName}) {
+    if (agentId != null) {
+      body['agent_id'] = agentId;
+    } else if (agentName != null) {
+      body['agent'] = agentName;
+    }
+  }
+
+  Future<Map<String, dynamic>> getTasks({
+    String? dueDate,
+    String? agentName,
+    int? agentId,
+  }) async {
     final params = <String, String>{};
     if (dueDate != null) params['dueDate'] = dueDate;
-    if (agentName != null) params['agent'] = agentName;
+    _addAgent(params, agentId: agentId, agentName: agentName);
     final uri = Uri.parse('$baseUrl/fub/tasks').replace(
       queryParameters: params.isEmpty ? null : params,
     );
@@ -20,10 +43,11 @@ class FubClient {
   Future<Map<String, dynamic>> searchContacts({
     required String query,
     String? agentName,
+    int? agentId,
     int limit = 10,
   }) async {
     final params = <String, String>{'q': query, 'limit': limit.toString()};
-    if (agentName != null) params['agent'] = agentName;
+    _addAgent(params, agentId: agentId, agentName: agentName);
     final uri = Uri.parse('$baseUrl/fub/contacts/search').replace(
       queryParameters: params,
     );
@@ -33,11 +57,12 @@ class FubClient {
 
   Future<Map<String, dynamic>> getRecentContacts({
     String? agentName,
+    int? agentId,
     int limit = 5,
     int? days,
   }) async {
     final params = <String, String>{'limit': limit.toString()};
-    if (agentName != null) params['agent'] = agentName;
+    _addAgent(params, agentId: agentId, agentName: agentName);
     if (days != null) params['days'] = days.toString();
     final uri = Uri.parse('$baseUrl/fub/contacts/recent').replace(
       queryParameters: params,
@@ -47,18 +72,19 @@ class FubClient {
   }
 
   Future<Map<String, dynamic>> createNote({
-    required String agentName,
     required String body,
+    String? agentName,
+    int? agentId,
     int? personId,
     String? clientName,
   }) async {
     final uri = Uri.parse('$baseUrl/fub/note');
     final payload = <String, dynamic>{
-      'agent': agentName,
       'body': body,
       if (personId != null) 'person_id': personId,
       if (clientName != null) 'client_name': clientName,
     };
+    _addAgentToBody(payload, agentId: agentId, agentName: agentName);
     final resp = await http.post(
       uri,
       headers: {'Content-Type': 'application/json'},
@@ -68,18 +94,19 @@ class FubClient {
   }
 
   Future<Map<String, dynamic>> sendText({
-    required String agentName,
     required String message,
+    String? agentName,
+    int? agentId,
     int? personId,
     String? clientName,
   }) async {
     final uri = Uri.parse('$baseUrl/fub/text');
     final body = <String, dynamic>{
-      'agent': agentName,
       'message': message,
       if (personId != null) 'person_id': personId,
       if (clientName != null) 'client_name': clientName,
     };
+    _addAgentToBody(body, agentId: agentId, agentName: agentName);
     final resp = await http.post(
       uri,
       headers: {'Content-Type': 'application/json'},

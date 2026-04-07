@@ -606,6 +606,14 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     return raw;
   }
 
+  /// Returns the stored agent ID when available (preferred over name).
+  /// Only returns null if no agent is identified.
+  int? _resolveFubAgentId(String? rawName) {
+    // If model is asking for the whole team, don't scope to an ID
+    if (rawName == 'all') return null;
+    return Config.fubAgentId;
+  }
+
 /// Tool handlers map
  late final Map<String, Future<Map<String, dynamic>> Function(dynamic args)> _tools = {
    'get_current_location': (_) async {
@@ -730,45 +738,56 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   'fub_get_tasks': (args) async {
     final dueDate = (args is Map) ? args['due_date'] as String? : null;
     final raw = (args is Map) ? args['agent_name'] as String? : null;
-    final agentName = _resolveFubAgent(raw);
-    return await FubClient().getTasks(dueDate: dueDate, agentName: agentName);
+    return await FubClient().getTasks(
+      dueDate: dueDate,
+      agentId: _resolveFubAgentId(raw),
+      agentName: _resolveFubAgent(raw),
+    );
   },
   'fub_get_recent_contacts': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
-    final agentName = _resolveFubAgent(raw);
     final limit = (args is Map && args['limit'] != null) ? (args['limit'] as num).toInt() : 5;
     final days = (args is Map && args['days'] != null) ? (args['days'] as num).toInt() : null;
-    return await FubClient().getRecentContacts(agentName: agentName, limit: limit, days: days);
+    return await FubClient().getRecentContacts(
+      agentId: _resolveFubAgentId(raw),
+      agentName: _resolveFubAgent(raw),
+      limit: limit,
+      days: days,
+    );
   },
   'fub_search_contacts': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
-    final agentName = _resolveFubAgent(raw);
     final query = (args is Map) ? args['query'] as String? ?? '' : '';
     final limit = (args is Map && args['limit'] != null) ? (args['limit'] as num).toInt() : 10;
-    return await FubClient().searchContacts(query: query, agentName: agentName, limit: limit);
+    return await FubClient().searchContacts(
+      query: query,
+      agentId: _resolveFubAgentId(raw),
+      agentName: _resolveFubAgent(raw),
+      limit: limit,
+    );
   },
   'fub_create_note': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
-    final agentName = _resolveFubAgent(raw) ?? 'me';
     final body = (args is Map) ? args['body'] as String? ?? '' : '';
     final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
     final clientName = (args is Map) ? args['client_name'] as String? : null;
     return await FubClient().createNote(
-      agentName: agentName,
       body: body,
+      agentId: _resolveFubAgentId(raw),
+      agentName: _resolveFubAgent(raw) ?? 'me',
       personId: personId,
       clientName: clientName,
     );
   },
   'fub_send_text': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
-    final agentName = _resolveFubAgent(raw) ?? 'me';
     final message = (args is Map) ? args['message'] as String? ?? '' : '';
     final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
     final clientName = (args is Map) ? args['client_name'] as String? : null;
     return await FubClient().sendText(
-      agentName: agentName,
       message: message,
+      agentId: _resolveFubAgentId(raw),
+      agentName: _resolveFubAgent(raw) ?? 'me',
       personId: personId,
       clientName: clientName,
     );
