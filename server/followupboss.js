@@ -575,8 +575,8 @@ export function registerFollowUpBossRoutes(app) {
         console.log(`[FUB] text: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
       }
 
-      // Send text message via FUB
-      const payload = { userId, personId, message: message.trim() };
+      // Send text message via FUB (omit userId — API key owner's texting number is used)
+      const payload = { personId, message: message.trim() };
       const r = await fetch(`${FUB_BASE}/textMessages`, {
         method: "POST",
         headers: fubHeaders(),
