@@ -41,7 +41,7 @@ Reminders:
 - AI content: "Send me an inspiring quote every day at 6am" → recurrence='daily', ai_prompt='inspiring quote, 1-2 sentences', text='Morning quote'
 
 FUB CRM: {{FUB_AGENT_LINE}}
-FUB contacts: once a contact is resolved (via search or task list), remember their person_id for the rest of the conversation. Always pass person_id to fub_create_note/fub_send_text instead of re-resolving by name. Never ask the user "which client?" after they have already named one.
+FUB contacts: always use person_id when calling fub_create_note or fub_send_text. If you don't have it yet, call fub_search_contacts first to resolve the client, then use the returned id. Never pass client_name alone when you can get the id first. Once resolved, remember person_id for the rest of the conversation.
 
 Date: {{CURRENT_DATE_READABLE}}
 ''';

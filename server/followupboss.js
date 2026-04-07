@@ -111,6 +111,46 @@ async function resolveAgentId(agentQuery) {
 }
 
 /**
+ * Resolve a person by partial name using client-side substring scan.
+ * Scoped to the given agent (assignedUserId). Paginates all contacts.
+ * Returns { id, name } of the most recently active match, or null.
+ */
+async function resolvePersonByName(name, assignedUserId) {
+  const qWords = name.toLowerCase().split(/\s+/).filter(Boolean);
+  const pageSize = 100;
+  let offset = 0;
+  let bestMatch = null;
+
+  while (true) {
+    const params = new URLSearchParams({
+      sort: "lastActivityDate",
+      direction: "desc",
+      limit: String(pageSize),
+      offset: String(offset),
+    });
+    if (assignedUserId) params.set("assignedUserId", String(assignedUserId));
+
+    const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+
+    const batch = data.people || [];
+    for (const p of batch) {
+      const pName = (p.name || "").toLowerCase();
+      if (qWords.every(w => pName.includes(w))) {
+        // First match is best (sorted by lastActivityDate desc)
+        if (!bestMatch) bestMatch = { id: p.id, name: p.name };
+      }
+    }
+
+    if (bestMatch || batch.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  return bestMatch;
+}
+
+/**
  * Fetch all pages of incomplete tasks from FUB.
  * assignedUserId is the only API-level filter that actually works.
  * Everything else is filtered server-side.
@@ -518,7 +558,7 @@ export function registerFollowUpBossRoutes(app) {
         return res.status(400).json({ ok: false, error: "Could not resolve agent identity" });
       }
 
-      // Resolve personId — use directly if provided, otherwise search by name
+      // Resolve personId — use directly if provided, otherwise substring scan by name
       let personId = person_id ? Number(person_id) : null;
       let resolvedName = null;
 
@@ -526,30 +566,13 @@ export function registerFollowUpBossRoutes(app) {
         if (!client_name?.trim()) {
           return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
         }
-
-        // Search people scoped to this agent, sorted by last activity
-        const params = new URLSearchParams({
-          name: client_name.trim(),
-          assignedUserId: String(userId),
-          sort: "lastActivityDate",
-          direction: "desc",
-          limit: "10",
-        });
-        const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
-
-        const matches = data.people || [];
-        if (matches.length === 0) {
+        const match = await resolvePersonByName(client_name.trim(), userId);
+        if (!match) {
           return res.json({ ok: false, error: `No contact found matching "${client_name}" for this agent` });
         }
-
-        // First result is most recently active (sorted by lastActivityDate desc)
-        personId = matches[0].id;
-        resolvedName = matches[0].name;
-        if (matches.length > 1) {
-          console.log(`[FUB] text: "${client_name}" matched ${matches.length} contacts, using most recent: ${resolvedName}`);
-        }
+        personId = match.id;
+        resolvedName = match.name;
+        console.log(`[FUB] text: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
       }
 
       // Send text message via FUB
@@ -592,7 +615,7 @@ export function registerFollowUpBossRoutes(app) {
         return res.status(400).json({ ok: false, error: "Could not resolve agent identity" });
       }
 
-      // Resolve personId — use directly if provided, otherwise search by name
+      // Resolve personId — use directly if provided, otherwise substring scan by name
       let personId = person_id ? Number(person_id) : null;
       let resolvedName = null;
 
@@ -600,28 +623,13 @@ export function registerFollowUpBossRoutes(app) {
         if (!client_name?.trim()) {
           return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
         }
-
-        const params = new URLSearchParams({
-          name: client_name.trim(),
-          assignedUserId: String(userId),
-          sort: "lastActivityDate",
-          direction: "desc",
-          limit: "10",
-        });
-        const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
-
-        const matches = data.people || [];
-        if (matches.length === 0) {
+        const match = await resolvePersonByName(client_name.trim(), userId);
+        if (!match) {
           return res.json({ ok: false, error: `No contact found matching "${client_name}" for this agent` });
         }
-
-        personId = matches[0].id;
-        resolvedName = matches[0].name;
-        if (matches.length > 1) {
-          console.log(`[FUB] note: "${client_name}" matched ${matches.length} contacts, using most recent: ${resolvedName}`);
-        }
+        personId = match.id;
+        resolvedName = match.name;
+        console.log(`[FUB] note: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
       }
 
       // Create note via FUB
