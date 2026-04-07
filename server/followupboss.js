@@ -280,35 +280,42 @@ export function registerFollowUpBossRoutes(app) {
         }
       }
 
-      const params = new URLSearchParams({
-        name: q,
-        sort: "lastActivityDate",
-        direction: "desc",
-        limit: String(limit),
-      });
-      if (assignedUserId) params.set("assignedUserId", String(assignedUserId));
+      // Try query= first (broader full-text search), fall back to name= if no results.
+      // FUB's name= does prefix matching; query= searches across all name fields.
+      let contacts = [];
+      for (const searchKey of ["query", "name"]) {
+        const params = new URLSearchParams({
+          [searchKey]: q,
+          sort: "lastActivityDate",
+          direction: "desc",
+          limit: String(limit),
+        });
+        if (assignedUserId) params.set("assignedUserId", String(assignedUserId));
 
-      const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+        const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
 
-      const contacts = (data.people || []).map(p => {
-        const phones = (p.phones || []).map(ph => ({ number: ph.value, type: ph.type }));
-        const emails = (p.emails || []).map(em => ({ address: em.value, type: em.type }));
-        const addr = p.addresses?.[0];
-        return {
-          id: p.id,
-          name: p.name || null,
-          phones,
-          emails,
-          address: addr ? [addr.street, addr.city, addr.state, addr.code].filter(Boolean).join(", ") : null,
-          lastActivityDate: p.lastActivityDate || null,
-          stage: p.stage || null,
-          created: p.created || null,
-        };
-      });
+        contacts = (data.people || []).map(p => {
+          const phones = (p.phones || []).map(ph => ({ number: ph.value, type: ph.type }));
+          const emails = (p.emails || []).map(em => ({ address: em.value, type: em.type }));
+          const addr = p.addresses?.[0];
+          return {
+            id: p.id,
+            name: p.name || null,
+            phones,
+            emails,
+            address: addr ? [addr.street, addr.city, addr.state, addr.code].filter(Boolean).join(", ") : null,
+            lastActivityDate: p.lastActivityDate || null,
+            stage: p.stage || null,
+            created: p.created || null,
+          };
+        });
 
-      console.log(`[FUB] contact search "${q}": ${contacts.length} results`);
+        console.log(`[FUB] contact search "${q}" (${searchKey}=): ${contacts.length} results`);
+        if (contacts.length > 0) break;
+      }
+
       res.json({ ok: true, contacts, total: contacts.length });
     } catch (e) {
       console.error("[FUB] contact search error:", e);
