@@ -297,13 +297,16 @@ export function registerFollowUpBossRoutes(app) {
       // FUB does not support substring name search — fetch all agent contacts
       // and filter client-side (case-insensitive substring match on name).
       const qLower = q.toLowerCase();
+      // Paginate through ALL agent contacts — no cap.
+      // Sort by id desc (newest first) so recently created uncontacted leads
+      // appear at the top and are found quickly even before a full scan.
       const allPeople = [];
       let offset = 0;
       const pageSize = 200;
 
       while (true) {
         const params = new URLSearchParams({
-          sort: "lastActivityDate",
+          sort: "id",
           direction: "desc",
           limit: String(pageSize),
           offset: String(offset),
@@ -317,8 +320,7 @@ export function registerFollowUpBossRoutes(app) {
         const batch = data.people || [];
         allPeople.push(...batch);
 
-        // Stop when we've fetched all or hit 1000 contact safety cap
-        if (batch.length < pageSize || allPeople.length >= 1000) break;
+        if (batch.length < pageSize) break; // reached end
         offset += pageSize;
       }
 
