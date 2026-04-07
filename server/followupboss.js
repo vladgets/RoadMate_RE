@@ -632,15 +632,18 @@ export function registerFollowUpBossRoutes(app) {
         console.log(`[FUB] note: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
       }
 
-      // Create note via FUB
-      const payload = { userId, personId, body: noteBody.trim() };
+      // Create note via FUB (userId is optional — omit to avoid potential 400)
+      const payload = { personId, body: noteBody.trim() };
       const r = await fetch(`${FUB_BASE}/notes`, {
         method: "POST",
         headers: fubHeaders(),
         body: JSON.stringify(payload),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+      if (!r.ok) {
+        console.error(`[FUB] note API error ${r.status}:`, JSON.stringify(data));
+        throw new Error(data?.message || data?.error || `FUB error ${r.status}`);
+      }
 
       console.log(`[FUB] note created for personId=${personId} by userId=${userId}`);
       res.json({ ok: true, personId, resolvedName, noteId: data.id || null });
