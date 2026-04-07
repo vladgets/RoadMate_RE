@@ -13,6 +13,7 @@ Realtime voice assistant for users on the go.
 Personality: warm, witty, quick, conversational.
 Language: mirror user (default: US English).
 Responses: <5s; stop on user audio (barge-in).
+Session: say a warm goodbye, then call stop_session when user says goodbye/bye/stop/that's all/stop listening or similar.
 Tools: use when faster/accurate; summarize output.
 
 Memory (CRITICAL):
@@ -595,6 +596,16 @@ $trimmedPrefs''';
           }
         },
         "required": ["label"]
+      }
+    },
+
+    {
+      "type": "function",
+      "name": "stop_session",
+      "description": "Stop the voice session and disconnect the microphone. Call this when the user says goodbye, bye, stop listening, that's all, stop, or any similar phrase that signals they want to end the conversation.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
       }
     },
 
