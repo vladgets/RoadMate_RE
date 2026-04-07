@@ -56,7 +56,8 @@ export function registerConversationRoutes(app) {
     const dataExists = fs.existsSync("/data");
     const convExists = fs.existsSync(CONV_DIR);
     const files = convExists ? fs.readdirSync(CONV_DIR) : [];
-    res.json({ CONV_DIR, dataExists, convExists, files });
+    const dataContents = dataExists ? fs.readdirSync("/data") : [];
+    res.json({ CONV_DIR, dataExists, convExists, dataContents, files });
   });
 
   /**
@@ -86,7 +87,9 @@ export function registerConversationRoutes(app) {
       };
 
       fs.writeFileSync(fpath, JSON.stringify(data, null, 2), "utf8");
-      res.json({ ok: true, filename: fname });
+      const written = fs.existsSync(fpath);
+      console.log(`[Conv] saved ${fname} to ${fpath}, exists=${written}, messages=${messages.length}`);
+      res.json({ ok: true, filename: fname, path: fpath, written });
     } catch (e) {
       console.error("[Conversations] save error:", e);
       res.status(500).json({ ok: false, error: String(e) });
