@@ -295,15 +295,15 @@ class CalendarStore {
 
     if (writable.isEmpty) return null;
 
-    // 1. Device-default writable calendar
-    final deviceDefault = writable.where((c) => c.isDefault == true).firstOrNull;
-    if (deviceDefault != null) return deviceDefault;
-
-    // 2. Any Google account calendar (accountType = "com.google")
+    // 1. Google account calendar (accountType = "com.google") — preferred
     final google = writable
         .where((c) => (c.accountType ?? '').toLowerCase().contains('google'))
         .firstOrNull;
     if (google != null) return google;
+
+    // 2. Device-default writable calendar
+    final deviceDefault = writable.where((c) => c.isDefault == true).firstOrNull;
+    if (deviceDefault != null) return deviceDefault;
 
     // 3. Fallback: first writable
     return writable.first;
