@@ -79,7 +79,7 @@ export function registerConversationRoutes(app) {
    * Flutter app calls this to save/update the current session transcript.
    * Body: { client_id, platform, session_start, agent_name?, messages[] }
    */
-  app.post("/conversation/save", (req, res) => {
+  app.post("/conversation/save", async (req, res) => {
     try {
       ensureDir();
       const { client_id, platform, session_start, agent_name, messages } = req.body || {};
