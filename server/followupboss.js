@@ -342,9 +342,12 @@ export function registerFollowUpBossRoutes(app) {
    * Search contacts by partial name (case-insensitive), scoped to agent.
    *
    * Query params:
-   *   agent=NAME   agent name (default: "me")
+   *   agent_id=N   agent user ID (preferred)
+   *   agent=NAME   agent name (fallback)
    *   q=QUERY      partial name to search (required)
    *   limit=N      max results (default: 10, max: 50)
+   *   mode=name    use FUB native name= param (fast, single request; may be prefix-only)
+   *                omit or any other value = client-side scan (default, finds substrings)
    */
   app.get("/fub/contacts/search", async (req, res) => {
     try {
@@ -355,48 +358,62 @@ export function registerFollowUpBossRoutes(app) {
 
       const limit = Math.min(parseInt(req.query.limit || "10", 10), 50);
       const assignedUserId = req.query.agent === "all" ? null : await resolveAgentFromRequest(req);
+      const mode = req.query.mode;
 
-      // FUB does not support substring name search — fetch all agent contacts
-      // and filter client-side (case-insensitive substring match on name).
-      const qLower = q.toLowerCase();
-      // Paginate through ALL agent contacts — no cap.
-      // Sort by id desc (newest first) so recently created uncontacted leads
-      // appear at the top and are found quickly even before a full scan.
-      const allPeople = [];
-      let offset = 0;
-      const pageSize = 100; // FUB API max limit per request
+      let people;
 
-      while (true) {
+      if (mode === "name") {
+        // Fast path: pass name= directly to FUB API (single request, but may be prefix-only)
         const params = new URLSearchParams({
-          sort: "id",
+          name: q,
+          sort: "lastActivityDate",
           direction: "desc",
-          limit: String(pageSize),
-          offset: String(offset),
+          limit: String(Math.min(limit, 50)),
         });
         if (assignedUserId) params.set("assignedUserId", String(assignedUserId));
 
         const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
         const data = await r.json();
         if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+        people = data.people || [];
+        console.log(`[FUB] contact search (mode=name) "${q}": FUB returned ${people.length}`);
+      } else {
+        // Default: paginate all agent contacts and filter client-side (substring match)
+        const qLower = q.toLowerCase();
+        const qWords = qLower.split(/\s+/).filter(Boolean);
+        const allPeople = [];
+        let offset = 0;
+        const pageSize = 100; // FUB API max limit per request
 
-        const batch = data.people || [];
-        const ids = batch.map(p => p.id);
-        console.log(`[FUB] search page offset=${offset}: ${batch.length} people, ids ${ids[0]}..${ids[ids.length-1]}, total reported=${data.total}`);
-        allPeople.push(...batch);
+        while (true) {
+          const params = new URLSearchParams({
+            sort: "id",
+            direction: "desc",
+            limit: String(pageSize),
+            offset: String(offset),
+          });
+          if (assignedUserId) params.set("assignedUserId", String(assignedUserId));
 
-        if (batch.length < pageSize) break; // reached end
-        offset += pageSize;
+          const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+
+          const batch = data.people || [];
+          allPeople.push(...batch);
+
+          if (batch.length < pageSize) break;
+          offset += pageSize;
+        }
+
+        const matched = allPeople.filter(p => {
+          const name = (p.name || "").toLowerCase();
+          return qWords.every(word => name.includes(word));
+        });
+        console.log(`[FUB] contact search (scan) "${q}": scanned ${allPeople.length}, matched ${matched.length}`);
+        people = matched.slice(0, limit);
       }
-      console.log(`[FUB] search total fetched: ${allPeople.length}, looking for "${q}" (id 113774 present: ${allPeople.some(p => p.id === 113774)})`);
 
-
-      const qWords = qLower.split(/\s+/).filter(Boolean);
-      const matched = allPeople.filter(p => {
-        const name = (p.name || "").toLowerCase();
-        return qWords.every(word => name.includes(word));
-      });
-
-      const contacts = matched.slice(0, limit).map(p => {
+      const contacts = people.slice(0, limit).map(p => {
         const phones = (p.phones || []).map(ph => ({ number: ph.value, type: ph.type }));
         const emails = (p.emails || []).map(em => ({ address: em.value, type: em.type }));
         const addr = p.addresses?.[0];
@@ -412,8 +429,7 @@ export function registerFollowUpBossRoutes(app) {
         };
       });
 
-      console.log(`[FUB] contact search "${q}": scanned ${allPeople.length}, matched ${matched.length}, returning ${contacts.length}`);
-      res.json({ ok: true, contacts, total: contacts.length });
+      res.json({ ok: true, contacts, total: contacts.length, mode: mode || "scan" });
     } catch (e) {
       console.error("[FUB] contact search error:", e);
       res.status(500).json({ ok: false, error: String(e) });
