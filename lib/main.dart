@@ -30,6 +30,7 @@ import 'services/voice_memory_store.dart';
 import 'services/whatsapp_service.dart';
 import 'services/driving_log_store.dart';
 import 'services/fub_client.dart';
+import 'services/conversation_logger.dart';
 import 'services/driving_monitor_service.dart';
 import 'services/named_places_store.dart';
 import 'ui/voice_memories_screen.dart';
@@ -211,6 +212,8 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
           pageBuilder: (_, _, _) => ChatScreen(
             conversationStore: store,
             toolExecutor: executeTool,
+            clientId: _clientId,
+            agentName: Config.fubAgentName,
           ),
           transitionDuration: Duration.zero,
           reverseTransitionDuration: Duration.zero,
@@ -480,6 +483,19 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   }
 
   Future<void> _disconnect() async {
+    // Upload voice session transcript before disconnecting
+    if (_clientId != null && _conversationStore != null) {
+      try {
+        final session = _conversationStore!.activeSession;
+        ConversationLogger.upload(
+          clientId: _clientId!,
+          sessionStart: session.createdAt.toIso8601String(),
+          messages: session.messages,
+          agentName: Config.fubAgentName,
+        );
+      } catch (_) {}
+    }
+
     // Stop thinking sound if it's playing (non-blocking)
     _stopThinkingSound();
     detachRemoteAudio();
@@ -990,6 +1006,8 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
                   builder: (_) => ChatScreen(
                     conversationStore: _conversationStore!,
                     toolExecutor: executeTool,
+                    clientId: _clientId,
+                    agentName: Config.fubAgentName,
                   ),
                 ),
               );

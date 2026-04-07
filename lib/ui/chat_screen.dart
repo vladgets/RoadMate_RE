@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'dart:io';
 import '../models/chat_message.dart';
 import '../models/photo_attachment.dart';
+import '../services/conversation_logger.dart';
 import '../services/conversation_store.dart';
 import '../services/openai_chat_client.dart';
 import '../services/photo_capture_service.dart';
@@ -17,11 +18,15 @@ import 'widgets/photo_viewer.dart';
 class ChatScreen extends StatefulWidget {
   final ConversationStore conversationStore;
   final Future<Map<String, dynamic>> Function(String toolName, dynamic args)? toolExecutor;
+  final String? clientId;
+  final String? agentName;
 
   const ChatScreen({
     super.key,
     required this.conversationStore,
     this.toolExecutor,
+    this.clientId,
+    this.agentName,
   });
 
   @override
@@ -105,6 +110,17 @@ class _ChatScreenState extends State<ChatScreen> {
           ? ChatMessage.assistantWithPhotos(response.text, response.photos!)
           : ChatMessage.assistant(response.text);
       await widget.conversationStore.addMessageToActiveSession(assistantMessage);
+
+      // Upload transcript after each assistant reply (overwrites same file)
+      if (widget.clientId != null) {
+        final session = widget.conversationStore.activeSession;
+        ConversationLogger.upload(
+          clientId: widget.clientId!,
+          sessionStart: session.createdAt.toIso8601String(),
+          messages: session.messages,
+          agentName: widget.agentName,
+        );
+      }
 
       setState(() {
         _isLoading = false;
