@@ -583,7 +583,10 @@ export function registerFollowUpBossRoutes(app) {
         body: JSON.stringify(payload),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+      if (!r.ok) {
+        console.error(`[FUB] text API error ${r.status}:`, JSON.stringify(data));
+        throw new Error(data?.message || data?.error || `FUB error ${r.status}`);
+      }
 
       console.log(`[FUB] text sent to personId=${personId} by userId=${userId}`);
       res.json({ ok: true, personId, resolvedName, messageId: data.id || null });
