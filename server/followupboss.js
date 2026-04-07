@@ -146,6 +146,21 @@ async function fetchIncompleteTasks({ assignedUserId } = {}) {
 
 export function registerFollowUpBossRoutes(app) {
   /**
+   * GET /fub/person/:id
+   * Fetch a single FUB contact by ID directly.
+   */
+  app.get("/fub/person/:id", async (req, res) => {
+    try {
+      const r = await fetch(`${FUB_BASE}/people/${req.params.id}`, { headers: fubHeaders() });
+      const data = await r.json();
+      if (!r.ok) return res.status(r.status).json({ ok: false, error: data?.message || `FUB error ${r.status}` });
+      res.json({ ok: true, person: data });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
    * GET /fub/me
    * Returns the authenticated user's profile.
    */
