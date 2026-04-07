@@ -484,11 +484,11 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
 
   Future<void> _disconnect() async {
     // Upload voice session transcript before disconnecting
-    if (_clientId != null && _conversationStore != null) {
+    if (_conversationStore != null) {
       try {
         final session = _conversationStore!.activeSession;
         ConversationLogger.upload(
-          clientId: _clientId!,
+          clientId: _clientId,
           sessionStart: session.createdAt.toIso8601String(),
           messages: session.messages,
           agentName: Config.fubAgentName,

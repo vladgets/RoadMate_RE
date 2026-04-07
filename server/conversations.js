@@ -132,6 +132,9 @@ export function registerConversationRoutes(app) {
           <td>${formatDate(f.session_start)}</td>
           <td>${formatDate(f.last_updated)}</td>
           <td style="text-align:center">${f.message_count}</td>
+          <td style="text-align:center">
+            <button class="del-btn" onclick="event.stopPropagation(); deleteConv('${escapeHtml(f.filename)}')" title="Delete">🗑</button>
+          </td>
         </tr>`).join("");
 
       res.send(`<!DOCTYPE html>
@@ -153,6 +156,8 @@ export function registerConversationRoutes(app) {
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: #f5f5f7; }
   .empty { text-align: center; padding: 48px; color: #6e6e73; }
+  .del-btn { background: none; border: none; cursor: pointer; font-size: 1rem; opacity: 0.4; padding: 4px 8px; border-radius: 6px; }
+  .del-btn:hover { opacity: 1; background: #fee2e2; }
 </style>
 </head>
 <body>
@@ -162,11 +167,19 @@ export function registerConversationRoutes(app) {
 <table>
   <thead><tr>
     <th>Platform</th><th>Agent</th><th>Client ID</th>
-    <th>Started</th><th>Last Active</th><th>Messages</th>
+    <th>Started</th><th>Last Active</th><th>Messages</th><th></th>
   </tr></thead>
-  <tbody>${rows || '<tr><td colspan="6" class="empty">No conversations yet</td></tr>'}</tbody>
+  <tbody>${rows || '<tr><td colspan="7" class="empty">No conversations yet</td></tr>'}</tbody>
 </table>
 </div>
+<script>
+async function deleteConv(filename) {
+  if (!confirm('Delete this conversation?')) return;
+  const res = await fetch('/admin/conversation/' + encodeURIComponent(filename), { method: 'DELETE' });
+  if (res.ok) location.reload();
+  else alert('Delete failed');
+}
+</script>
 </body>
 </html>`);
     } catch (e) {
@@ -242,6 +255,20 @@ export function registerConversationRoutes(app) {
 </html>`);
     } catch (e) {
       res.status(500).send("<pre>Error: " + escapeHtml(String(e)) + "</pre>");
+    }
+  });
+
+  /** DELETE /admin/conversation/:filename */
+  app.delete("/admin/conversation/:filename", (req, res) => {
+    try {
+      const safeName = path.basename(req.params.filename);
+      const fpath = path.join(CONV_DIR, safeName);
+      if (!fs.existsSync(fpath)) return res.status(404).json({ ok: false, error: "Not found" });
+      fs.unlinkSync(fpath);
+      console.log(`[Conv] deleted ${safeName}`);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e) });
     }
   });
 }

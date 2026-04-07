@@ -112,15 +112,13 @@ class _ChatScreenState extends State<ChatScreen> {
       await widget.conversationStore.addMessageToActiveSession(assistantMessage);
 
       // Upload transcript after each assistant reply (overwrites same file)
-      if (widget.clientId != null) {
-        final session = widget.conversationStore.activeSession;
-        ConversationLogger.upload(
-          clientId: widget.clientId!,
-          sessionStart: session.createdAt.toIso8601String(),
-          messages: session.messages,
-          agentName: widget.agentName,
-        );
-      }
+      final session = widget.conversationStore.activeSession;
+      ConversationLogger.upload(
+        clientId: widget.clientId,
+        sessionStart: session.createdAt.toIso8601String(),
+        messages: session.messages,
+        agentName: widget.agentName,
+      );
 
       setState(() {
         _isLoading = false;
