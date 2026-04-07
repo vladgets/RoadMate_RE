@@ -280,15 +280,19 @@ export function registerFollowUpBossRoutes(app) {
         }
       }
 
-      // Try query= first (broader full-text search), fall back to name= if no results.
-      // FUB's name= does prefix matching; query= searches across all name fields.
-      let contacts = [];
-      for (const searchKey of ["query", "name"]) {
+      // FUB does not support substring name search — fetch all agent contacts
+      // and filter client-side (case-insensitive substring match on name).
+      const qLower = q.toLowerCase();
+      const allPeople = [];
+      let offset = 0;
+      const pageSize = 200;
+
+      while (true) {
         const params = new URLSearchParams({
-          [searchKey]: q,
           sort: "lastActivityDate",
           direction: "desc",
-          limit: String(limit),
+          limit: String(pageSize),
+          offset: String(offset),
         });
         if (assignedUserId) params.set("assignedUserId", String(assignedUserId));
 
@@ -296,26 +300,37 @@ export function registerFollowUpBossRoutes(app) {
         const data = await r.json();
         if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
 
-        contacts = (data.people || []).map(p => {
-          const phones = (p.phones || []).map(ph => ({ number: ph.value, type: ph.type }));
-          const emails = (p.emails || []).map(em => ({ address: em.value, type: em.type }));
-          const addr = p.addresses?.[0];
-          return {
-            id: p.id,
-            name: p.name || null,
-            phones,
-            emails,
-            address: addr ? [addr.street, addr.city, addr.state, addr.code].filter(Boolean).join(", ") : null,
-            lastActivityDate: p.lastActivityDate || null,
-            stage: p.stage || null,
-            created: p.created || null,
-          };
-        });
+        const batch = data.people || [];
+        allPeople.push(...batch);
 
-        console.log(`[FUB] contact search "${q}" (${searchKey}=): ${contacts.length} results`);
-        if (contacts.length > 0) break;
+        // Stop when we've fetched all or hit 1000 contact safety cap
+        if (batch.length < pageSize || allPeople.length >= 1000) break;
+        offset += pageSize;
       }
 
+      const qWords = qLower.split(/\s+/).filter(Boolean);
+      const matched = allPeople.filter(p => {
+        const name = (p.name || "").toLowerCase();
+        return qWords.every(word => name.includes(word));
+      });
+
+      const contacts = matched.slice(0, limit).map(p => {
+        const phones = (p.phones || []).map(ph => ({ number: ph.value, type: ph.type }));
+        const emails = (p.emails || []).map(em => ({ address: em.value, type: em.type }));
+        const addr = p.addresses?.[0];
+        return {
+          id: p.id,
+          name: p.name || null,
+          phones,
+          emails,
+          address: addr ? [addr.street, addr.city, addr.state, addr.code].filter(Boolean).join(", ") : null,
+          lastActivityDate: p.lastActivityDate || null,
+          stage: p.stage || null,
+          created: p.created || null,
+        };
+      });
+
+      console.log(`[FUB] contact search "${q}": scanned ${allPeople.length}, matched ${matched.length}, returning ${contacts.length}`);
       res.json({ ok: true, contacts, total: contacts.length });
     } catch (e) {
       console.error("[FUB] contact search error:", e);
