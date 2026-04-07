@@ -41,6 +41,7 @@ Reminders:
 - AI content: "Send me an inspiring quote every day at 6am" → recurrence='daily', ai_prompt='inspiring quote, 1-2 sentences', text='Morning quote'
 
 FUB CRM: {{FUB_AGENT_LINE}}
+FUB contacts: once a contact is resolved (via search or task list), remember their person_id for the rest of the conversation. Always pass person_id to fub_create_note/fub_send_text instead of re-resolving by name. Never ask the user "which client?" after they have already named one.
 
 Date: {{CURRENT_DATE_READABLE}}
 ''';
@@ -638,7 +639,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_search_contacts",
-      "description": "Search for FUB contacts by partial name (case-insensitive), scoped to the agent. Use when user asks to find or look up a client by name (e.g. 'find all my Johns', 'look up Smith', 'search for William'). Returns full contact details. Prefer person_id from results in subsequent tool calls.",
+      "description": "Search for FUB contacts by partial name (case-insensitive), scoped to the agent. Use when user asks to find or look up a client by name (e.g. 'find all my Johns', 'look up Smith', 'search for William'). Returns full contact details including person id. IMPORTANT: store the returned person_id and use it in all subsequent fub_create_note/fub_send_text calls — do NOT re-resolve or ask the user which client again.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -661,7 +662,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_create_note",
-      "description": "Create an internal note on a FUB client's timeline on behalf of the agent. Notes are not sent to the client — they are private CRM records. Use when the agent wants to log something about a client (e.g. 'note that John called about pricing'). Prefer person_id when the client was already resolved in this conversation.",
+      "description": "Create an internal note on a FUB client's timeline on behalf of the agent. Notes are not sent to the client — they are private CRM records. Use when the agent wants to log something about a client (e.g. 'note that John called about pricing'). ALWAYS pass person_id when the client was already resolved in this conversation (from search or task list) — never re-ask the user which client.",
       "parameters": {
         "type": "object",
         "properties": {
