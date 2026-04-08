@@ -51,8 +51,12 @@
 	<string>RoadMate needs calendar access to help you manage your schedule and answer questions about your events.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>RoadMate needs camera access to take photos for your conversations.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>RoadMate uses your location to provide navigation and nearby assistance.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>RoadMate uses your location to provide navigation and nearby assistance.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>RoadMate needs access to your photo library to attach photos to your conversations.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>RoadMate needs microphone access for voice conversations.</string>
 <key>NSUserNotificationUsageDescription</key>
