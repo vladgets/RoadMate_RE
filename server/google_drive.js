@@ -105,8 +105,19 @@ export function registerDriveRoutes(app) {
       });
     } catch (e) {
       console.error(`[drive] read_file error for file_id=${fileId}:`, e.message);
-      const status = e.message.includes("Not authorized") ? 401 : 500;
-      res.status(status).json({ ok: false, error: e.message });
+      const msg = e.message || "";
+      let userError = msg;
+      if (msg.includes("insufficient authentication scopes") || msg.includes("insufficientPermissions")) {
+        userError = "Google Drive access not authorized. Please reconnect your Google account in Settings → Extensions to grant Drive permission.";
+      } else if (msg.includes("notFound") || msg.includes("File not found")) {
+        userError = "File not found. It may have been deleted or the sharing settings changed.";
+      } else if (msg.includes("forbidden") || msg.includes("The caller does not have permission")) {
+        userError = "You don't have access to this file. Ask the owner to share it with your Google account.";
+      } else if (msg.includes("Not authorized")) {
+        userError = "Google account not connected. Please authorize in Settings → Extensions.";
+      }
+      const status = msg.includes("Not authorized") ? 401 : 500;
+      res.status(status).json({ ok: false, error: userError });
     }
   });
 }
