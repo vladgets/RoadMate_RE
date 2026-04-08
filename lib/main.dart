@@ -22,6 +22,7 @@ import 'services/calendar.dart';
 import 'services/web_search.dart';
 import 'services/gmail_client.dart';
 import 'services/gcalendar_client.dart';
+import 'services/gdrive_client.dart';
 import 'services/map_navigation.dart';
 import 'services/phone_call.dart';
 import 'services/reminders.dart';
@@ -152,6 +153,8 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   late final GmailClient gmailClient;
   // Google Calendar client — used on web always, on mobile when source == 'google'.
   late final GCalendarClient gCalendarClient;
+  // Google Drive client — reads PDFs and Docs attached to calendar events.
+  late final GDriveClient gDriveClient;
   String? _clientId;
   // 'apple' | 'google' — only meaningful on mobile; web always uses 'google'.
   String _calendarSource = 'apple';
@@ -231,6 +234,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       _clientId = cid;
       gmailClient = GmailClient(baseUrl: Config.serverUrl, clientId: cid);
       gCalendarClient = GCalendarClient(baseUrl: Config.serverUrl, clientId: cid);
+      gDriveClient = GDriveClient(baseUrl: Config.serverUrl, clientId: cid);
       debugPrint('[ClientId] $cid');
 
       // Load calendar source preference (mobile only; web always uses Google).
@@ -719,6 +723,12 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     }
     return await GmailReadEmailTool(client: gmailClient).call(args);
   },
+  'read_drive_file': (args) async {
+    if (_clientId == null) {
+      return {'ok': false, 'error': 'Not initialized yet. Try again in a second.'};
+    }
+    return await gDriveClient.toolReadDriveFile(args);
+  },
   // traffic ETA tool
   'traffic_eta': (args) async {
     return await handleTrafficEtaToolCall(args);
@@ -878,6 +888,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       'web_search',
       'gmail_search',
       'gmail_read_email',
+      'read_drive_file',
       'traffic_eta',
     };
 

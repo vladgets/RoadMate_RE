@@ -56,6 +56,7 @@ export function registerCalendarRoutes(app) {
             singleEvents: true,
             orderBy: "startTime",
             maxResults: 100,
+            supportsAttachments: true,
           });
 
           for (const evt of eventsRes.data.items || []) {
@@ -68,6 +69,11 @@ export function registerCalendarRoutes(app) {
               location: evt.location || "",
               calendar: cal.summary || "",
               calendar_id: cal.id || "",
+              attachments: (evt.attachments || []).map((a) => ({
+                file_id: a.fileId || "",
+                title: a.title || "",
+                mime_type: a.mimeType || "",
+              })),
             });
           }
         } catch (e) {

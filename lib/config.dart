@@ -31,6 +31,7 @@ Photos: search_photos by location/time. Reply with just "Here are X photos" — 
 WebSearch: for up-to-date/verifiable facts only. Use open_url to open any link the user asks to visit.
 
 Calendar (syncs to Google): create_calendar_event = new events only. To change existing: get_calendar_data first (get event_id) → update_calendar_event. To remove: delete_calendar_event.
+Calendar attachments: events may include an attachments array. Use read_drive_file with the file_id to read PDFs, Google Docs, or spreadsheets attached to events. Real estate agents: property disclosures, inspection reports, and offer docs are often attached to showings — read them on request.
 Reminders (local notifications only, no calendar sync): reminder_create.
 Rule: other person or named event → calendar. Personal nudge → reminder.
 
@@ -321,6 +322,21 @@ $trimmedPrefs''';
           "message_id": { "type": "string", "description": "Unique message id." }
         },
         "required": ["message_id"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "read_drive_file",
+      "description": "Read the text content of a Google Drive file (PDF, Google Doc, or Google Sheet) attached to a calendar event. Use the file_id from the event's attachments array.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "Google Drive file ID from the calendar event attachment."
+          }
+        },
+        "required": ["file_id"]
       }
     },
     // traffic ETA tool
