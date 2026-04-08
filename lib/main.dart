@@ -21,6 +21,7 @@ import 'services/memory_store.dart';
 import 'services/calendar.dart';
 import 'services/web_search.dart';
 import 'services/gmail_client.dart';
+import 'services/gcalendar_client.dart';
 import 'services/map_navigation.dart';
 import 'services/phone_call.dart';
 import 'services/reminders.dart';
@@ -149,7 +150,11 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
 
   // Gmail client (multi-user): initialized with per-install client id.
   late final GmailClient gmailClient;
+  // Google Calendar client — used on web always, on mobile when source == 'google'.
+  late final GCalendarClient gCalendarClient;
   String? _clientId;
+  // 'apple' | 'google' — only meaningful on mobile; web always uses 'google'.
+  String _calendarSource = 'apple';
   // Deduplicate tool calls (Realtime may emit in_progress + completed, and can resend events).
   final Set<String> _handledToolCallIds = <String>{};
 
@@ -221,11 +226,22 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       }
     });
 
-    // Ensure we have a stable client id for Gmail token storage on the server.
-    ClientIdStore.getOrCreate().then((cid) {
+    // Ensure we have a stable client id for Gmail/Calendar token storage on the server.
+    ClientIdStore.getOrCreate().then((cid) async {
       _clientId = cid;
       gmailClient = GmailClient(baseUrl: Config.serverUrl, clientId: cid);
+      gCalendarClient = GCalendarClient(baseUrl: Config.serverUrl, clientId: cid);
       debugPrint('[ClientId] $cid');
+
+      // Load calendar source preference (mobile only; web always uses Google).
+      if (!kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        final source = prefs.getString('calendar_source') ?? 'apple';
+        _calendarSource = source;
+      } else {
+        _calendarSource = 'google';
+      }
+
       if (mounted) setState(() {});
     });
 
@@ -646,17 +662,30 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   'memory_fetch': (_) async {
     return await MemoryStore.toolRead();
   },
-  // Calendar tools
+  // Calendar tools — routes to Google Calendar API or Apple/device calendar
+  // based on platform and user preference.
   'get_calendar_data': (args) async {
+    if (kIsWeb || _calendarSource == 'google') {
+      return await gCalendarClient.toolGetCalendarData(args);
+    }
     return await CalendarStore.toolGetCalendarData(args);
   },
   'create_calendar_event': (args) async {
+    if (kIsWeb || _calendarSource == 'google') {
+      return await gCalendarClient.toolCreateCalendarEvent(args);
+    }
     return await CalendarStore.toolCreateCalendarEvent(args);
   },
   'update_calendar_event': (args) async {
+    if (kIsWeb || _calendarSource == 'google') {
+      return await gCalendarClient.toolUpdateCalendarEvent(args);
+    }
     return await CalendarStore.toolUpdateCalendarEvent(args);
   },
   'delete_calendar_event': (args) async {
+    if (kIsWeb || _calendarSource == 'google') {
+      return await gCalendarClient.toolDeleteCalendarEvent(args);
+    }
     return await CalendarStore.toolDeleteCalendarEvent(args);
   },
   // Time and date tool
