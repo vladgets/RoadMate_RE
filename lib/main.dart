@@ -426,14 +426,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
         _status = "Connected. Talk!";
       });
 
-      // Send initial greeting if enabled
-      final greetingEnabled = await Config.getInitialGreetingEnabled();
-      if (greetingEnabled) {
-        final greetingPhrase = await Config.getInitialGreetingPhrase();
-        // Wait a bit for the connection to fully stabilize
-        await Future.delayed(const Duration(milliseconds: 500));
-        await _sendInitialGreeting(greetingPhrase);
-      }
     } catch (e) {
       await _disconnect();
       setState(() {
@@ -927,34 +919,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     dc.send(RTCDataChannelMessage(jsonEncode({'type': 'response.create'})));
     debugPrint('>>> Sent tool output: $name (call_id=$callId)');
     debugPrint(jsonEncode(payload));
-  }
-
-  /// Send initial greeting as a user instruction
-  Future<void> _sendInitialGreeting(String phrase) async {
-    final dc = _dc;
-    if (dc == null || dc.state != RTCDataChannelState.RTCDataChannelOpen) return;
-
-    debugPrint('>>> Sending greeting instruction: $phrase');
-
-    // Send user message instructing the assistant to say the exact phrase
-    final userMsg = {
-      'type': 'conversation.item.create',
-      'item': {
-        'type': 'message',
-        'role': 'user',
-        'content': [
-          {
-            'type': 'input_text',
-            'text': 'Your first message should be exactly: "$phrase" (say nothing else)',
-          }
-        ],
-      },
-    };
-    dc.send(RTCDataChannelMessage(jsonEncode(userMsg)));
-
-    // Trigger response
-    dc.send(RTCDataChannelMessage(jsonEncode({'type': 'response.create'})));
-    debugPrint('>>> Triggered greeting response');
   }
 
   /// UI part

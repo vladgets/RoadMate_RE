@@ -58,9 +58,7 @@ Date: {{CURRENT_DATE_READABLE}}
   // static final serverUrl = kIsWeb ? '' : 'http://10.0.0.219:3000'; // local test
   static const prefKeyClientId = 'roadmate_client_id';
   static const prefKeyVoice = 'roadmate_voice';
-  static const prefKeyInitialGreetingEnabled = 'roadmate_initial_greeting_enabled';
-  static const prefKeyInitialGreetingPhrase = 'roadmate_initial_greeting_phrase';
-  static const prefKeyFubAgentName = 'fub_agent_name';
+static const prefKeyFubAgentName = 'fub_agent_name';
   static const prefKeyFubAgentId = 'fub_agent_id';
 
   /// Currently identified FUB agent name (in-memory, loaded at startup).
@@ -91,46 +89,6 @@ Date: {{CURRENT_DATE_READABLE}}
       await prefs.setString(prefKeyVoice, newVoice);
     } catch (_) {
       // Ignore persistence errors; voice stays updated for this session.
-    }
-  }
-
-  /// Get whether initial greeting is enabled (default: false)
-  static Future<bool> getInitialGreetingEnabled() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(prefKeyInitialGreetingEnabled) ?? false;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Set whether initial greeting is enabled
-  static Future<void> setInitialGreetingEnabled(bool enabled) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(prefKeyInitialGreetingEnabled, enabled);
-    } catch (_) {
-      // Ignore persistence errors
-    }
-  }
-
-  /// Get the initial greeting phrase (default: "Hello, how can I help you?")
-  static Future<String> getInitialGreetingPhrase() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(prefKeyInitialGreetingPhrase) ?? "Hello, how can I help you?";
-    } catch (_) {
-      return "Hello, how can I help you?";
-    }
-  }
-
-  /// Set the initial greeting phrase
-  static Future<void> setInitialGreetingPhrase(String phrase) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(prefKeyInitialGreetingPhrase, phrase);
-    } catch (_) {
-      // Ignore persistence errors
     }
   }
 

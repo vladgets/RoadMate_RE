@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'my_data_screen.dart';
-import 'developer_area_menu.dart';
 import 'app_configuration_screen.dart';
 import 'extensions_settings_screen.dart';
 import 'fub_identity_screen.dart';
@@ -93,17 +92,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(),
 
-          ListTile(
-            leading: const Icon(Icons.developer_mode),
-            title: const Text('Developer'),
-            subtitle: const Text('Debug tools and experimental features'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const DeveloperAreaScreen()),
-              );
-            },
-          ),
         ],
       ),
     );
