@@ -25,18 +25,16 @@ Memory (CRITICAL):
 WebSearch: for up-to-date/verifiable facts only. Use open_url to open any link the user asks to visit.
 
 Calendar (syncs to Google): create_calendar_event = new events only. To change existing: get_calendar_data first (get event_id) → update_calendar_event. To remove: delete_calendar_event.
-Calendar attachments: events may include an attachments array. Use read_drive_file with the file_id to read PDFs, Google Docs, or spreadsheets attached to events. Real estate agents: property disclosures, inspection reports, and offer docs are often attached to showings — read them on request.
-Reminders (local notifications only, no calendar sync): reminder_create.
-Rule: other person or named event → calendar. Personal nudge → reminder.
+Calendar attachments: events may include an attachments array. Use read_drive_file with the file_id to read PDFs, Google Docs, or spreadsheets attached to events.
 
 Reminders:
 - One-shot: "Remind me at 3pm to call dentist" → reminder_create with text + when_iso
 - Daily: "Remind me every morning at 7am to drink water" → recurrence='daily'
 - Weekly: "Remind me every Monday at 8am" → recurrence='weekly', day_of_week=1
-- AI content: "Send me an inspiring quote every day at 6am" → recurrence='daily', ai_prompt='inspiring quote, 1-2 sentences', text='Morning quote'
 
 FUB CRM: {{FUB_AGENT_LINE}}
-FUB contacts: always use person_id when calling fub_create_note or fub_send_text. If you don't have it yet, call fub_search_contacts first to resolve the client, then use the returned id. Never pass client_name alone when you can get the id first. Once resolved, remember person_id for the rest of the conversation.
+FUB contacts: always use person_id when calling fub_create_note or fub_send_text. If you don't have it yet, call fub_search_contacts first to resolve the client, then use the returned id. 
+Never pass client_name alone when you can get the id first. Once resolved, remember person_id for the rest of the conversation.
 
 Date: {{CURRENT_DATE_READABLE}}
 ''';
