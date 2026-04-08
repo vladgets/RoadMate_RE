@@ -21,10 +21,11 @@ class GCalendarClient {
 
   // ── Authorization status ─────────────────────────────────────────────────
 
-  /// Returns true if the server holds a valid token for this client.
+  /// Returns true if the server holds a valid Google token for this client.
+  /// Uses the shared /oauth/google/status endpoint (covers Gmail + Calendar).
   Future<bool> isAuthorized() async {
     try {
-      final r = await http.get(_u('/calendar/status'), headers: _headers());
+      final r = await http.get(_u('/oauth/google/status'), headers: _headers());
       if (r.statusCode != 200) return false;
       final body = jsonDecode(r.body) as Map<String, dynamic>;
       return body['authorized'] == true;

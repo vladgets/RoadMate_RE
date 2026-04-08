@@ -1,7 +1,10 @@
 import fs from "fs";
 import { google } from "googleapis";
 
-const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
+const SCOPES = [
+  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/calendar",
+];
 const TOKEN_DIR = process.env.GOOGLE_TOKEN_DIR || "/data/gmail_tokens";
 
 // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, BASE_URL
@@ -216,6 +219,9 @@ function extractBodyTextFromMessage(msg, maxChars = 12000) {
 }
 
 
+// Shared helpers exported for use by other Google service modules.
+export { loadToken, getAuthorizedClient, sanitizeClientId, getClientIdFromReq, TOKEN_DIR };
+
 //
 // Exposed APIs
 export function registerGmailRoutes(app) {
@@ -265,13 +271,23 @@ export function registerGmailRoutes(app) {
       const { tokens } = await oauth2.getToken(code);
       oauth2.setCredentials(tokens);
 
-      // Save tokens for later Gmail calls
+      // Save tokens (covers Gmail + Calendar — both scopes requested)
       saveToken(clientId, tokens);
+      console.log(`[google] OAuth token saved for client_id=${clientId}, scopes=${tokens.scope}`);
 
-      return res.json({ ok: true, client_id: clientId, message: "Gmail authorized. You can close this tab." });
+      return res.send("<p>Google account connected successfully. You can close this tab and return to RoadMate.</p>");
     } catch (e) {
       return res.status(500).json({ ok: false, error: String(e) });
     }
+  });
+
+  // Google account connection status (covers Gmail + Calendar — shared token)
+  app.get("/oauth/google/status", (req, res) => {
+    const clientId = getClientIdFromReq(req);
+    if (!clientId)
+      return res.status(400).json({ ok: false, error: "Missing client_id" });
+    const token = loadToken(clientId);
+    res.json({ ok: true, authorized: token !== null });
   });
 
   // Search Gmail
