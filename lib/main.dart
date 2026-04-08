@@ -374,7 +374,11 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       // 4) Local mic stream
       setState(() => _status = "Opening microphone…");
       _mic = await navigator.mediaDevices.getUserMedia({
-        'audio': true,
+        'audio': {
+          'echoCancellation': true,
+          'noiseSuppression': true,
+          'autoGainControl': true,
+        },
         'video': false,
       });
 
