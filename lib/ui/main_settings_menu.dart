@@ -90,8 +90,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
             },
           ),
-          const Divider(),
-
         ],
       ),
     );

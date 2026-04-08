@@ -936,30 +936,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
-            tooltip: 'Chat',
-            icon: const Icon(Icons.chat_bubble_outline),
-            onPressed: () async {
-              if (_conversationStore == null) return;
-              _navigatedAway = true;
-              await _disconnect();
-
-              if (!mounted) return;
-
-              // ignore: use_build_context_synchronously
-              await Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ChatScreen(
-                    conversationStore: _conversationStore!,
-                    toolExecutor: executeTool,
-                    clientId: _clientId,
-                    agentName: Config.fubAgentName,
-                  ),
-                ),
-              );
-              _navigatedAway = false;
-            },
-          ),
-          IconButton(
             tooltip: 'Settings',
             icon: const Icon(Icons.settings),
             onPressed: () async {
@@ -974,6 +950,31 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
             },
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Chat',
+        backgroundColor: Colors.white12,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        onPressed: () async {
+          if (_conversationStore == null) return;
+          _navigatedAway = true;
+          await _disconnect();
+          if (!mounted) return;
+          // ignore: use_build_context_synchronously
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ChatScreen(
+                conversationStore: _conversationStore!,
+                toolExecutor: executeTool,
+                clientId: _clientId,
+                agentName: Config.fubAgentName,
+              ),
+            ),
+          );
+          _navigatedAway = false;
+        },
+        child: const Icon(Icons.chat_bubble_outline),
       ),
       body: SafeArea(
         child: Center(
