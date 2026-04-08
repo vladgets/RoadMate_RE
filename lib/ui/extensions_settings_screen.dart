@@ -223,25 +223,6 @@ class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
     }
   }
 
-  Future<void> _testGmail() async {
-    try {
-      await testGmailClient(_gmailClient());
-      await _checkGmailAuthorization();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Gmail test completed. Check logs for details.'),
-          backgroundColor: Colors.green,
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Gmail test failed: $e'),
-            backgroundColor: Colors.red));
-      }
-    }
-  }
-
   Future<void> _toggleGmail(bool value) async {
     if (_loading) return;
     setState(() {
@@ -421,8 +402,8 @@ class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
                   : (_gmailChecking
                       ? 'Checking authorization…'
                       : (_gmailAuthorized
-                          ? 'Authorized on server'
-                          : 'Not authorized (tap Authorize)')),
+                          ? 'Authorized'
+                          : 'Not authorized — tap Authorize')),
             ),
             trailing: _loading
                 ? _spinner()
@@ -434,10 +415,6 @@ class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
                             _gmailEnabled ? _authorizeGmailInBrowser : null,
                         child: const Text('Authorize'),
                       ),
-                      TextButton(
-                        onPressed: _gmailEnabled ? _testGmail : null,
-                        child: const Text('Test'),
-                      ),
                       Switch(
                         value: _gmailEnabled,
                         onChanged: _toggleGmail,
@@ -447,12 +424,20 @@ class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
           ),
           if (_gmailEnabled && !_gmailAuthorized)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Text(
                 _clientId == null || _clientId!.isEmpty
                     ? 'Client id not initialized yet. Restart the app.'
-                    : 'Authorize Gmail in a browser: ${Config.serverUrl}/oauth/google/start?client_id=$_clientId',
+                    : 'Open the Authorize link in your browser, sign in with Google, then return here.',
                 style: TextStyle(color: Colors.orange.shade700, fontSize: 12),
+              ),
+            ),
+          if (_gmailEnabled && _gmailAuthorized)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Text(
+                'Gmail is connected.',
+                style: TextStyle(color: Colors.green.shade700, fontSize: 12),
               ),
             ),
         ],
