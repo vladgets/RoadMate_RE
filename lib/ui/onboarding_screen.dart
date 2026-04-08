@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../config.dart';
 import 'fub_identity_screen.dart';
+import 'extensions_settings_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -78,16 +79,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     });
   }
 
-  Future<void> _requestCalendar() async {
-    await _requestPermission(Permission.calendarFullAccess, (granted) {
-      setState(() => _calendarGranted = granted);
-    });
-  }
-
   Future<void> _requestNotifications() async {
     await _requestPermission(Permission.notification, (granted) {
       setState(() => _notificationsGranted = granted);
     });
+  }
+
+  Future<void> _openGoogleCalendar() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ExtensionsSettingsScreen()),
+    );
   }
 
   Future<void> _openCrmIdentity() async {
@@ -143,7 +144,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
                 style: TextStyle(fontSize: 18, color: Colors.grey, height: 1.4),
               ),
 
-              const SizedBox(height: 48),
+              const SizedBox(height: 32),
 
               // Permissions
               const Text(
@@ -175,11 +176,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
               ),
               _buildPermissionTile(
                 icon: Icons.calendar_today,
-                title: 'Calendar',
+                title: 'Google Calendar',
                 subtitle: 'Manage showings, closings, and appointments',
                 isGranted: _calendarGranted,
                 isRequired: false,
-                onTap: _requestCalendar,
+                onTap: _openGoogleCalendar,
               ),
               _buildPermissionTile(
                 icon: Icons.notifications,
