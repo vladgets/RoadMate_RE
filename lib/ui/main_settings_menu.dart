@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'memory_settings_screen.dart';
-import 'reminders_screen.dart';
-import 'voice_memories_screen.dart';
+import 'my_data_screen.dart';
 import 'developer_area_menu.dart';
 import 'app_configuration_screen.dart';
 import 'extensions_settings_screen.dart';
@@ -82,50 +80,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(),
 
-          // existing items unchanged
           ListTile(
-            leading: const Icon(Icons.tune),
-            title: const Text('Preferences'),
-            subtitle: const Text('Edit user preferences (prompt)'),
+            leading: const Icon(Icons.folder_open_outlined),
+            title: const Text('My Data'),
+            subtitle: const Text('Preferences, memory, reminders, and voice notes'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => PreferencesSettingsScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.psychology_alt_outlined),
-            title: const Text('Long-term Memory'),
-            subtitle: const Text('View and manage stored memory'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const MemorySettingsScreen()),
-              );
-            },
-          ),
-          // Reminders (view upcoming reminders)
-          ListTile(
-            leading: const Icon(Icons.notifications_active_outlined),
-            title: const Text('Reminders'),
-            subtitle: const Text('View upcoming reminders'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const RemindersScreen()),
-              );
-            },
-          ),
-          // Voice Notes
-          ListTile(
-            leading: const Icon(Icons.mic_none_outlined),
-            title: const Text('Voice Notes'),
-            subtitle: const Text('Browse saved voice notes'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const VoiceMemoriesScreen()),
+                MaterialPageRoute(builder: (_) => const MyDataScreen()),
               );
             },
           ),
