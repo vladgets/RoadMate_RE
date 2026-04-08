@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -43,6 +43,9 @@ class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
     _loadSettings();
   }
 
+  bool get _isIOS =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
   GCalendarClient _gClient() =>
       GCalendarClient(baseUrl: Config.serverUrl, clientId: _clientId);
 
@@ -56,7 +59,7 @@ class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
       _clientId = prefs.getString(Config.prefKeyClientId);
     });
 
-    if (!kIsWeb) await _checkAppleCalendarPermissions();
+    if (_isIOS) await _checkAppleCalendarPermissions();
     await _checkGoogleConnection();
   }
 
@@ -250,8 +253,8 @@ class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
             onChanged: _googleConnected ? _toggleGCalendar : null,
           ),
 
-          // ── Apple Calendar (mobile only) ──────────────────────────────────
-          if (!kIsWeb) ...[
+          // ── Apple Calendar (iOS only) ─────────────────────────────────────
+          if (_isIOS) ...[
             const Divider(height: 1),
             SwitchListTile(
               secondary: const Icon(Icons.calendar_today),
@@ -273,7 +276,7 @@ class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
           ],
 
           // ── Calendar source selector (mobile, when both enabled) ───────────
-          if (!kIsWeb && _appleCalendarEnabled && _gCalendarEnabled) ...[
+          if (_isIOS && _appleCalendarEnabled && _gCalendarEnabled) ...[
             const Divider(height: 1),
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 12, 16, 4),

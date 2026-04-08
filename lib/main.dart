@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -662,31 +662,31 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   'memory_fetch': (_) async {
     return await MemoryStore.toolRead();
   },
-  // Calendar tools — routes to Google Calendar API or Apple/device calendar
-  // based on platform and user preference.
+  // Calendar tools — Apple Calendar only on iOS when user chose it;
+  // all other platforms (web, Android) always use Google Calendar.
   'get_calendar_data': (args) async {
-    if (kIsWeb || _calendarSource == 'google') {
-      return await gCalendarClient.toolGetCalendarData(args);
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && _calendarSource == 'apple') {
+      return await CalendarStore.toolGetCalendarData(args);
     }
-    return await CalendarStore.toolGetCalendarData(args);
+    return await gCalendarClient.toolGetCalendarData(args);
   },
   'create_calendar_event': (args) async {
-    if (kIsWeb || _calendarSource == 'google') {
-      return await gCalendarClient.toolCreateCalendarEvent(args);
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && _calendarSource == 'apple') {
+      return await CalendarStore.toolCreateCalendarEvent(args);
     }
-    return await CalendarStore.toolCreateCalendarEvent(args);
+    return await gCalendarClient.toolCreateCalendarEvent(args);
   },
   'update_calendar_event': (args) async {
-    if (kIsWeb || _calendarSource == 'google') {
-      return await gCalendarClient.toolUpdateCalendarEvent(args);
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && _calendarSource == 'apple') {
+      return await CalendarStore.toolUpdateCalendarEvent(args);
     }
-    return await CalendarStore.toolUpdateCalendarEvent(args);
+    return await gCalendarClient.toolUpdateCalendarEvent(args);
   },
   'delete_calendar_event': (args) async {
-    if (kIsWeb || _calendarSource == 'google') {
-      return await gCalendarClient.toolDeleteCalendarEvent(args);
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && _calendarSource == 'apple') {
+      return await CalendarStore.toolDeleteCalendarEvent(args);
     }
-    return await CalendarStore.toolDeleteCalendarEvent(args);
+    return await gCalendarClient.toolDeleteCalendarEvent(args);
   },
   // Time and date tool
   'get_current_time': (_) async {
