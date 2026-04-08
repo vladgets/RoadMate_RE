@@ -8,10 +8,16 @@ import {
 // OAuth and token storage are handled by gmail.js (shared token, combined scopes).
 // This module only registers the Calendar API proxy routes.
 
-function parseDate(str, fallback) {
+function parseDate(str, fallback, endOfDay = false) {
   if (!str) return fallback;
   const d = new Date(str);
-  return isNaN(d.getTime()) ? fallback : d;
+  if (isNaN(d.getTime())) return fallback;
+  // Date-only strings (YYYY-MM-DD) are parsed as UTC midnight by JS.
+  // When used as an end boundary, push to 23:59:59 UTC so the full day is included.
+  if (endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    d.setUTCHours(23, 59, 59, 999);
+  }
+  return d;
 }
 
 export function registerCalendarRoutes(app) {
@@ -32,7 +38,7 @@ export function registerCalendarRoutes(app) {
       defaultEnd.setDate(defaultEnd.getDate() + 7);
 
       const startDate = parseDate(req.query.start_date, defaultStart);
-      const endDate = parseDate(req.query.end_date, defaultEnd);
+      const endDate = parseDate(req.query.end_date, defaultEnd, true);
 
       console.log(`[calendar] fetching events for client_id=${clientId}, range=${startDate.toISOString()} → ${endDate.toISOString()}`);
 
