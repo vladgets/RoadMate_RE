@@ -2,11 +2,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/whatsapp_contact.dart';
 import 'memory_store.dart';
-import 'photo_index_service.dart';
 import 'whatsapp_baileys_service.dart';
-import 'package:photo_manager/photo_manager.dart';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 
 /// Service for sending WhatsApp messages via voice commands.
 class WhatsAppService {
@@ -18,16 +15,11 @@ class WhatsAppService {
   /// Parameters:
   /// - contact_name (required): Name to lookup in memory
   /// - message (required): Text to send
-  /// - photo_location (optional): Location to find photo
-  /// - photo_time (optional): Time period for photo
   /// - include_sender_name (optional): Prepend sender name to message
   Future<Map<String, dynamic>> toolSendWhatsAppMessage(dynamic args) async {
     try {
       final contactName = args['contact_name'] as String?;
       final message = args['message'] as String?;
-      final photoLocation = args['photo_location'] as String?;
-      final photoTime = args['photo_time'] as String?;
-      final photoLimit = (args['photo_limit'] as num?)?.toInt() ?? 1;
       final includeSenderName = args['include_sender_name'] as bool? ?? false;
 
       final screenshotPath = args['screenshot_path'] as String?;
@@ -70,15 +62,9 @@ class WhatsAppService {
       final baileysStatus = await WhatsAppBaileysService.instance.getStatus();
       final autoSend = baileysStatus.connected;
 
-      // Resolve image: screenshot takes priority, then photo album search.
+      // Resolve image: screenshot only (photo album search removed).
       String? imagePath = screenshotPath;
       List<String>? photoPaths;
-      if (imagePath == null && (photoLocation != null || photoTime != null)) {
-        photoPaths = await _findPhotos(photoLocation, photoTime, photoLimit.clamp(1, 10));
-        if (photoPaths != null && photoPaths.isNotEmpty) {
-          imagePath = photoPaths.first;
-        }
-      }
 
       // Clean phone number for all paths
       final cleanPhone = contact.phoneNumber.replaceAll(RegExp(r'[\s\-\(\)\+]'), '');
@@ -202,38 +188,6 @@ class WhatsAppService {
       return null;
     } catch (e) {
       // debugPrint('Error getting sender name: $e');
-      return null;
-    }
-  }
-
-  /// Find photos by location and/or time. Returns up to [limit] temp file paths.
-  Future<List<String>?> _findPhotos(String? location, String? timePeriod, int limit) async {
-    try {
-      final results = await PhotoIndexService.instance.searchPhotos(
-        location: location,
-        timePeriod: timePeriod,
-        limit: limit,
-      );
-
-      if (results.isEmpty) return null;
-
-      final tempDir = await getTemporaryDirectory();
-      final paths = <String>[];
-      final now = DateTime.now().millisecondsSinceEpoch;
-
-      for (var i = 0; i < results.length; i++) {
-        final asset = await AssetEntity.fromId(results[i].id);
-        if (asset == null) continue;
-        final file = await asset.file;
-        if (file == null) continue;
-        final tempPath = '${tempDir.path}/whatsapp_${now}_$i.jpg';
-        await file.copy(tempPath);
-        paths.add(tempPath);
-      }
-
-      return paths.isEmpty ? null : paths;
-    } catch (e) {
-      // debugPrint('Error finding photos: $e');
       return null;
     }
   }

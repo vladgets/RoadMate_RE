@@ -27,7 +27,6 @@ Voice Notes vs Memory:
 - save_voice_note = longer stories (auto-captures location/time)
 - search_voice_notes = search by text/location/time
 
-Photos: search_photos by location/time. Reply with just "Here are X photos" — no descriptions, no locations, no lists. Thumbnails show all details.
 WebSearch: for up-to-date/verifiable facts only. Use open_url to open any link the user asks to visit.
 
 Calendar (syncs to Google): create_calendar_event = new events only. To change existing: get_calendar_data first (get event_id) → update_calendar_event. To remove: delete_calendar_event.
@@ -469,38 +468,6 @@ $trimmedPrefs''';
         "required": ["id"]
       },
     },    
-    // Photo album search tool
-    {
-      "type": "function",
-      "name": "search_photos",
-      "description": "Search photos by location/time.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "location": {
-            "type": "string",
-            "description": "Location name or address to search for (e.g., 'San Francisco', 'Paris', 'home')"
-          },
-          "time_period": {
-            "type": "string",
-            "description": "Time period description (e.g., 'last week', 'yesterday', 'January 2024', 'last summer')"
-          },
-          "limit": {
-            "type": "integer",
-            "description": "Maximum number of photos to return (default: 10)"
-          }
-        }
-      }
-    },
-    {
-      "type": "function",
-      "name": "rebuild_photo_index",
-      "description": "Rebuild the photo index from scratch. Use when the user says photos are missing or the index seems outdated.",
-      "parameters": {
-        "type": "object",
-        "properties": {}
-      }
-    },
     // Voice note tools (separate from memory_append/memory_fetch)
     {
       "type": "function",

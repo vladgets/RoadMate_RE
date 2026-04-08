@@ -59,11 +59,7 @@
 	<string>RoadMate needs microphone access for voice conversations.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>RoadMate uses motion data to detect when you start and end driving, so it can log your trip history automatically.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>RoadMate needs permission to save photos to your library.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>RoadMate needs access to your photos to help you find and view them by location and time.</string>
-	<key>NSUserNotificationUsageDescription</key>
+<key>NSUserNotificationUsageDescription</key>
 	<string>RoadMate sends reminders you create.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>

@@ -27,7 +27,6 @@ import 'services/map_navigation.dart';
 import 'services/phone_call.dart';
 import 'services/reminders.dart';
 import 'services/conversation_store.dart';
-import 'services/photo_index_service.dart';
 import 'services/voice_memory_store.dart';
 import 'services/whatsapp_service.dart';
 import 'services/driving_log_store.dart';
@@ -53,11 +52,6 @@ Future<void> main() async {
 
   // Initialize reminders service
   await RemindersService.instance.init();
-
-  // Initialize photo index service and start background indexing
-  await PhotoIndexService.instance.init();
-  PhotoIndexService.instance.buildIndexInBackground();
-  PhotoIndexService.instance.startChangeListener();
 
   // Initialize voice memory store (uses path_provider — not available on web)
   if (!kIsWeb) await VoiceMemoryStore.instance.init();
@@ -752,14 +746,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   },
   'reminder_cancel': (args) async {
     return await RemindersService.instance.toolCancel(args);
-  },
-  // Photo album search tool
-  'search_photos': (args) async {
-    return await PhotoIndexService.instance.toolSearchPhotos(args);
-  },
-  'rebuild_photo_index': (_) async {
-    final result = await PhotoIndexService.instance.buildIndex(forceRebuild: true);
-    return result;
   },
   // Voice note tools
   'save_voice_note': (args) async {
