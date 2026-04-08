@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
 import 'flic_settings_screen.dart';
 import 'onboarding_screen.dart';
-import 'whatsapp_settings_screen.dart';
 
 class AppConfigurationScreen extends StatefulWidget {
   const AppConfigurationScreen({super.key});
@@ -125,17 +124,6 @@ class _AppConfigurationScreenState extends State<AppConfigurationScreen> {
           ),
           const Divider(),
 
-          ListTile(
-            leading: const Icon(Icons.send_outlined),
-            title: const Text('WhatsApp Auto-Send'),
-            subtitle: const Text('Pair account for automatic messaging'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const WhatsAppSettingsScreen()),
-              );
-            },
-          ),
           ListTile(
             leading: const Icon(Icons.bluetooth),
             title: const Text('Flic Button'),

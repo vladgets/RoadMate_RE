@@ -2,7 +2,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/whatsapp_contact.dart';
 import 'memory_store.dart';
-import 'whatsapp_baileys_service.dart';
 import 'dart:io';
 
 /// Service for sending WhatsApp messages via voice commands.
@@ -58,44 +57,9 @@ class WhatsAppService {
         }
       }
 
-      // Check if Baileys auto-send is available (account paired on server).
-      final baileysStatus = await WhatsAppBaileysService.instance.getStatus();
-      final autoSend = baileysStatus.connected;
-
-      // Resolve image: screenshot only (photo album search removed).
-      String? imagePath = screenshotPath;
-      List<String>? photoPaths;
-
-      // Clean phone number for all paths
-      final cleanPhone = contact.phoneNumber.replaceAll(RegExp(r'[\s\-\(\)\+]'), '');
-
-      // ── Auto-send path (Baileys connected) ──────────────────────────────
-      if (autoSend) {
-        final sent = await WhatsAppBaileysService.instance.send(
-          phone: cleanPhone,
-          message: finalMessage,
-          imagePath: imagePath,
-        );
-        if (sent) {
-          final hasImage = imagePath != null;
-          final imageDesc = screenshotPath != null ? 'screenshot' : 'photo';
-          return {
-            'status': 'success',
-            'message': hasImage
-                ? 'WhatsApp message with $imageDesc sent automatically to ${contact.name}.'
-                : 'WhatsApp message sent automatically to ${contact.name}.',
-            'contact': contact.name,
-            'phone': contact.phoneNumber,
-            'auto_sent': true,
-          };
-        }
-        // Baileys send failed — fall through to manual path.
-      }
-
-      // ── Manual path (fallback: open WhatsApp) ───────────────────────────
+      // ── Open WhatsApp ───────────────────────────────────────────────────
       final allPhotoPaths = [
         if (screenshotPath != null) screenshotPath,
-        ...?photoPaths,
       ];
       if (allPhotoPaths.isNotEmpty) {
         final success = await _sendWithPhotos(contact.phoneNumber, finalMessage, allPhotoPaths);

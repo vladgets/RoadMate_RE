@@ -19,6 +19,7 @@ class MyDataScreen extends StatelessWidget {
               MaterialPageRoute(builder: (_) => PreferencesSettingsScreen()),
             ),
           ),
+          const Divider(),
           ListTile(
             leading: const Icon(Icons.psychology_alt_outlined),
             title: const Text('Long-term Memory'),
@@ -28,6 +29,7 @@ class MyDataScreen extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const MemorySettingsScreen()),
             ),
           ),
+          const Divider(),
           ListTile(
             leading: const Icon(Icons.notifications_active_outlined),
             title: const Text('Reminders'),
