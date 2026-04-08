@@ -82,7 +82,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.folder_open_outlined),
             title: const Text('My Data'),
-            subtitle: const Text('Preferences, memory, reminders, and voice notes'),
+            subtitle: const Text('Preferences, memory, and reminders'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(
