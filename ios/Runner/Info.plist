@@ -51,14 +51,10 @@
 	<string>RoadMate needs calendar access to help you manage your schedule and answer questions about your events.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>RoadMate needs camera access to take photos for your conversations.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>RoadMate uses your location to provide navigation and nearby assistance while driving.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>RoadMate uses your location to provide navigation and nearby assistance.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>RoadMate needs microphone access for voice conversations.</string>
-	<key>NSMotionUsageDescription</key>
-	<string>RoadMate uses motion data to detect when you start and end driving, so it can log your trip history automatically.</string>
 <key>NSUserNotificationUsageDescription</key>
 	<string>RoadMate sends reminders you create.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
@@ -67,7 +63,6 @@
 	<array>
 		<string>remote-notification</string>
 		<string>audio</string>
-		<string>location</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

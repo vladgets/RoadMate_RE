@@ -1,10 +1,4 @@
-import 'dart:async';
-import 'package:activity_recognition_flutter/activity_recognition_flutter.dart'
-    if (dart.library.html) '../stubs/activity_event_stub.dart';
 import 'package:flutter/material.dart';
-import 'driving_log_screen.dart';
-import 'activity_settings_screen.dart';
-import '../services/driving_monitor_service.dart';
 import '../config.dart';
 
 
@@ -47,32 +41,6 @@ class _SettingsScreenState extends State<DeveloperAreaScreen> {
       ),
       body: ListView(
         children: [
-          ListTile(
-            leading: const Icon(Icons.history),
-            title: const Text('Activity Log'),
-            subtitle: const Text('Trips, visits, and parking events'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const DrivingLogScreen()),
-              );
-            },
-          ),
-          const _ActivityFeed(),
-          const Divider(),
-          // Activity settings
-          ListTile(
-            leading: const Icon(Icons.tune),
-            title: const Text('Activity Settings'),
-            subtitle: const Text('Visit threshold, POI lookup'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ActivitySettingsScreen()),
-              );
-            },
-          ),
-          const Divider(),
           // Initial greeting settings
           SwitchListTile(
             secondary: const Icon(Icons.waving_hand),
@@ -127,119 +95,4 @@ class _SettingsScreenState extends State<DeveloperAreaScreen> {
     );
   }
 
-}
-
-// ---------------------------------------------------------------------------
-// Live activity sensor feed — shows raw events from the sensor pipeline
-// regardless of confidence, so you can verify detection without driving.
-// ---------------------------------------------------------------------------
-
-class _ActivityFeed extends StatefulWidget {
-  const _ActivityFeed();
-
-  @override
-  State<_ActivityFeed> createState() => _ActivityFeedState();
-}
-
-class _ActivityFeedState extends State<_ActivityFeed> {
-  static const _maxEvents = 5;
-  final List<ActivityEvent> _events = [];
-  StreamSubscription<ActivityEvent>? _sub;
-
-  @override
-  void initState() {
-    super.initState();
-    _sub = DrivingMonitorService.instance.rawEvents.listen((event) {
-      setState(() {
-        _events.insert(0, event);
-        if (_events.length > _maxEvents) _events.removeLast();
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _sub?.cancel();
-    super.dispose();
-  }
-
-  static IconData _iconFor(ActivityType type) {
-    switch (type) {
-      case ActivityType.inVehicle:  return Icons.directions_car;
-      case ActivityType.onBicycle:  return Icons.directions_bike;
-      case ActivityType.onFoot:
-      case ActivityType.walking:    return Icons.directions_walk;
-      case ActivityType.running:    return Icons.directions_run;
-      case ActivityType.still:      return Icons.pause_circle_outline;
-      case ActivityType.tilting:    return Icons.screen_rotation;
-      default:                      return Icons.help_outline;
-    }
-  }
-
-  static Color _colorFor(ActivityType type) {
-    switch (type) {
-      case ActivityType.inVehicle:  return Colors.blue;
-      case ActivityType.still:      return Colors.grey;
-      case ActivityType.onFoot:
-      case ActivityType.walking:    return Colors.green;
-      case ActivityType.running:    return Colors.orange;
-      default:                      return Colors.purple;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Row(
-            children: [
-              const Icon(Icons.sensors, size: 18, color: Colors.grey),
-              const SizedBox(width: 8),
-              Text('Live Activity Feed',
-                  style: Theme.of(context).textTheme.labelLarge),
-              const SizedBox(width: 8),
-              Text('(walk around to test)',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: Colors.grey)),
-            ],
-          ),
-        ),
-        if (_events.isEmpty)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Text('Waiting for sensor events…',
-                style: TextStyle(color: Colors.grey, fontSize: 13)),
-          )
-        else
-          for (final e in _events)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-              child: Row(
-                children: [
-                  Icon(_iconFor(e.type), size: 18, color: _colorFor(e.type)),
-                  const SizedBox(width: 8),
-                  Text(e.typeString,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: _colorFor(e.type))),
-                  const SizedBox(width: 6),
-                  Text('${e.confidence}%',
-                      style: const TextStyle(fontSize: 13)),
-                  const Spacer(),
-                  Text(
-                    '${e.timeStamp.hour.toString().padLeft(2, '0')}:${e.timeStamp.minute.toString().padLeft(2, '0')}:${e.timeStamp.second.toString().padLeft(2, '0')}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
 }

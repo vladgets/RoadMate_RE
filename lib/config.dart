@@ -547,50 +547,6 @@ $trimmedPrefs''';
     },
     {
       "type": "function",
-      "name": "get_driving_log",
-      "description": "Get recent driving events (trip starts and parks) with location and time. Use when the user asks about recent drives, where they parked, or trip history.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "limit": {
-            "type": "integer",
-            "description": "Maximum number of events to return (default 10, max 50)."
-          }
-        }
-      }
-    },
-    {
-      "type": "function",
-      "name": "get_place_visits",
-      "description": "Get recent place visits — locations where the user spent 10+ minutes. Use when the user asks 'where have I been today?', 'where did I spend most time this week?', 'did I go to work yesterday?', or wants to review their daily locations.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "limit": {
-            "type": "integer",
-            "description": "Maximum number of visits to return (default 10, max 50)."
-          }
-        }
-      }
-    },
-    {
-      "type": "function",
-      "name": "save_named_place",
-      "description": "Save the user's current location with a name (e.g. 'Home', 'Work', 'Gym'). Call this when the user says 'save this as my home', 'remember this place as work', 'this is my gym', etc. The location is auto-detected from GPS.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "label": {
-            "type": "string",
-            "description": "Name for this place, e.g. 'Home', 'Work', 'Gym', 'Mom\\'s house'."
-          }
-        },
-        "required": ["label"]
-      }
-    },
-
-    {
-      "type": "function",
       "name": "stop_session",
       "description": "Stop the voice session and disconnect the microphone. Call this when the user says goodbye, bye, stop listening, that's all, stop, or any similar phrase that signals they want to end the conversation.",
       "parameters": {

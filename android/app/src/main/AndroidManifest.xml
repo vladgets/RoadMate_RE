@@ -11,11 +11,8 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
-    <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
@@ -31,30 +28,10 @@
             android:exported="true"
         />
 
-        <!-- Required by activity_recognition_flutter v6: BroadcastReceiver that receives
-             activity recognition PendingIntent callbacks from Google Play Services.
-             Without this declaration, broadcasts are silently dropped by Android. -->
-        <receiver android:name="dk.cachet.activity_recognition_flutter.ActivityRecognizedBroadcastReceiver"
-            android:exported="false"/>
-
-        <!-- Native driving detection receiver (request code 77).
-             Wakes the app process briefly to handle activity recognition events
-             even when the app is fully killed — no persistent FGS required. -->
-        <receiver android:name=".DrivingDetectionReceiver"
-            android:exported="false"/>
-        <service
-            android:name="dk.cachet.activity_recognition_flutter.ActivityRecognizedService"
-            android:permission="android.permission.BIND_JOB_SERVICE"
-            android:exported="true"/>
-        <service
-            android:name="dk.cachet.activity_recognition_flutter.ForegroundService"
-            android:foregroundServiceType="dataSync"
-            android:exported="false"/>
-
-        <!-- Foreground service for voice mode and background detection -->
+        <!-- Foreground service for voice mode -->
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
-            android:foregroundServiceType="microphone|location"
+            android:foregroundServiceType="microphone"
             android:exported="false" />
 
         <!-- Exported receiver for Flic button single-press.

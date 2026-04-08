@@ -29,11 +29,8 @@ import 'services/reminders.dart';
 import 'services/conversation_store.dart';
 import 'services/voice_memory_store.dart';
 import 'services/whatsapp_service.dart';
-import 'services/driving_log_store.dart';
 import 'services/fub_client.dart';
 import 'services/conversation_logger.dart';
-import 'services/driving_monitor_service.dart';
-import 'services/named_places_store.dart';
 import 'ui/voice_memories_screen.dart';
 
 
@@ -55,10 +52,6 @@ Future<void> main() async {
 
   // Initialize voice memory store (uses path_provider — not available on web)
   if (!kIsWeb) await VoiceMemoryStore.instance.init();
-
-  // Initialize driving log store and start background activity monitoring
-  if (!kIsWeb) await DrivingLogStore.instance.init();
-  await DrivingMonitorService.instance.start();
 
   if (!kIsWeb) {
     await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
@@ -757,18 +750,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   // WhatsApp tools
   'send_whatsapp_message': (args) async {
     return await WhatsAppService.instance.toolSendWhatsAppMessage(args);
-  },
-  // Driving log tool
-  'get_driving_log': (args) async {
-    return await DrivingLogStore.instance.toolGetDrivingLog(args);
-  },
-  // Place visits tools
-  'get_place_visits': (args) async {
-    return await DrivingLogStore.instance.toolGetPlaceVisits(args);
-  },
-  'save_named_place': (args) async {
-    final location = await getCurrentLocation();
-    return await NamedPlacesStore.instance.toolSaveNamedPlace(args, location);
   },
   'stop_session': (_) async {
     // Let the model finish speaking before disconnecting
