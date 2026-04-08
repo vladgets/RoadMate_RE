@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../config.dart';
+import '../services/gcalendar_client.dart';
 import 'fub_identity_screen.dart';
 import 'extensions_settings_screen.dart';
 
@@ -38,21 +39,37 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _checkInitialPermissions();
+      _checkGoogleCalendarConnection();
     }
   }
 
   Future<void> _checkInitialPermissions() async {
     final mic = await Permission.microphone.status;
     final loc = await Permission.location.status;
-    final cal = await Permission.calendarFullAccess.status;
     final notif = await Permission.notification.status;
 
     setState(() {
       _microphoneGranted = mic.isGranted;
       _locationGranted = loc.isGranted;
-      _calendarGranted = cal.isGranted;
       _notificationsGranted = notif.isGranted;
     });
+
+    await _checkGoogleCalendarConnection();
+  }
+
+  Future<void> _checkGoogleCalendarConnection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final clientId = prefs.getString(Config.prefKeyClientId);
+      if (clientId == null || clientId.isEmpty) return;
+      final connected = await GCalendarClient(
+        baseUrl: Config.serverUrl,
+        clientId: clientId,
+      ).isAuthorized();
+      if (mounted) setState(() => _calendarGranted = connected);
+    } catch (_) {
+      // Leave as not connected if check fails
+    }
   }
 
   Future<void> _requestPermission(
@@ -89,6 +106,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ExtensionsSettingsScreen()),
     );
+    await _checkGoogleCalendarConnection();
   }
 
   Future<void> _openCrmIdentity() async {
