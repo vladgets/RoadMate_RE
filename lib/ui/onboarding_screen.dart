@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import '../config.dart';
+import 'fub_identity_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -18,18 +17,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
   bool _calendarGranted = false;
   bool _notificationsGranted = false;
 
-  // FUB agent identity
-  List<_OnboardingFubUser> _fubUsers = [];
-  bool _fubLoading = true;
   String? _selectedAgentName;
-  int? _selectedAgentId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkInitialPermissions();
-    _loadFubUsers();
+    _selectedAgentName = Config.fubAgentName;
   }
 
   @override
@@ -40,7 +35,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Re-check permissions when returning from Settings
     if (state == AppLifecycleState.resumed) {
       _checkInitialPermissions();
     }
@@ -66,9 +60,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
   ) async {
     var status = await permission.request();
     if (status.isPermanentlyDenied) {
-      // iOS won't show the dialog again — open Settings so user can enable it
       await openAppSettings();
-      // Re-check after returning from Settings
       status = await permission.status;
     }
     onResult(status.isGranted);
@@ -98,23 +90,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
     });
   }
 
-  Future<void> _loadFubUsers() async {
-    try {
-      final uri = Uri.parse('${Config.serverUrl}/fub/users');
-      final resp = await http.get(uri);
-      final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      if (body['ok'] == true) {
-        final list = (body['users'] as List)
-            .map((u) => _OnboardingFubUser(id: u['id'] as int, name: u['name'] as String))
-            .toList();
-        list.sort((a, b) => a.name.compareTo(b.name));
-        if (mounted) setState(() { _fubUsers = list; _fubLoading = false; });
-      } else {
-        if (mounted) setState(() => _fubLoading = false);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _fubLoading = false);
-    }
+  Future<void> _openCrmIdentity() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const FubIdentityScreen(standalone: true)),
+    );
+    // Refresh displayed name after returning
+    setState(() => _selectedAgentName = Config.fubAgentName);
   }
 
   Future<void> _completeOnboarding() async {
@@ -128,16 +109,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
       return;
     }
 
-    if (_selectedAgentName != null && _selectedAgentId != null) {
-      await Config.setFubAgent(_selectedAgentName!, _selectedAgentId!);
-    }
-
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('hasCompletedOnboarding', true);
 
     if (mounted) {
-      // If accessed from settings (can pop), just go back
-      // Otherwise, navigate to main (first-time onboarding)
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       } else {
@@ -157,33 +132,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
             children: [
               const SizedBox(height: 40),
 
-              // Welcome Section
+              // Welcome
               const Text(
                 '👋 Welcome to RoadMate',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               const Text(
                 'Your AI driving companion for hands-free assistance on the road.',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.grey,
-                  height: 1.4,
-                ),
+                style: TextStyle(fontSize: 18, color: Colors.grey, height: 1.4),
               ),
 
               const SizedBox(height: 48),
 
-              // Permissions Section
+              // Permissions
               const Text(
                 'Permissions',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               const Text(
@@ -200,7 +165,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
                 isRequired: true,
                 onTap: _requestMicrophone,
               ),
-
               _buildPermissionTile(
                 icon: Icons.location_on,
                 title: 'Location',
@@ -209,7 +173,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
                 isRequired: false,
                 onTap: _requestLocation,
               ),
-
               _buildPermissionTile(
                 icon: Icons.calendar_today,
                 title: 'Calendar',
@@ -218,7 +181,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
                 isRequired: false,
                 onTap: _requestCalendar,
               ),
-
               _buildPermissionTile(
                 icon: Icons.notifications,
                 title: 'Notifications',
@@ -230,16 +192,74 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
 
               const SizedBox(height: 48),
 
-              // Example Commands Section
+              // CRM Identity
               const Text(
-                'Try saying:',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                'Who are you?',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Set your CRM identity so RoadMate knows which agent you are.',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
               const SizedBox(height: 16),
 
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: _selectedAgentName != null
+                        ? Colors.green
+                        : Colors.grey.shade300,
+                    width: 2,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  leading: CircleAvatar(
+                    backgroundColor: _selectedAgentName != null
+                        ? Colors.green
+                        : Colors.grey.shade200,
+                    child: _selectedAgentName != null
+                        ? Text(
+                            _selectedAgentName![0].toUpperCase(),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
+                          )
+                        : Icon(Icons.person_outline,
+                            color: Colors.grey.shade500),
+                  ),
+                  title: Text(
+                    _selectedAgentName ?? 'Select your name',
+                    style: TextStyle(
+                      fontWeight: _selectedAgentName != null
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: _selectedAgentName != null
+                          ? null
+                          : Colors.grey,
+                    ),
+                  ),
+                  subtitle: Text(_selectedAgentName != null
+                      ? 'Tap to change'
+                      : 'You can also set this later in Settings'),
+                  trailing: _selectedAgentName != null
+                      ? const Icon(Icons.check_circle, color: Colors.green)
+                      : const Icon(Icons.chevron_right),
+                  onTap: _openCrmIdentity,
+                ),
+              ),
+
+              const SizedBox(height: 48),
+
+              // Example commands
+              const Text(
+                'Try saying:',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
               _buildExampleCommand('"What\'s the traffic to work?"'),
               _buildExampleCommand('"Read my latest emails"'),
               _buildExampleCommand('"What\'s on my calendar today?"'),
@@ -247,22 +267,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
 
               const SizedBox(height: 48),
 
-              // FUB Identity Section
-              const Text(
-                'Who are you?',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Select your name so RoadMate shows only your CRM tasks. You can skip this and set it later in Settings.',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              _buildAgentPicker(),
-
-              const SizedBox(height: 48),
-
-              // Get Started / Done Button
+              // Get Started button
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -278,26 +283,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
                   child: Text(
                     Navigator.of(context).canPop() ? 'Done' : 'Get Started',
                     style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                        fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
 
               const SizedBox(height: 16),
-
               const Center(
                 child: Text(
-                  'You can set up Gmail later in settings',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
+                  'You can set up Gmail and Google Calendar later in Settings',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
               ),
-
               const SizedBox(height: 40),
             ],
           ),
@@ -324,36 +322,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: Icon(
-          icon,
-          color: isGranted ? Colors.green : Colors.grey,
-          size: 28,
-        ),
+        leading: Icon(icon,
+            color: isGranted ? Colors.green : Colors.grey, size: 28),
         title: Row(
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w600)),
             if (isRequired) ...[
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.red.shade100,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
-                  'Required',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: const Text('Required',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold)),
               ),
             ],
           ],
@@ -361,68 +350,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
         subtitle: Text(subtitle),
         trailing: isGranted
             ? const Icon(Icons.check_circle, color: Colors.green)
-            : TextButton(
-                onPressed: onTap,
-                child: const Text('Grant'),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildAgentPicker() {
-    if (_fubLoading) {
-      return const Center(child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
-        child: CircularProgressIndicator(),
-      ));
-    }
-    if (_fubUsers.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Text(
-          'CRM agents unavailable — you can set your identity later in Settings.',
-          style: TextStyle(color: Colors.grey),
-        ),
-      );
-    }
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: _fubUsers.map((user) {
-          final selected = user.name == _selectedAgentName;
-          return ListTile(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: CircleAvatar(
-              backgroundColor: selected ? Colors.blue : Colors.grey.shade200,
-              child: Text(
-                user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                style: TextStyle(
-                  color: selected ? Colors.white : Colors.grey.shade700,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            title: Text(user.name,
-                style: TextStyle(fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
-            trailing: selected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
-            onTap: () => setState(() {
-              if (selected) {
-                _selectedAgentName = null;
-                _selectedAgentId = null;
-              } else {
-                _selectedAgentName = user.name;
-                _selectedAgentId = user.id;
-              }
-            }),
-          );
-        }).toList(),
+            : TextButton(onPressed: onTap, child: const Text('Grant')),
       ),
     );
   }
@@ -441,22 +369,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
           const Icon(Icons.mic, color: Colors.blue, size: 20),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              command,
-              style: const TextStyle(
-                fontSize: 16,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
+            child: Text(command,
+                style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic)),
           ),
         ],
       ),
     );
   }
-}
-
-class _OnboardingFubUser {
-  final int id;
-  final String name;
-  const _OnboardingFubUser({required this.id, required this.name});
 }
