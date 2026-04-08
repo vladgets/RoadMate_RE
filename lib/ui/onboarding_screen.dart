@@ -139,7 +139,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
               ),
               const SizedBox(height: 16),
               const Text(
-                'Your AI driving companion for hands-free assistance on the road.',
+                'Your AI voice assistant built for real estate agents — manage clients, schedule showings, and stay on top of your CRM, all hands-free.',
                 style: TextStyle(fontSize: 18, color: Colors.grey, height: 1.4),
               ),
 
@@ -152,7 +152,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
               ),
               const SizedBox(height: 8),
               const Text(
-                'RoadMate needs a few permissions to work its magic:',
+                'Grant access to the features you want RoadMate to help with:',
                 style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
               const SizedBox(height: 24),
@@ -160,7 +160,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
               _buildPermissionTile(
                 icon: Icons.mic,
                 title: 'Microphone',
-                subtitle: 'Required for voice commands',
+                subtitle: 'Required — voice is how you talk to RoadMate',
                 isGranted: _microphoneGranted,
                 isRequired: true,
                 onTap: _requestMicrophone,
@@ -168,7 +168,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
               _buildPermissionTile(
                 icon: Icons.location_on,
                 title: 'Location',
-                subtitle: 'For navigation and traffic updates',
+                subtitle: 'Navigate to properties and client addresses',
                 isGranted: _locationGranted,
                 isRequired: false,
                 onTap: _requestLocation,
@@ -176,7 +176,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
               _buildPermissionTile(
                 icon: Icons.calendar_today,
                 title: 'Calendar',
-                subtitle: 'To check your schedule',
+                subtitle: 'Manage showings, closings, and appointments',
                 isGranted: _calendarGranted,
                 isRequired: false,
                 onTap: _requestCalendar,
@@ -184,7 +184,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
               _buildPermissionTile(
                 icon: Icons.notifications,
                 title: 'Notifications',
-                subtitle: 'For reminders and alerts',
+                subtitle: 'Get reminders for follow-ups and deadlines',
                 isGranted: _notificationsGranted,
                 isRequired: false,
                 onTap: _requestNotifications,
@@ -260,10 +260,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              _buildExampleCommand('"What\'s the traffic to work?"'),
-              _buildExampleCommand('"Read my latest emails"'),
-              _buildExampleCommand('"What\'s on my calendar today?"'),
-              _buildExampleCommand('"Set a reminder for 3 PM"'),
+              _buildExampleCommand('"Who are my most recent clients?"'),
+              _buildExampleCommand('"Add a note for Sarah — showed two properties today"'),
+              _buildExampleCommand('"What\'s on my schedule tomorrow?"'),
+              _buildExampleCommand('"Navigate to 742 Evergreen Terrace"'),
+              _buildExampleCommand('"Remind me to follow up with John at 5 PM"'),
 
               const SizedBox(height: 48),
 
@@ -291,7 +292,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with WidgetsBinding
               const SizedBox(height: 16),
               const Center(
                 child: Text(
-                  'You can set up Gmail and Google Calendar later in Settings',
+                  'You can connect Gmail, Google Calendar, and your CRM later in Settings',
                   style: TextStyle(fontSize: 14, color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
