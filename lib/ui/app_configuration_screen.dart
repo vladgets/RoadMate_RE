@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
-import 'extensions_settings_screen.dart';
 import 'flic_settings_screen.dart';
 import 'onboarding_screen.dart';
 import 'whatsapp_settings_screen.dart';
@@ -126,18 +125,6 @@ class _AppConfigurationScreenState extends State<AppConfigurationScreen> {
           ),
           const Divider(),
 
-          // Extensions
-          ListTile(
-            leading: const Icon(Icons.extension),
-            title: const Text('Extensions'),
-            subtitle: const Text('Manage calendar and other extensions'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ExtensionsSettingsScreen()),
-              );
-            },
-          ),
           ListTile(
             leading: const Icon(Icons.send_outlined),
             title: const Text('WhatsApp Auto-Send'),

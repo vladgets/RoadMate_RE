@@ -4,6 +4,7 @@ import 'reminders_screen.dart';
 import 'voice_memories_screen.dart';
 import 'developer_area_menu.dart';
 import 'app_configuration_screen.dart';
+import 'extensions_settings_screen.dart';
 import 'fub_identity_screen.dart';
 import '../config.dart';
 
@@ -37,11 +38,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       body: ListView(
         children: [
+          // Extensions (Google Calendar, Gmail, etc.)
+          ListTile(
+            leading: const Icon(Icons.extension),
+            title: const Text('Extensions'),
+            subtitle: const Text('Google Calendar, Gmail, and other integrations'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ExtensionsSettingsScreen()),
+              );
+            },
+          ),
+          const Divider(),
+
           // App Configuration submenu
           ListTile(
             leading: const Icon(Icons.tune),
             title: const Text('App Configuration'),
-            subtitle: const Text('Voice, auto-start, tutorial, and extensions'),
+            subtitle: const Text('Voice, auto-start, and tutorial'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(
