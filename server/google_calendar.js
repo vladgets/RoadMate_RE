@@ -136,10 +136,12 @@ export function registerCalendarRoutes(app) {
       const oauth2 = makeOAuth2Client();
       const { tokens } = await oauth2.getToken(code);
       saveToken(clientId, tokens);
+      console.log(`[calendar] OAuth token saved for client_id=${clientId}, scopes=${tokens.scope}`);
       res.send(
         "<p>Google Calendar connected successfully. You can close this tab and return to RoadMate.</p>"
       );
     } catch (e) {
+      console.error(`[calendar] OAuth callback error for client_id=${clientId}:`, e.message);
       res.status(500).json({ ok: false, error: e.message });
     }
   });
@@ -171,6 +173,8 @@ export function registerCalendarRoutes(app) {
 
       const startDate = parseDate(req.query.start_date, defaultStart);
       const endDate = parseDate(req.query.end_date, defaultEnd);
+
+      console.log(`[calendar] fetching events for client_id=${clientId}, range=${startDate.toISOString()} → ${endDate.toISOString()}`);
 
       const calListRes = await calApi.calendarList.list({ minAccessRole: "reader" });
       const calendars = calListRes.data.items || [];
@@ -228,6 +232,7 @@ export function registerCalendarRoutes(app) {
         writable_calendars: writableCalendars,
       });
     } catch (e) {
+      console.error(`[calendar] /calendar/events error for client_id=${clientId}:`, e.message);
       const status = e.message.includes("Not authorized") ? 401 : 500;
       res.status(status).json({ ok: false, error: e.message });
     }
