@@ -42,18 +42,6 @@ class PhotoAttachment {
     );
   }
 
-  /// Create from PhotoMetadata (for collage feature)
-  factory PhotoAttachment.fromMetadata(dynamic metadata) {
-    return PhotoAttachment(
-      id: metadata.id as String,
-      path: metadata.path as String,
-      location: metadata.address as String?,
-      timestamp: metadata.timestamp as DateTime?,
-      latitude: metadata.latitude as double?,
-      longitude: metadata.longitude as double?,
-    );
-  }
-
   @override
   String toString() {
     return 'PhotoAttachment(path: $path, location: $location, timestamp: $timestamp)';

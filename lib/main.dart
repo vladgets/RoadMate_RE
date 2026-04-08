@@ -27,11 +27,9 @@ import 'services/map_navigation.dart';
 import 'services/phone_call.dart';
 import 'services/reminders.dart';
 import 'services/conversation_store.dart';
-import 'services/voice_memory_store.dart';
 import 'services/whatsapp_service.dart';
 import 'services/fub_client.dart';
 import 'services/conversation_logger.dart';
-import 'ui/voice_memories_screen.dart';
 
 
 
@@ -49,9 +47,6 @@ Future<void> main() async {
 
   // Initialize reminders service
   await RemindersService.instance.init();
-
-  // Initialize voice memory store (uses path_provider — not available on web)
-  if (!kIsWeb) await VoiceMemoryStore.instance.init();
 
   if (!kIsWeb) {
     await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
@@ -740,13 +735,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   'reminder_cancel': (args) async {
     return await RemindersService.instance.toolCancel(args);
   },
-  // Voice note tools
-  'save_voice_note': (args) async {
-    return await VoiceMemoryStore.instance.toolSaveMemory(args);
-  },
-  'search_voice_notes': (args) async {
-    return await VoiceMemoryStore.instance.toolSearchMemories(args);
-  },
   // WhatsApp tools
   'send_whatsapp_message': (args) async {
     return await WhatsAppService.instance.toolSendWhatsAppMessage(args);
@@ -982,20 +970,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
         backgroundColor: Colors.black,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
-        leading: IconButton(
-          tooltip: 'Voice Notes',
-          icon: const Icon(Icons.auto_stories),
-          onPressed: () async {
-            _navigatedAway = true;
-            await _disconnect();
-            if (!mounted) return;
-            // ignore: use_build_context_synchronously
-            await Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const VoiceMemoriesScreen()),
-            );
-            _navigatedAway = false;
-          },
-        ),
         actions: [
           IconButton(
             tooltip: 'Chat',

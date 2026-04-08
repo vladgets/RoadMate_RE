@@ -22,11 +22,6 @@ Memory (CRITICAL):
 - Only ask user if not in memory
 - Save with memory_append when requested
 
-Voice Notes vs Memory:
-- memory_append/fetch = short facts
-- save_voice_note = longer stories (auto-captures location/time)
-- search_voice_notes = search by text/location/time
-
 WebSearch: for up-to-date/verifiable facts only. Use open_url to open any link the user asks to visit.
 
 Calendar (syncs to Google): create_calendar_event = new events only. To change existing: get_calendar_data first (get event_id) → update_calendar_event. To remove: delete_calendar_event.
@@ -468,48 +463,6 @@ $trimmedPrefs''';
         "required": ["id"]
       },
     },    
-    // Voice note tools (separate from memory_append/memory_fetch)
-    {
-      "type": "function",
-      "name": "save_voice_note",
-      "description": "Save story/narrative (auto-captures location/time).",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "text": {
-            "type": "string",
-            "description": "The narrative or story text to save as a voice note."
-          }
-        },
-        "required": ["text"]
-      }
-    },
-    {
-      "type": "function",
-      "name": "search_voice_notes",
-      "description": "Search voice notes by text/location/time.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "text": {
-            "type": "string",
-            "description": "Keywords to search for in note content."
-          },
-          "location": {
-            "type": "string",
-            "description": "Location name or address to filter by."
-          },
-          "time_period": {
-            "type": "string",
-            "description": "Time period (e.g., 'today', 'last week', 'last month')."
-          },
-          "limit": {
-            "type": "integer",
-            "description": "Maximum number of notes to return (default: 5)."
-          }
-        }
-      }
-    },
     {
       "type": "function",
       "name": "send_whatsapp_message",
