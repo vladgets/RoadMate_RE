@@ -33,8 +33,9 @@ Reminders:
 - Weekly: "Remind me every Monday at 8am" → recurrence='weekly', day_of_week=1
 
 FUB CRM: {{FUB_AGENT_LINE}}
-FUB contacts: always use person_id when calling fub_create_note or fub_send_text. If you don't have it yet, call fub_search_contacts first to resolve the client, then use the returned id. 
+FUB contacts: always use person_id when calling fub_create_note, fub_send_text, or fub_update_person. If you don't have it yet, call fub_search_contacts first to resolve the client, then use the returned id.
 Never pass client_name alone when you can get the id first. Once resolved, remember person_id for the rest of the conversation.
+fub_update_person handles stage, tags, phones, emails, address, name, and background info — use it for any contact field update.
 
 Date: {{CURRENT_DATE_READABLE}}
 ''';
@@ -573,18 +574,14 @@ $trimmedPrefs''';
     },
     {
       "type": "function",
-      "name": "fub_update_stage",
-      "description": "Update the stage of a FUB contact (e.g. 'move John to Hot Lead', 'set RoadMate stage to Active Buyer'). ALWAYS pass person_id when the client was already resolved in this conversation. If you are unsure of the exact stage name, call fub_get_stages first.",
+      "name": "fub_update_person",
+      "description": "Update one or more fields on a FUB contact in a single call. Use for any combination of: stage, tags, phone numbers, email addresses, mailing address, name, or background info. ALWAYS pass person_id when the client was already resolved in this conversation. If updating stage and you are unsure of the exact name, call fub_get_stages first.",
       "parameters": {
         "type": "object",
         "properties": {
           "agent_name": {
             "type": "string",
-            "description": "Agent performing the update. Use the agent's name from your identity or 'me'."
-          },
-          "stage": {
-            "type": "string",
-            "description": "The stage name to set (must match exactly a stage from FUB, e.g. 'Hot Lead', 'Active Buyer')."
+            "description": "Agent performing the update. Use the agent's name from your identity (e.g. 'Roman') or 'me'."
           },
           "person_id": {
             "type": "number",
@@ -593,9 +590,75 @@ $trimmedPrefs''';
           "client_name": {
             "type": "string",
             "description": "Full or partial name of the client. Used when person_id is not already known."
+          },
+          "stage": {
+            "type": "string",
+            "description": "New stage name. Must match a valid FUB stage exactly (e.g. 'Hot Lead', 'Active Buyer'). Omit if not changing."
+          },
+          "name": {
+            "type": "string",
+            "description": "Full name to set on the contact. Omit if not changing."
+          },
+          "background_info": {
+            "type": "string",
+            "description": "Background information / bio text to set on the contact. Omit if not changing."
+          },
+          "tags": {
+            "type": "object",
+            "description": "Tag update operation. 'add' appends without removing existing. 'remove' deletes specific tags. 'set' replaces all tags with the provided list.",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": ["add", "remove", "set"]
+              },
+              "values": {
+                "type": "array",
+                "items": {"type": "string"}
+              }
+            },
+            "required": ["mode", "values"]
+          },
+          "phones": {
+            "type": "array",
+            "description": "Phone number changes. Each entry adds/updates or removes a number of the given type.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "number": {"type": "string", "description": "Phone number string."},
+                "type": {"type": "string", "enum": ["mobile", "home", "work", "fax", "other"], "description": "Phone type. Defaults to mobile."},
+                "action": {"type": "string", "enum": ["set", "remove"], "description": "Omit or 'set' to add/update; 'remove' to delete by type."}
+              },
+              "required": ["type"]
+            }
+          },
+          "emails": {
+            "type": "array",
+            "description": "Email address changes. Each entry adds/updates or removes an email of the given type.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "address": {"type": "string", "description": "Email address."},
+                "type": {"type": "string", "enum": ["personal", "work", "other"], "description": "Email type. Defaults to personal."},
+                "action": {"type": "string", "enum": ["set", "remove"], "description": "Omit or 'set' to add/update; 'remove' to delete by type."}
+              },
+              "required": ["type"]
+            }
+          },
+          "address": {
+            "type": "object",
+            "description": "Mailing address to add, update, or remove. Matched by type — partial updates merge with existing fields.",
+            "properties": {
+              "street": {"type": "string"},
+              "city": {"type": "string"},
+              "state": {"type": "string"},
+              "zip": {"type": "string"},
+              "country": {"type": "string"},
+              "type": {"type": "string", "enum": ["home", "work", "other"], "description": "Address type. Defaults to home."},
+              "action": {"type": "string", "enum": ["set", "remove"], "description": "Omit or 'set' to add/update; 'remove' to delete by type."}
+            }
           }
         },
-        "required": ["agent_name", "stage"]
+        "required": ["agent_name"]
       }
     },
     {
@@ -642,39 +705,6 @@ $trimmedPrefs''';
           }
         },
         "required": ["agent_name"]
-      }
-    },
-    {
-      "type": "function",
-      "name": "fub_update_tags",
-      "description": "Add, remove, or replace tags on a FUB contact. Use when the user says 'add tag [X] to [client]', 'remove tag [X] from [client]', 'set [client]'s tags to [X, Y]', etc. ALWAYS pass person_id when the client was already resolved in this conversation. Confirm with the user before calling when removing all tags (set with empty-ish list).",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "agent_name": {
-            "type": "string",
-            "description": "Agent name (e.g. 'Roman') or 'me'. Required to scope contact lookup."
-          },
-          "mode": {
-            "type": "string",
-            "enum": ["add", "remove", "set"],
-            "description": "'add' appends tags without removing existing ones. 'remove' deletes specific tags. 'set' replaces all tags with the provided list."
-          },
-          "tags": {
-            "type": "array",
-            "items": { "type": "string" },
-            "description": "List of tag strings to add, remove, or set."
-          },
-          "person_id": {
-            "type": "number",
-            "description": "FUB person ID of the contact. Use this when the contact was already resolved in this conversation."
-          },
-          "client_name": {
-            "type": "string",
-            "description": "Full or partial name of the client. Used when person_id is not already known."
-          }
-        },
-        "required": ["agent_name", "mode", "tags"]
       }
     },
   ];

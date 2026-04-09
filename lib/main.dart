@@ -782,37 +782,35 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       clientName: clientName,
     );
   },
-  'fub_update_tags': (args) async {
+  'fub_update_person': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
-    final mode = (args is Map) ? args['mode'] as String? ?? 'add' : 'add';
-    final tagsDynamic = (args is Map && args['tags'] is List) ? args['tags'] as List : [];
-    final tags = tagsDynamic.map((t) => t.toString()).toList();
     final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
     final clientName = (args is Map) ? args['client_name'] as String? : null;
-    return await FubClient().updateTags(
-      mode: mode,
-      tags: tags,
+    final stage = (args is Map) ? args['stage'] as String? : null;
+    final name = (args is Map) ? args['name'] as String? : null;
+    final backgroundInfo = (args is Map) ? args['background_info'] as String? : null;
+    final tags = (args is Map && args['tags'] is Map) ? Map<String, dynamic>.from(args['tags'] as Map) : null;
+    final phonesRaw = (args is Map && args['phones'] is List) ? args['phones'] as List : null;
+    final phones = phonesRaw?.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final emailsRaw = (args is Map && args['emails'] is List) ? args['emails'] as List : null;
+    final emails = emailsRaw?.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final address = (args is Map && args['address'] is Map) ? Map<String, dynamic>.from(args['address'] as Map) : null;
+    return await FubClient().updatePerson(
       agentId: _resolveFubAgentId(raw),
       agentName: _resolveFubAgent(raw),
       personId: personId,
       clientName: clientName,
+      stage: stage,
+      name: name,
+      backgroundInfo: backgroundInfo,
+      tags: tags,
+      phones: phones,
+      emails: emails,
+      address: address,
     );
   },
   'fub_get_stages': (_) async {
     return await FubClient().getStages();
-  },
-  'fub_update_stage': (args) async {
-    final raw = (args is Map) ? args['agent_name'] as String? : null;
-    final stage = (args is Map) ? args['stage'] as String? ?? '' : '';
-    final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
-    final clientName = (args is Map) ? args['client_name'] as String? : null;
-    return await FubClient().updateStage(
-      stage: stage,
-      agentId: _resolveFubAgentId(raw),
-      agentName: _resolveFubAgent(raw) ?? 'me',
-      personId: personId,
-      clientName: clientName,
-    );
   },
   'fub_create_note': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;

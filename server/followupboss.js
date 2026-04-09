@@ -657,6 +657,170 @@ export function registerFollowUpBossRoutes(app) {
   });
 
   /**
+   * POST /fub/contact/update
+   *
+   * Update one or more fields on a FUB contact in a single call.
+   * Fetches current person data first for fields that require merge (tags, phones, emails, addresses).
+   *
+   * Body:
+   *   person_id?        FUB person ID (preferred)
+   *   client_name?      partial name to resolve (fallback)
+   *   agent_id?         agent user ID (preferred)
+   *   agent?            agent name (fallback)
+   *   stage?            new stage string
+   *   name?             full name string
+   *   background_info?  background info / bio text
+   *   tags?             { mode: "add"|"remove"|"set", values: string[] }
+   *   phones?           [{ number, type, action? }]  action: "set" (default) | "remove"
+   *   emails?           [{ address, type, action? }]
+   *   address?          { street?, city?, state?, zip?, country?, type?, action? }
+   */
+  app.post("/fub/contact/update", async (req, res) => {
+    try {
+      const { person_id, client_name, stage, name, background_info, tags, phones, emails, address } = req.body || {};
+
+      let personId = person_id ? Number(person_id) : null;
+      let resolvedName = null;
+
+      if (!personId) {
+        if (!client_name?.trim()) {
+          return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
+        }
+        const assignedUserId = await resolveAgentFromRequest(req);
+        const match = await resolvePersonByName(client_name.trim(), assignedUserId);
+        if (!match) {
+          return res.json({ ok: false, error: `No contact found matching "${client_name}"` });
+        }
+        personId = match.id;
+        resolvedName = match.name;
+        console.log(`[FUB] update: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
+      }
+
+      // Fetch current person data only when merge is needed
+      const needsFetch = !!(tags || phones || emails || address);
+      let current = null;
+      if (needsFetch) {
+        const pr = await fetch(`${FUB_BASE}/people/${personId}`, { headers: fubHeaders() });
+        const pd = await pr.json();
+        if (!pr.ok) throw new Error(pd?.message || `FUB error ${pr.status}`);
+        current = pd;
+        if (!resolvedName) resolvedName = pd.name || null;
+      }
+
+      const payload = {};
+
+      if (stage) payload.stage = stage.trim();
+      if (name) payload.name = name.trim();
+      if (background_info) payload.backgroundInformation = background_info.trim();
+
+      // Tags merge
+      if (tags) {
+        const { mode, values = [] } = tags;
+        const currentTags = (current.tags || []).map(t => (typeof t === "string" ? t : t.name || String(t)));
+        const incoming = values.map(t => String(t).trim()).filter(Boolean);
+        if (mode === "set") {
+          payload.tags = incoming;
+        } else if (mode === "add") {
+          const tagSet = new Set(currentTags);
+          for (const t of incoming) tagSet.add(t);
+          payload.tags = [...tagSet];
+        } else if (mode === "remove") {
+          const removeSet = new Set(incoming.map(t => t.toLowerCase()));
+          payload.tags = currentTags.filter(t => !removeSet.has(t.toLowerCase()));
+        }
+      }
+
+      // Phones merge (replace entire array)
+      if (phones && phones.length > 0) {
+        let curr = (current.phones || []).map(p => ({ value: p.value, type: p.type || "mobile" }));
+        for (const ph of phones) {
+          const type = ph.type || "mobile";
+          if (ph.action === "remove") {
+            curr = curr.filter(p => !(p.type === type || (ph.number && p.value === ph.number)));
+          } else {
+            const idx = curr.findIndex(p => p.type === type);
+            if (idx >= 0) {
+              curr[idx] = { value: ph.number, type };
+            } else {
+              curr.push({ value: ph.number, type });
+            }
+          }
+        }
+        payload.phones = curr;
+      }
+
+      // Emails merge (replace entire array)
+      if (emails && emails.length > 0) {
+        let curr = (current.emails || []).map(e => ({ value: e.value, type: e.type || "personal" }));
+        for (const em of emails) {
+          const type = em.type || "personal";
+          if (em.action === "remove") {
+            curr = curr.filter(e => !(e.type === type || (em.address && e.value === em.address)));
+          } else {
+            const idx = curr.findIndex(e => e.type === type);
+            if (idx >= 0) {
+              curr[idx] = { value: em.address, type };
+            } else {
+              curr.push({ value: em.address, type });
+            }
+          }
+        }
+        payload.emails = curr;
+      }
+
+      // Address merge (replace entire array)
+      if (address) {
+        const type = address.type || "home";
+        let curr = (current.addresses || []).map(a => ({
+          street: a.street, city: a.city, state: a.state,
+          code: a.code, country: a.country, type: a.type || "home",
+        }));
+        if (address.action === "remove") {
+          curr = curr.filter(a => a.type !== type);
+        } else {
+          const newAddr = {
+            ...(address.street && { street: address.street }),
+            ...(address.city && { city: address.city }),
+            ...(address.state && { state: address.state }),
+            ...(address.zip && { code: address.zip }),
+            ...(address.country && { country: address.country }),
+            type,
+          };
+          const idx = curr.findIndex(a => a.type === type);
+          if (idx >= 0) {
+            curr[idx] = { ...curr[idx], ...newAddr };
+          } else {
+            curr.push(newAddr);
+          }
+        }
+        payload.addresses = curr;
+      }
+
+      if (Object.keys(payload).length === 0) {
+        return res.status(400).json({ ok: false, error: "No fields to update provided" });
+      }
+
+      const r = await fetch(`${FUB_BASE}/people/${personId}`, {
+        method: "PUT",
+        headers: fubHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        console.error(`[FUB] update person API error ${r.status}:`, JSON.stringify(data));
+        throw new Error(data?.message || data?.error || `FUB error ${r.status}`);
+      }
+
+      const updated = Object.keys(payload);
+      console.log(`[FUB] person updated personId=${personId}: ${updated.join(", ")}`);
+      res.json({ ok: true, personId, resolvedName: resolvedName || data.name || null, updated });
+    } catch (e) {
+      console.error("[FUB] update person error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
    * GET /fub/contact/tags
    *
    * Get tags for a FUB contact.
