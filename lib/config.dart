@@ -36,7 +36,8 @@ FUB CRM: {{FUB_AGENT_LINE}}
 FUB IDs: agent_id (your identity as an agent) and person_id (a contact's ID) are DIFFERENT ID spaces. NEVER use agent_id as person_id.
 FUB contacts: person_id comes ONLY from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. If you don't have it, call fub_search_contacts first — never guess or reuse the agent ID.
 Once person_id is resolved, remember it for the rest of the conversation.
-fub_update_person handles stage, tags, phones, emails, address, name, and background info — use it for any contact field update. Do NOT use fub_create_note for data changes.
+fub_update_person: use whenever the user says "update", "change", "set", "add a phone/email/address", or "move to [stage]". Examples: "update John's address", "change Sarah's phone", "move to Hot Lead" → always fub_update_person, never fub_create_note.
+fub_create_note: only for free-text observations the user explicitly wants logged ("note that...", "log that...", "add a note that..."). Never use it to change a contact field.
 
 Date: {{CURRENT_DATE_READABLE}}
 ''';
@@ -512,7 +513,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_create_note",
-      "description": "Create an internal note on a FUB client's timeline. Notes are private CRM records — not sent to the client. Use for free-text observations (e.g. 'called about pricing', 'met at open house'). Do NOT use to record structured data changes like address, phone, email, stage, or tags — use fub_update_person for those. ALWAYS pass person_id from a prior search or task result — never use agent_id as person_id.",
+      "description": "Create an internal note on a FUB client's timeline. Use ONLY when the user explicitly says 'add a note', 'log that', 'make a note', or similar. Do NOT use when the user says 'update', 'change', 'set', or 'add a [field]' — those go to fub_update_person. Examples that are NOT notes: updating an address, changing a phone number, updating a stage, adding an email. ALWAYS pass person_id from a prior search or task result — never use agent_id as person_id.",
       "parameters": {
         "type": "object",
         "properties": {
