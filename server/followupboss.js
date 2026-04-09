@@ -332,6 +332,13 @@ export function registerFollowUpBossRoutes(app) {
         resolvedName = match.name;
       }
 
+      // Guard: reject if person_id looks like it's actually the agent ID
+      const agentId = await resolveAgentFromRequest(req).catch(() => null);
+      if (agentId && personId === agentId) {
+        console.warn(`[FUB] person-tasks WARNING: person_id=${personId} equals agentId=${agentId} — likely a model error`);
+        return res.status(400).json({ ok: false, error: `person_id ${personId} matches the agent user ID — this is likely wrong. Search for the contact first using fub_search_contacts.` });
+      }
+
       const status = req.query.status || "all";
       const params = new URLSearchParams({ personId: String(personId), limit: "50", sort: "dueDate" });
 
@@ -1022,19 +1029,22 @@ export function registerFollowUpBossRoutes(app) {
     try {
       let personId = req.query.person_id ? Number(req.query.person_id) : null;
       let resolvedName = null;
+      const agentId = await resolveAgentFromRequest(req).catch(() => null);
 
       if (!personId) {
         const clientName = req.query.client_name?.trim();
         if (!clientName) {
           return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
         }
-        const assignedUserId = await resolveAgentFromRequest(req);
-        const match = await resolvePersonByName(clientName, assignedUserId);
+        const match = await resolvePersonByName(clientName, agentId);
         if (!match) {
           return res.json({ ok: false, error: `No contact found matching "${clientName}"` });
         }
         personId = match.id;
         resolvedName = match.name;
+      } else if (agentId && personId === agentId) {
+        console.warn(`[FUB] details WARNING: person_id=${personId} equals agentId=${agentId} — likely a model error`);
+        return res.status(400).json({ ok: false, error: `person_id ${personId} matches the agent user ID — search for the contact first.` });
       }
 
       const r = await fetch(`${FUB_BASE}/people/${personId}`, { headers: fubHeaders() });
