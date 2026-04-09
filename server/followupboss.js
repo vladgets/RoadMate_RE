@@ -690,7 +690,7 @@ export function registerFollowUpBossRoutes(app) {
    */
   app.post("/fub/contact/update", async (req, res) => {
     try {
-      const { person_id, client_name, stage, name, background_info, source, assigned_to, tags, phones, emails, address } = req.body || {};
+      const { person_id, client_name, stage, name, background_info, source, assigned_to, collaborators, tags, phones, emails, address } = req.body || {};
 
       let personId = person_id ? Number(person_id) : null;
       let resolvedName = null;
@@ -718,7 +718,7 @@ export function registerFollowUpBossRoutes(app) {
       }
 
       // Fetch current person data only when merge is needed
-      const needsFetch = !!(tags || phones || emails || address);
+      const needsFetch = !!(collaborators || tags || phones || emails || address);
       let current = null;
       if (needsFetch) {
         const pr = await fetch(`${FUB_BASE}/people/${personId}`, { headers: fubHeaders() });
@@ -741,6 +741,29 @@ export function registerFollowUpBossRoutes(app) {
         }
         payload.assignedUserId = resolvedAgentId;
         console.log(`[FUB] update: assigned_to "${assigned_to}" resolved to agentId=${resolvedAgentId}`);
+      }
+
+      // Collaborators merge (array of user IDs)
+      if (collaborators) {
+        const { mode, agents = [] } = collaborators;
+        // Resolve all incoming agent names to IDs (skip unresolvable)
+        const incomingIds = (await Promise.all(
+          agents.map(a => resolveAgentId(String(a).trim()))
+        )).filter(Boolean);
+
+        const currentIds = (current?.collaboratorIds || []).map(Number);
+
+        if (mode === "set") {
+          payload.collaboratorIds = incomingIds;
+        } else if (mode === "add") {
+          const idSet = new Set(currentIds);
+          for (const id of incomingIds) idSet.add(id);
+          payload.collaboratorIds = [...idSet];
+        } else if (mode === "remove") {
+          const removeSet = new Set(incomingIds);
+          payload.collaboratorIds = currentIds.filter(id => !removeSet.has(id));
+        }
+        console.log(`[FUB] update: collaborators (${mode}) → [${payload.collaboratorIds?.join(", ")}]`);
       }
 
       // Tags merge
@@ -853,7 +876,7 @@ export function registerFollowUpBossRoutes(app) {
   /**
    * GET /fub/contact/details
    *
-   * Read key editable fields for a FUB contact: tags, background, source, stage.
+   * Read key editable fields for a FUB contact: tags, background, source, stage, collaborators.
    * Resolves contact by name (substring scan) if person_id not provided.
    *
    * Query params:
@@ -886,6 +909,13 @@ export function registerFollowUpBossRoutes(app) {
       if (!r.ok) return res.status(r.status).json({ ok: false, error: data?.message || `FUB error ${r.status}` });
 
       const tags = (data.tags || []).map(t => (typeof t === "string" ? t : t.name || String(t)));
+
+      // Resolve collaborator IDs to names using users cache
+      const usersMap = await getFubUsers(); // name → { id, name }
+      const idToName = {};
+      for (const { id, name: uName } of Object.values(usersMap)) idToName[id] = uName;
+      const collaborators = (data.collaboratorIds || []).map(id => idToName[id] || `User ${id}`);
+
       res.json({
         ok: true,
         person_id: personId,
@@ -894,6 +924,7 @@ export function registerFollowUpBossRoutes(app) {
         background: data.backgroundInformation || null,
         source: data.source || null,
         stage: data.stage || null,
+        collaborators,
       });
     } catch (e) {
       console.error("[FUB] contact details error:", e);

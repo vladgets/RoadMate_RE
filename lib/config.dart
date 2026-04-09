@@ -613,6 +613,19 @@ $trimmedPrefs''';
             "type": "string",
             "description": "Agent name to assign this contact to (e.g. 'Roman', 'me'). Resolved to a FUB user ID server-side. Omit if not changing."
           },
+          "collaborators": {
+            "type": "object",
+            "description": "Collaborator update operation. 'add' adds agents without removing existing. 'remove' removes specific agents. 'set' replaces the full collaborator list.",
+            "properties": {
+              "mode": {"type": "string", "enum": ["add", "remove", "set"]},
+              "agents": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "List of agent names (e.g. ['Roman', 'Sarah']). Resolved to FUB user IDs server-side."
+              }
+            },
+            "required": ["mode", "agents"]
+          },
           "tags": {
             "type": "object",
             "description": "Tag update operation. 'add' appends without removing existing. 'remove' deletes specific tags. 'set' replaces all tags with the provided list.",
@@ -697,7 +710,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_person_details",
-      "description": "Read key fields of a FUB contact: tags, background info, source, and stage. Use when the user asks about any of these fields (e.g. 'what tags does John have', 'what's Sarah's background', 'what source is this lead', 'show me RoadMate's details'). ALWAYS pass person_id when the client was already resolved in this conversation.",
+      "description": "Read key fields of a FUB contact: tags, background info, source, stage, and collaborators. Use when the user asks about any of these fields (e.g. 'what tags does John have', 'what's Sarah's background', 'who are the collaborators on this contact', 'show me RoadMate's details'). ALWAYS pass person_id when the client was already resolved in this conversation.",
       "parameters": {
         "type": "object",
         "properties": {
