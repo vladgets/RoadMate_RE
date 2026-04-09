@@ -41,6 +41,9 @@ Future<void> main() async {
   // Initialize background services (WorkManager + foreground task) on mobile only.
   if (!kIsWeb) await initBackgroundServices();
 
+  // Ensure client_id exists before anything else (needed for OAuth in onboarding)
+  await ClientIdStore.getOrCreate();
+
   // some initial setup
   await Config.loadSavedVoice();
   await Config.loadFubAgent();
