@@ -93,6 +93,45 @@ class FubClient {
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> getTags({
+    String? agentName,
+    int? agentId,
+    int? personId,
+    String? clientName,
+  }) async {
+    final params = <String, String>{};
+    if (personId != null) params['person_id'] = personId.toString();
+    if (clientName != null) params['client_name'] = clientName;
+    _addAgent(params, agentId: agentId, agentName: agentName);
+    final uri = Uri.parse('$baseUrl/fub/contact/tags').replace(queryParameters: params.isEmpty ? null : params);
+    final resp = await http.get(uri);
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateTags({
+    required String mode,
+    required List<String> tags,
+    String? agentName,
+    int? agentId,
+    int? personId,
+    String? clientName,
+  }) async {
+    final uri = Uri.parse('$baseUrl/fub/contact/tags');
+    final body = <String, dynamic>{
+      'mode': mode,
+      'tags': tags,
+      if (personId != null) 'person_id': personId,
+      if (clientName != null) 'client_name': clientName,
+    };
+    _addAgentToBody(body, agentId: agentId, agentName: agentName);
+    final resp = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getStages() async {
     final uri = Uri.parse('$baseUrl/fub/stages');
     final resp = await http.get(uri);

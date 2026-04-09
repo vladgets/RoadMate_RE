@@ -657,6 +657,135 @@ export function registerFollowUpBossRoutes(app) {
   });
 
   /**
+   * GET /fub/contact/tags
+   *
+   * Get tags for a FUB contact.
+   * Resolves contact by name (substring scan) if person_id not provided.
+   *
+   * Query params:
+   *   agent_id=N   agent user ID (preferred)
+   *   agent=NAME   agent name (fallback)
+   *   person_id=N  FUB person ID (preferred)
+   *   client_name=NAME  partial name to look up (fallback)
+   */
+  app.get("/fub/contact/tags", async (req, res) => {
+    try {
+      let personId = req.query.person_id ? Number(req.query.person_id) : null;
+      let resolvedName = null;
+
+      if (!personId) {
+        const clientName = req.query.client_name?.trim();
+        if (!clientName) {
+          return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
+        }
+        const assignedUserId = await resolveAgentFromRequest(req);
+        const match = await resolvePersonByName(clientName, assignedUserId);
+        if (!match) {
+          return res.json({ ok: false, error: `No contact found matching "${clientName}"` });
+        }
+        personId = match.id;
+        resolvedName = match.name;
+      }
+
+      const r = await fetch(`${FUB_BASE}/people/${personId}`, { headers: fubHeaders() });
+      const data = await r.json();
+      if (!r.ok) return res.status(r.status).json({ ok: false, error: data?.message || `FUB error ${r.status}` });
+
+      const tags = (data.tags || []).map(t => (typeof t === "string" ? t : t.name || String(t)));
+      res.json({ ok: true, personId, resolvedName: resolvedName || data.name || null, tags });
+    } catch (e) {
+      console.error("[FUB] get tags error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
+   * POST /fub/contact/tags
+   *
+   * Add, remove, or set tags on a FUB contact.
+   * Resolves contact by name (substring scan) if person_id not provided.
+   *
+   * Body:
+   *   person_id?    FUB person ID (preferred)
+   *   client_name?  partial name to look up (fallback)
+   *   agent_id?     agent user ID (preferred)
+   *   agent?        agent name (fallback)
+   *   mode          "add" | "remove" | "set"
+   *   tags          array of tag strings to add/remove/set
+   */
+  app.post("/fub/contact/tags", async (req, res) => {
+    try {
+      const { person_id, client_name, mode, tags: incomingTags } = req.body || {};
+
+      if (!mode || !["add", "remove", "set"].includes(mode)) {
+        return res.status(400).json({ ok: false, error: "mode must be 'add', 'remove', or 'set'" });
+      }
+      if (!Array.isArray(incomingTags) || incomingTags.length === 0) {
+        return res.status(400).json({ ok: false, error: "tags must be a non-empty array" });
+      }
+
+      let personId = person_id ? Number(person_id) : null;
+      let resolvedName = null;
+
+      if (!personId) {
+        if (!client_name?.trim()) {
+          return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
+        }
+        const assignedUserId = await resolveAgentFromRequest(req);
+        const match = await resolvePersonByName(client_name.trim(), assignedUserId);
+        if (!match) {
+          return res.json({ ok: false, error: `No contact found matching "${client_name}"` });
+        }
+        personId = match.id;
+        resolvedName = match.name;
+        console.log(`[FUB] tags: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
+      }
+
+      // Fetch current tags unless mode is "set"
+      let finalTags;
+      if (mode === "set") {
+        finalTags = incomingTags.map(t => String(t).trim()).filter(Boolean);
+      } else {
+        const pr = await fetch(`${FUB_BASE}/people/${personId}`, { headers: fubHeaders() });
+        const pd = await pr.json();
+        if (!pr.ok) throw new Error(pd?.message || `FUB error ${pr.status}`);
+        if (!resolvedName) resolvedName = pd.name || null;
+
+        const currentTags = (pd.tags || []).map(t => (typeof t === "string" ? t : t.name || String(t)));
+        const incoming = incomingTags.map(t => String(t).trim()).filter(Boolean);
+
+        if (mode === "add") {
+          const tagSet = new Set(currentTags);
+          for (const t of incoming) tagSet.add(t);
+          finalTags = [...tagSet];
+        } else {
+          // remove
+          const removeSet = new Set(incoming.map(t => t.toLowerCase()));
+          finalTags = currentTags.filter(t => !removeSet.has(t.toLowerCase()));
+        }
+      }
+
+      const r = await fetch(`${FUB_BASE}/people/${personId}`, {
+        method: "PUT",
+        headers: fubHeaders(),
+        body: JSON.stringify({ tags: finalTags }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        console.error(`[FUB] tags PUT error ${r.status}:`, JSON.stringify(data));
+        throw new Error(data?.message || data?.error || `FUB error ${r.status}`);
+      }
+
+      const updatedTags = (data.tags || []).map(t => (typeof t === "string" ? t : t.name || String(t)));
+      console.log(`[FUB] tags updated (${mode}) for personId=${personId}: ${updatedTags.join(", ")}`);
+      res.json({ ok: true, personId, resolvedName: resolvedName || data.name || null, tags: updatedTags });
+    } catch (e) {
+      console.error("[FUB] update tags error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
    * GET /fub/stages
    *
    * Returns all available lead stages from FUB.

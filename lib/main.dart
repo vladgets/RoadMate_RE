@@ -771,6 +771,33 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       limit: limit,
     );
   },
+  'fub_get_tags': (args) async {
+    final raw = (args is Map) ? args['agent_name'] as String? : null;
+    final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
+    final clientName = (args is Map) ? args['client_name'] as String? : null;
+    return await FubClient().getTags(
+      agentId: _resolveFubAgentId(raw),
+      agentName: _resolveFubAgent(raw),
+      personId: personId,
+      clientName: clientName,
+    );
+  },
+  'fub_update_tags': (args) async {
+    final raw = (args is Map) ? args['agent_name'] as String? : null;
+    final mode = (args is Map) ? args['mode'] as String? ?? 'add' : 'add';
+    final tagsDynamic = (args is Map && args['tags'] is List) ? args['tags'] as List : [];
+    final tags = tagsDynamic.map((t) => t.toString()).toList();
+    final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
+    final clientName = (args is Map) ? args['client_name'] as String? : null;
+    return await FubClient().updateTags(
+      mode: mode,
+      tags: tags,
+      agentId: _resolveFubAgentId(raw),
+      agentName: _resolveFubAgent(raw),
+      personId: personId,
+      clientName: clientName,
+    );
+  },
   'fub_get_stages': (_) async {
     return await FubClient().getStages();
   },

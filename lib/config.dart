@@ -621,6 +621,62 @@ $trimmedPrefs''';
         "required": ["agent_name"]
       }
     },
+    {
+      "type": "function",
+      "name": "fub_get_tags",
+      "description": "Read the tags on a FUB contact. Use when the user asks 'what tags does [client] have', 'show me [client]'s tags', or similar. Returns the current list of tags. ALWAYS pass person_id when the client was already resolved in this conversation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "description": "Agent name (e.g. 'Roman') or 'me'. Required to scope contact lookup."
+          },
+          "person_id": {
+            "type": "number",
+            "description": "FUB person ID of the contact. Use this when the contact was already resolved in this conversation."
+          },
+          "client_name": {
+            "type": "string",
+            "description": "Full or partial name of the client to look up. Used when person_id is not already known."
+          }
+        },
+        "required": ["agent_name"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "fub_update_tags",
+      "description": "Add, remove, or replace tags on a FUB contact. Use when the user says 'add tag [X] to [client]', 'remove tag [X] from [client]', 'set [client]'s tags to [X, Y]', etc. ALWAYS pass person_id when the client was already resolved in this conversation. Confirm with the user before calling when removing all tags (set with empty-ish list).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "description": "Agent name (e.g. 'Roman') or 'me'. Required to scope contact lookup."
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["add", "remove", "set"],
+            "description": "'add' appends tags without removing existing ones. 'remove' deletes specific tags. 'set' replaces all tags with the provided list."
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of tag strings to add, remove, or set."
+          },
+          "person_id": {
+            "type": "number",
+            "description": "FUB person ID of the contact. Use this when the contact was already resolved in this conversation."
+          },
+          "client_name": {
+            "type": "string",
+            "description": "Full or partial name of the client. Used when person_id is not already known."
+          }
+        },
+        "required": ["agent_name", "mode", "tags"]
+      }
+    },
   ];
 
 
