@@ -676,7 +676,7 @@ $trimmedPrefs''';
               "state": {"type": "string"},
               "zip": {"type": "string"},
               "country": {"type": "string"},
-              "type": {"type": "string", "enum": ["home", "work", "other"], "description": "Address type. Defaults to home."},
+              "type": {"type": "string", "enum": ["home", "work", "selling", "other"], "description": "Address type. Use 'selling' for the property being sold. Defaults to home."},
               "action": {"type": "string", "enum": ["set", "remove"], "description": "Omit or 'set' to add/update; 'remove' to delete by type."}
             }
           }
