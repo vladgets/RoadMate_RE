@@ -506,6 +506,38 @@ $trimmedPrefs''';
     },
     {
       "type": "function",
+      "name": "fub_update_task",
+      "description": "Edit a FUB task or mark it complete/incomplete. Use when the user says 'mark task as done', 'complete this task', 'reopen task', 'change task description', 'reschedule task'. Requires task_id from fub_get_person_tasks results. All fields except task_id are optional.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "number",
+            "description": "The task ID from fub_get_person_tasks results."
+          },
+          "is_completed": {
+            "type": "boolean",
+            "description": "true to mark the task complete, false to reopen it."
+          },
+          "description": {
+            "type": "string",
+            "description": "New task description. Omit if not changing."
+          },
+          "due_date": {
+            "type": "string",
+            "description": "New due date in YYYY-MM-DD format. Omit if not changing."
+          },
+          "task_type": {
+            "type": "string",
+            "enum": ["Follow Up", "Call", "Email", "Text", "Showing", "Closing", "Open House", "Thank You"],
+            "description": "New task type. Omit if not changing."
+          }
+        },
+        "required": ["task_id"]
+      }
+    },
+    {
+      "type": "function",
       "name": "fub_get_person_tasks",
       "description": "Fetch tasks for a specific FUB contact, both open and completed. Use when the user asks 'what tasks do I have for John', 'show me Sarah's tasks', 'any completed tasks for this client'. ALWAYS pass person_id when the contact was already resolved.",
       "parameters": {

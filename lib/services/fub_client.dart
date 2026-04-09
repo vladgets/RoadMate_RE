@@ -51,6 +51,28 @@ class FubClient {
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> updateTask({
+    required int taskId,
+    String? description,
+    String? dueDate,
+    String? taskType,
+    bool? isCompleted,
+  }) async {
+    final uri = Uri.parse('$baseUrl/fub/task/$taskId');
+    final body = <String, dynamic>{
+      if (description != null) 'description': description,
+      if (dueDate != null) 'due_date': dueDate,
+      if (taskType != null) 'task_type': taskType,
+      if (isCompleted != null) 'is_completed': isCompleted,
+    };
+    final resp = await http.put(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getPersonTasks({
     String? agentName,
     int? agentId,

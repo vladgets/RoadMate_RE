@@ -740,6 +740,21 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     return {'ok': true};
   },
   // Follow Up Boss CRM tools
+  'fub_update_task': (args) async {
+    final taskId = (args is Map && args['task_id'] != null) ? (args['task_id'] as num).toInt() : null;
+    if (taskId == null) return {'ok': false, 'error': 'task_id is required'};
+    final description = (args is Map) ? args['description'] as String? : null;
+    final dueDate = (args is Map) ? args['due_date'] as String? : null;
+    final taskType = (args is Map) ? args['task_type'] as String? : null;
+    final isCompleted = (args is Map && args['is_completed'] != null) ? args['is_completed'] as bool? : null;
+    return await FubClient().updateTask(
+      taskId: taskId,
+      description: description,
+      dueDate: dueDate,
+      taskType: taskType,
+      isCompleted: isCompleted,
+    );
+  },
   'fub_create_task': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
     final description = (args is Map) ? args['description'] as String? ?? '' : '';

@@ -303,6 +303,55 @@ export function registerFollowUpBossRoutes(app) {
   });
 
   /**
+   * PUT /fub/task/:id
+   *
+   * Edit a task or mark it complete/incomplete.
+   * All fields optional — only provided fields are updated.
+   *
+   * Body:
+   *   description?    new task description
+   *   due_date?       new due date YYYY-MM-DD
+   *   task_type?      new task type string
+   *   is_completed?   boolean — true to complete, false to reopen
+   */
+  app.put("/fub/task/:id", async (req, res) => {
+    try {
+      const taskId = Number(req.params.id);
+      if (!taskId) return res.status(400).json({ ok: false, error: "Valid task id is required" });
+
+      const { description, due_date, task_type, is_completed } = req.body || {};
+
+      const payload = {};
+      if (description !== undefined) payload.name = description.trim();
+      if (due_date !== undefined) payload.dueDate = due_date.trim();
+      if (task_type !== undefined) payload.type = task_type.trim();
+      if (is_completed !== undefined) payload.isCompleted = Boolean(is_completed);
+
+      if (Object.keys(payload).length === 0) {
+        return res.status(400).json({ ok: false, error: "No fields to update provided" });
+      }
+
+      const r = await fetch(`${FUB_BASE}/tasks/${taskId}`, {
+        method: "PUT",
+        headers: fubHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        console.error(`[FUB] update task API error ${r.status}:`, JSON.stringify(data));
+        throw new Error(data?.message || data?.error || `FUB error ${r.status}`);
+      }
+
+      const updated = Object.keys(payload);
+      console.log(`[FUB] task ${taskId} updated: ${updated.join(", ")}`);
+      res.json({ ok: true, taskId, updated });
+    } catch (e) {
+      console.error("[FUB] update task error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
    * GET /fub/person-tasks
    *
    * Fetch tasks for a specific FUB contact (open and/or completed).
