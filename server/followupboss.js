@@ -908,6 +908,7 @@ export function registerFollowUpBossRoutes(app) {
         return res.status(400).json({ ok: false, error: "tags must be a non-empty array" });
       }
 
+      const agentIdForTags = await resolveAgentFromRequest(req);
       let personId = person_id ? Number(person_id) : null;
       let resolvedName = null;
 
@@ -915,14 +916,19 @@ export function registerFollowUpBossRoutes(app) {
         if (!client_name?.trim()) {
           return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
         }
-        const assignedUserId = await resolveAgentFromRequest(req);
-        const match = await resolvePersonByName(client_name.trim(), assignedUserId);
+        const match = await resolvePersonByName(client_name.trim(), agentIdForTags);
         if (!match) {
           return res.json({ ok: false, error: `No contact found matching "${client_name}"` });
         }
         personId = match.id;
         resolvedName = match.name;
         console.log(`[FUB] tags: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
+      } else {
+        if (agentIdForTags && personId === agentIdForTags) {
+          console.warn(`[FUB] tags WARNING: person_id=${personId} equals agentId=${agentIdForTags} — likely a model error`);
+          return res.status(400).json({ ok: false, error: `person_id ${personId} matches the agent user ID — this is likely wrong. Search for the contact first.` });
+        }
+        console.log(`[FUB] tags: using direct person_id=${personId}`);
       }
 
       // Fetch current tags unless mode is "set"
@@ -1035,6 +1041,12 @@ export function registerFollowUpBossRoutes(app) {
         personId = match.id;
         resolvedName = match.name;
         console.log(`[FUB] stage update: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
+      } else {
+        if (personId === agentId) {
+          console.warn(`[FUB] stage WARNING: person_id=${personId} equals agentId=${agentId} — likely a model error`);
+          return res.status(400).json({ ok: false, error: `person_id ${personId} matches the agent user ID — this is likely wrong. Search for the contact first.` });
+        }
+        console.log(`[FUB] stage update: using direct person_id=${personId}`);
       }
 
       const r = await fetch(`${FUB_BASE}/people/${personId}`, {
