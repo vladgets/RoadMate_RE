@@ -609,6 +609,10 @@ $trimmedPrefs''';
             "type": "string",
             "description": "Lead source to set (e.g. 'Zillow', 'Referral', 'Website'). Must match a valid FUB source name — call fub_get_sources first if unsure. Omit if not changing."
           },
+          "assigned_to": {
+            "type": "string",
+            "description": "Agent name to assign this contact to (e.g. 'Roman', 'me'). Resolved to a FUB user ID server-side. Omit if not changing."
+          },
           "tags": {
             "type": "object",
             "description": "Tag update operation. 'add' appends without removing existing. 'remove' deletes specific tags. 'set' replaces all tags with the provided list.",

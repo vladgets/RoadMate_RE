@@ -793,6 +793,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     final name = (args is Map) ? args['name'] as String? : null;
     final backgroundInfo = (args is Map) ? args['background_info'] as String? : null;
     final source = (args is Map) ? args['source'] as String? : null;
+    final assignedTo = (args is Map) ? args['assigned_to'] as String? : null;
     final tags = (args is Map && args['tags'] is Map) ? Map<String, dynamic>.from(args['tags'] as Map) : null;
     final phonesRaw = (args is Map && args['phones'] is List) ? args['phones'] as List : null;
     final phones = phonesRaw?.map((e) => Map<String, dynamic>.from(e as Map)).toList();
@@ -808,6 +809,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       name: name,
       backgroundInfo: backgroundInfo,
       source: source,
+      assignedTo: assignedTo,
       tags: tags,
       phones: phones,
       emails: emails,

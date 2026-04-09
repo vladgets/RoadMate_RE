@@ -690,7 +690,7 @@ export function registerFollowUpBossRoutes(app) {
    */
   app.post("/fub/contact/update", async (req, res) => {
     try {
-      const { person_id, client_name, stage, name, background_info, source, tags, phones, emails, address } = req.body || {};
+      const { person_id, client_name, stage, name, background_info, source, assigned_to, tags, phones, emails, address } = req.body || {};
 
       let personId = person_id ? Number(person_id) : null;
       let resolvedName = null;
@@ -734,6 +734,14 @@ export function registerFollowUpBossRoutes(app) {
       if (name) payload.name = name.trim();
       if (background_info !== undefined) payload.backgroundInformation = background_info?.trim() ?? "";
       if (source !== undefined) payload.source = source?.trim() ?? "";
+      if (assigned_to) {
+        const resolvedAgentId = await resolveAgentId(assigned_to.trim());
+        if (!resolvedAgentId) {
+          return res.status(400).json({ ok: false, error: `Could not resolve agent "${assigned_to}" — check the name and try again` });
+        }
+        payload.assignedUserId = resolvedAgentId;
+        console.log(`[FUB] update: assigned_to "${assigned_to}" resolved to agentId=${resolvedAgentId}`);
+      }
 
       // Tags merge
       if (tags) {
