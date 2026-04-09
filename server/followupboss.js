@@ -573,6 +573,12 @@ export function registerFollowUpBossRoutes(app) {
         personId = match.id;
         resolvedName = match.name;
         console.log(`[FUB] text: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
+      } else {
+        if (personId === userId) {
+          console.warn(`[FUB] text WARNING: person_id=${personId} equals agentId=${userId} — likely a model error`);
+          return res.status(400).json({ ok: false, error: `person_id ${personId} matches the agent user ID — this is likely wrong. Search for the contact first.` });
+        }
+        console.log(`[FUB] text: using direct person_id=${personId}`);
       }
 
       // Send text message via FUB (omit userId — API key owner's texting number is used)
@@ -633,6 +639,12 @@ export function registerFollowUpBossRoutes(app) {
         personId = match.id;
         resolvedName = match.name;
         console.log(`[FUB] note: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
+      } else {
+        if (personId === userId) {
+          console.warn(`[FUB] note WARNING: person_id=${personId} equals agentId=${userId} — likely a model error`);
+          return res.status(400).json({ ok: false, error: `person_id ${personId} matches the agent user ID — this is likely wrong. Search for the contact first.` });
+        }
+        console.log(`[FUB] note: using direct person_id=${personId}`);
       }
 
       // Create note via FUB (userId is optional — omit to avoid potential 400)
@@ -694,6 +706,14 @@ export function registerFollowUpBossRoutes(app) {
         personId = match.id;
         resolvedName = match.name;
         console.log(`[FUB] update: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
+      } else {
+        // Guard: warn if person_id suspiciously matches the agent's own user ID
+        const agentId = await resolveAgentFromRequest(req).catch(() => null);
+        if (agentId && personId === agentId) {
+          console.warn(`[FUB] update WARNING: person_id=${personId} equals agentId=${agentId} — likely a model error passing agent ID as contact ID`);
+          return res.status(400).json({ ok: false, error: `person_id ${personId} matches the agent user ID — this is likely wrong. Search for the contact first using fub_search_contacts.` });
+        }
+        console.log(`[FUB] update: using direct person_id=${personId}`);
       }
 
       // Fetch current person data only when merge is needed

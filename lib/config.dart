@@ -8,7 +8,7 @@ import 'services/memory_store.dart';
 
 class Config {
   static const String systemPromptTemplate = '''
-Realtime voice assistant for users on the go.
+You are a voice assistant for real estate agents.
 
 Personality: warm, witty, quick, conversational.
 Language: mirror user (default: US English).
@@ -24,7 +24,7 @@ Memory (CRITICAL):
 
 WebSearch: for up-to-date/verifiable facts only. Use open_url to open any link the user asks to visit.
 
-Calendar (syncs to Google): create_calendar_event = new events only. To change existing: get_calendar_data first (get event_id) → update_calendar_event. To remove: delete_calendar_event.
+Calendar: create_calendar_event = new events only. To change existing: get_calendar_data first (get event_id) → update_calendar_event. To remove: delete_calendar_event.
 Calendar attachments: events may include an attachments array. Use read_drive_file with the file_id to read PDFs, Google Docs, or spreadsheets attached to events.
 
 Reminders:
@@ -33,9 +33,10 @@ Reminders:
 - Weekly: "Remind me every Monday at 8am" → recurrence='weekly', day_of_week=1
 
 FUB CRM: {{FUB_AGENT_LINE}}
-FUB contacts: always use person_id when calling fub_create_note, fub_send_text, or fub_update_person. If you don't have it yet, call fub_search_contacts first to resolve the client, then use the returned id.
-Never pass client_name alone when you can get the id first. Once resolved, remember person_id for the rest of the conversation.
-fub_update_person handles stage, tags, phones, emails, address, name, and background info — use it for any contact field update.
+FUB IDs: agent_id (your identity as an agent) and person_id (a contact's ID) are DIFFERENT ID spaces. NEVER use agent_id as person_id.
+FUB contacts: person_id comes ONLY from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. If you don't have it, call fub_search_contacts first — never guess or reuse the agent ID.
+Once person_id is resolved, remember it for the rest of the conversation.
+fub_update_person handles stage, tags, phones, emails, address, name, and background info — use it for any contact field update. Do NOT use fub_create_note for data changes.
 
 Date: {{CURRENT_DATE_READABLE}}
 ''';
@@ -488,7 +489,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_search_contacts",
-      "description": "Search for FUB contacts by partial name (case-insensitive), scoped to the agent. Use when user asks to find or look up a client by name (e.g. 'find all my Johns', 'look up Smith', 'search for William'). Returns full contact details including person id. IMPORTANT: store the returned person_id and use it in all subsequent fub_create_note/fub_send_text calls — do NOT re-resolve or ask the user which client again.",
+      "description": "Search for FUB contacts by partial name (case-insensitive), scoped to the agent. Use when user asks to find or look up a client by name (e.g. 'find all my Johns', 'look up Smith', 'search for William'). Returns full contact details including the contact's id field — this is the person_id to use in fub_create_note, fub_send_text, and fub_update_person. Store it and reuse it; do NOT re-resolve or ask the user again.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -511,7 +512,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_create_note",
-      "description": "Create an internal note on a FUB client's timeline on behalf of the agent. Notes are not sent to the client — they are private CRM records. Use when the agent wants to log something about a client (e.g. 'note that John called about pricing'). ALWAYS pass person_id when the client was already resolved in this conversation (from search or task list) — never re-ask the user which client.",
+      "description": "Create an internal note on a FUB client's timeline. Notes are private CRM records — not sent to the client. Use for free-text observations (e.g. 'called about pricing', 'met at open house'). Do NOT use to record structured data changes like address, phone, email, stage, or tags — use fub_update_person for those. ALWAYS pass person_id from a prior search or task result — never use agent_id as person_id.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -525,11 +526,11 @@ $trimmedPrefs''';
           },
           "person_id": {
             "type": "number",
-            "description": "FUB person ID of the contact. Use this when the contact was already resolved in this conversation."
+            "description": "FUB contact ID — from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. This is NOT the agent user ID."
           },
           "client_name": {
             "type": "string",
-            "description": "Full or partial name of the client to look up. Used when person_id is not already known."
+            "description": "Full or partial name of the client. Used only when person_id is not already known from a prior search."
           }
         },
         "required": ["agent_name", "body"]
@@ -552,11 +553,11 @@ $trimmedPrefs''';
           },
           "person_id": {
             "type": "number",
-            "description": "FUB person ID of the recipient. Use this when the contact was already resolved in this conversation."
+            "description": "FUB contact ID — from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. This is NOT the agent user ID."
           },
           "client_name": {
             "type": "string",
-            "description": "Full or partial name of the client to look up. Used when person_id is not already known."
+            "description": "Full or partial name of the client. Used only when person_id is not already known from a prior search."
           }
         },
         "required": ["agent_name", "message"]
@@ -585,11 +586,11 @@ $trimmedPrefs''';
           },
           "person_id": {
             "type": "number",
-            "description": "FUB person ID of the contact. Use this when the contact was already resolved in this conversation."
+            "description": "FUB contact ID — from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. This is NOT the agent user ID. Never pass agent_id here."
           },
           "client_name": {
             "type": "string",
-            "description": "Full or partial name of the client. Used when person_id is not already known."
+            "description": "Full or partial name of the client. Used only when person_id is not already known from a prior search."
           },
           "stage": {
             "type": "string",
