@@ -771,16 +771,19 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       limit: limit,
     );
   },
-  'fub_get_tags': (args) async {
+  'fub_get_person_details': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
     final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
     final clientName = (args is Map) ? args['client_name'] as String? : null;
-    return await FubClient().getTags(
+    return await FubClient().getPersonDetails(
       agentId: _resolveFubAgentId(raw),
       agentName: _resolveFubAgent(raw),
       personId: personId,
       clientName: clientName,
     );
+  },
+  'fub_get_sources': (_) async {
+    return await FubClient().getSources();
   },
   'fub_update_person': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
@@ -789,6 +792,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     final stage = (args is Map) ? args['stage'] as String? : null;
     final name = (args is Map) ? args['name'] as String? : null;
     final backgroundInfo = (args is Map) ? args['background_info'] as String? : null;
+    final source = (args is Map) ? args['source'] as String? : null;
     final tags = (args is Map && args['tags'] is Map) ? Map<String, dynamic>.from(args['tags'] as Map) : null;
     final phonesRaw = (args is Map && args['phones'] is List) ? args['phones'] as List : null;
     final phones = phonesRaw?.map((e) => Map<String, dynamic>.from(e as Map)).toList();
@@ -803,6 +807,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       stage: stage,
       name: name,
       backgroundInfo: backgroundInfo,
+      source: source,
       tags: tags,
       phones: phones,
       emails: emails,

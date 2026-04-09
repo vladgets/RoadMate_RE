@@ -101,6 +101,7 @@ class FubClient {
     String? stage,
     String? name,
     String? backgroundInfo,
+    String? source,
     Map<String, dynamic>? tags,
     List<Map<String, dynamic>>? phones,
     List<Map<String, dynamic>>? emails,
@@ -113,6 +114,7 @@ class FubClient {
       if (stage != null) 'stage': stage,
       if (name != null) 'name': name,
       if (backgroundInfo != null) 'background_info': backgroundInfo,
+      if (source != null) 'source': source,
       if (tags != null) 'tags': tags,
       if (phones != null) 'phones': phones,
       if (emails != null) 'emails': emails,
@@ -127,7 +129,7 @@ class FubClient {
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getTags({
+  Future<Map<String, dynamic>> getPersonDetails({
     String? agentName,
     int? agentId,
     int? personId,
@@ -137,7 +139,13 @@ class FubClient {
     if (personId != null) params['person_id'] = personId.toString();
     if (clientName != null) params['client_name'] = clientName;
     _addAgent(params, agentId: agentId, agentName: agentName);
-    final uri = Uri.parse('$baseUrl/fub/contact/tags').replace(queryParameters: params.isEmpty ? null : params);
+    final uri = Uri.parse('$baseUrl/fub/contact/details').replace(queryParameters: params.isEmpty ? null : params);
+    final resp = await http.get(uri);
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getSources() async {
+    final uri = Uri.parse('$baseUrl/fub/sources');
     final resp = await http.get(uri);
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }

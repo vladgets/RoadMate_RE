@@ -605,6 +605,10 @@ $trimmedPrefs''';
             "type": "string",
             "description": "Background information / bio text to set on the contact. Omit if not changing."
           },
+          "source": {
+            "type": "string",
+            "description": "Lead source to set (e.g. 'Zillow', 'Referral', 'Website'). Must match a valid FUB source name — call fub_get_sources first if unsure. Omit if not changing."
+          },
           "tags": {
             "type": "object",
             "description": "Tag update operation. 'add' appends without removing existing. 'remove' deletes specific tags. 'set' replaces all tags with the provided list.",
@@ -688,8 +692,8 @@ $trimmedPrefs''';
     },
     {
       "type": "function",
-      "name": "fub_get_tags",
-      "description": "Read the tags on a FUB contact. Use when the user asks 'what tags does [client] have', 'show me [client]'s tags', or similar. Returns the current list of tags. ALWAYS pass person_id when the client was already resolved in this conversation.",
+      "name": "fub_get_person_details",
+      "description": "Read key fields of a FUB contact: tags, background info, source, and stage. Use when the user asks about any of these fields (e.g. 'what tags does John have', 'what's Sarah's background', 'what source is this lead', 'show me RoadMate's details'). ALWAYS pass person_id when the client was already resolved in this conversation.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -699,14 +703,24 @@ $trimmedPrefs''';
           },
           "person_id": {
             "type": "number",
-            "description": "FUB person ID of the contact. Use this when the contact was already resolved in this conversation."
+            "description": "FUB contact ID — from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. NOT the agent user ID."
           },
           "client_name": {
             "type": "string",
-            "description": "Full or partial name of the client to look up. Used when person_id is not already known."
+            "description": "Full or partial name of the client. Used only when person_id is not already known."
           }
         },
         "required": ["agent_name"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "fub_get_sources",
+      "description": "Get all available lead sources from Follow Up Boss CRM. Use when the user asks what sources are available, or before updating a source to confirm the exact name.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
       }
     },
   ];

@@ -690,7 +690,7 @@ export function registerFollowUpBossRoutes(app) {
    */
   app.post("/fub/contact/update", async (req, res) => {
     try {
-      const { person_id, client_name, stage, name, background_info, tags, phones, emails, address } = req.body || {};
+      const { person_id, client_name, stage, name, background_info, source, tags, phones, emails, address } = req.body || {};
 
       let personId = person_id ? Number(person_id) : null;
       let resolvedName = null;
@@ -732,7 +732,8 @@ export function registerFollowUpBossRoutes(app) {
 
       if (stage) payload.stage = stage.trim();
       if (name) payload.name = name.trim();
-      if (background_info) payload.backgroundInformation = background_info.trim();
+      if (background_info !== undefined) payload.backgroundInformation = background_info?.trim() ?? "";
+      if (source !== undefined) payload.source = source?.trim() ?? "";
 
       // Tags merge
       if (tags) {
@@ -842,18 +843,18 @@ export function registerFollowUpBossRoutes(app) {
   });
 
   /**
-   * GET /fub/contact/tags
+   * GET /fub/contact/details
    *
-   * Get tags for a FUB contact.
+   * Read key editable fields for a FUB contact: tags, background, source, stage.
    * Resolves contact by name (substring scan) if person_id not provided.
    *
    * Query params:
-   *   agent_id=N   agent user ID (preferred)
-   *   agent=NAME   agent name (fallback)
-   *   person_id=N  FUB person ID (preferred)
+   *   agent_id=N        agent user ID (preferred)
+   *   agent=NAME        agent name (fallback)
+   *   person_id=N       FUB person ID (preferred)
    *   client_name=NAME  partial name to look up (fallback)
    */
-  app.get("/fub/contact/tags", async (req, res) => {
+  app.get("/fub/contact/details", async (req, res) => {
     try {
       let personId = req.query.person_id ? Number(req.query.person_id) : null;
       let resolvedName = null;
@@ -877,9 +878,17 @@ export function registerFollowUpBossRoutes(app) {
       if (!r.ok) return res.status(r.status).json({ ok: false, error: data?.message || `FUB error ${r.status}` });
 
       const tags = (data.tags || []).map(t => (typeof t === "string" ? t : t.name || String(t)));
-      res.json({ ok: true, personId, resolvedName: resolvedName || data.name || null, tags });
+      res.json({
+        ok: true,
+        person_id: personId,
+        name: resolvedName || data.name || null,
+        tags,
+        background: data.backgroundInformation || null,
+        source: data.source || null,
+        stage: data.stage || null,
+      });
     } catch (e) {
-      console.error("[FUB] get tags error:", e);
+      console.error("[FUB] contact details error:", e);
       res.status(500).json({ ok: false, error: String(e) });
     }
   });
@@ -1002,6 +1011,24 @@ export function registerFollowUpBossRoutes(app) {
       res.json({ ok: true, stages, total: stages.length });
     } catch (e) {
       console.error("[FUB] stages error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
+   * GET /fub/sources
+   *
+   * Returns all available lead sources from FUB.
+   */
+  app.get("/fub/sources", async (req, res) => {
+    try {
+      const r = await fetch(`${FUB_BASE}/sources?limit=200`, { headers: fubHeaders() });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+      const sources = (data.sources || []).map(s => s.name || s).filter(Boolean);
+      res.json({ ok: true, sources, total: sources.length });
+    } catch (e) {
+      console.error("[FUB] sources error:", e);
       res.status(500).json({ ok: false, error: String(e) });
     }
   });
