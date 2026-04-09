@@ -740,6 +740,36 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     return {'ok': true};
   },
   // Follow Up Boss CRM tools
+  'fub_create_task': (args) async {
+    final raw = (args is Map) ? args['agent_name'] as String? : null;
+    final description = (args is Map) ? args['description'] as String? ?? '' : '';
+    final dueDate = (args is Map) ? args['due_date'] as String? ?? '' : '';
+    final taskType = (args is Map) ? args['task_type'] as String? ?? '' : '';
+    final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
+    final clientName = (args is Map) ? args['client_name'] as String? : null;
+    return await FubClient().createTask(
+      description: description,
+      dueDate: dueDate,
+      taskType: taskType,
+      agentId: _resolveFubAgentId(raw),
+      agentName: _resolveFubAgent(raw) ?? 'me',
+      personId: personId,
+      clientName: clientName,
+    );
+  },
+  'fub_get_person_tasks': (args) async {
+    final raw = (args is Map) ? args['agent_name'] as String? : null;
+    final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
+    final clientName = (args is Map) ? args['client_name'] as String? : null;
+    final status = (args is Map) ? args['status'] as String? ?? 'all' : 'all';
+    return await FubClient().getPersonTasks(
+      agentId: _resolveFubAgentId(raw),
+      agentName: _resolveFubAgent(raw),
+      personId: personId,
+      clientName: clientName,
+      status: status,
+    );
+  },
   'fub_get_tasks': (args) async {
     final dueDate = (args is Map) ? args['due_date'] as String? : null;
     final raw = (args is Map) ? args['agent_name'] as String? : null;

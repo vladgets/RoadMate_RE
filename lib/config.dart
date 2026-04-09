@@ -470,6 +470,70 @@ $trimmedPrefs''';
     // Follow Up Boss CRM tools
     {
       "type": "function",
+      "name": "fub_create_task",
+      "description": "Create a task for a FUB contact. Use when the user says 'add a task', 'create a follow up', 'schedule a call', or similar. The task is assigned to the current agent. ALWAYS pass person_id when the contact was already resolved in this conversation — never use agent_id as person_id.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "description": "Agent creating and assigned to the task. Use the agent's name from your identity (e.g. 'Roman') or 'me'."
+          },
+          "person_id": {
+            "type": "number",
+            "description": "FUB contact ID — from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. NOT the agent user ID."
+          },
+          "client_name": {
+            "type": "string",
+            "description": "Full or partial contact name. Used only when person_id is not already known."
+          },
+          "description": {
+            "type": "string",
+            "description": "Task description / title (free text)."
+          },
+          "due_date": {
+            "type": "string",
+            "description": "Due date in YYYY-MM-DD format. Use today's date if the user doesn't specify."
+          },
+          "task_type": {
+            "type": "string",
+            "enum": ["Follow Up", "Call", "Email", "Text", "Showing", "Closing", "Open House", "Thank You"],
+            "description": "Type of task."
+          }
+        },
+        "required": ["agent_name", "description", "due_date", "task_type"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "fub_get_person_tasks",
+      "description": "Fetch tasks for a specific FUB contact, both open and completed. Use when the user asks 'what tasks do I have for John', 'show me Sarah's tasks', 'any completed tasks for this client'. ALWAYS pass person_id when the contact was already resolved.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "description": "Agent name for contact resolution scope. Use 'me' or the agent's name."
+          },
+          "person_id": {
+            "type": "number",
+            "description": "FUB contact ID — from prior search or task results. NOT the agent user ID."
+          },
+          "client_name": {
+            "type": "string",
+            "description": "Full or partial contact name. Used only when person_id is not already known."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["open", "completed", "all"],
+            "description": "Filter by task status. Defaults to 'all'."
+          }
+        },
+        "required": ["agent_name"]
+      }
+    },
+    {
+      "type": "function",
       "name": "fub_get_tasks",
       "description": "Get incomplete tasks from Follow Up Boss CRM including contact details (name, phone, email, address). agent_name is required — always pass the agent's name from your identity or 'me'. For 'today's meetings/tasks/clients', pass due_date=today's date in YYYY-MM-DD format. Summarize by grouping overdue vs upcoming.",
       "parameters": {

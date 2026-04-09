@@ -228,6 +228,139 @@ export function registerFollowUpBossRoutes(app) {
   });
 
   /**
+   * POST /fub/task
+   *
+   * Create a task for a FUB contact.
+   * Resolves contact by name if person_id not provided.
+   *
+   * Body:
+   *   person_id?    FUB contact ID (preferred)
+   *   client_name?  partial contact name (fallback)
+   *   agent_id?     agent user ID (preferred for identity)
+   *   agent?        agent name (fallback for identity)
+   *   description   task description / title (required)
+   *   due_date      due date string YYYY-MM-DD (required)
+   *   task_type     task type string, e.g. "Follow Up", "Call" (required)
+   */
+  app.post("/fub/task", async (req, res) => {
+    try {
+      const { person_id, client_name, description, due_date, task_type } = req.body || {};
+
+      if (!description?.trim()) return res.status(400).json({ ok: false, error: "description is required" });
+      if (!due_date?.trim()) return res.status(400).json({ ok: false, error: "due_date is required" });
+      if (!task_type?.trim()) return res.status(400).json({ ok: false, error: "task_type is required" });
+
+      const agentId = await resolveAgentFromRequest(req);
+      if (!agentId) return res.status(400).json({ ok: false, error: "Could not resolve agent identity" });
+
+      let personId = person_id ? Number(person_id) : null;
+      let resolvedName = null;
+
+      if (!personId) {
+        if (!client_name?.trim()) {
+          return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
+        }
+        const match = await resolvePersonByName(client_name.trim(), agentId);
+        if (!match) {
+          return res.json({ ok: false, error: `No contact found matching "${client_name}"` });
+        }
+        personId = match.id;
+        resolvedName = match.name;
+        console.log(`[FUB] task: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
+      } else {
+        if (personId === agentId) {
+          console.warn(`[FUB] task WARNING: person_id=${personId} equals agentId=${agentId} — likely a model error`);
+          return res.status(400).json({ ok: false, error: `person_id ${personId} matches the agent user ID — this is likely wrong. Search for the contact first.` });
+        }
+        console.log(`[FUB] task: using direct person_id=${personId}`);
+      }
+
+      const payload = {
+        personId,
+        assignedUserId: agentId,
+        name: description.trim(),
+        dueDate: due_date.trim(),
+        type: task_type.trim(),
+      };
+
+      const r = await fetch(`${FUB_BASE}/tasks`, {
+        method: "POST",
+        headers: fubHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        console.error(`[FUB] task API error ${r.status}:`, JSON.stringify(data));
+        throw new Error(data?.message || data?.error || `FUB error ${r.status}`);
+      }
+
+      console.log(`[FUB] task created id=${data.id} for personId=${personId} by agentId=${agentId}`);
+      res.json({ ok: true, taskId: data.id, personId, resolvedName: resolvedName || null, type: task_type, dueDate: due_date });
+    } catch (e) {
+      console.error("[FUB] create task error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
+   * GET /fub/person-tasks
+   *
+   * Fetch tasks for a specific FUB contact (open and/or completed).
+   *
+   * Query params:
+   *   person_id=N       FUB contact ID (preferred)
+   *   client_name=NAME  partial name to resolve (fallback)
+   *   agent_id=N / agent=NAME  for contact name resolution scope
+   *   status=open|completed|all  default: all
+   */
+  app.get("/fub/person-tasks", async (req, res) => {
+    try {
+      let personId = req.query.person_id ? Number(req.query.person_id) : null;
+      let resolvedName = null;
+
+      if (!personId) {
+        const clientName = req.query.client_name?.trim();
+        if (!clientName) {
+          return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
+        }
+        const agentId = await resolveAgentFromRequest(req);
+        const match = await resolvePersonByName(clientName, agentId);
+        if (!match) {
+          return res.json({ ok: false, error: `No contact found matching "${clientName}"` });
+        }
+        personId = match.id;
+        resolvedName = match.name;
+      }
+
+      const status = req.query.status || "all";
+      const params = new URLSearchParams({ personId: String(personId), limit: "50", sort: "dueDate" });
+
+      const r = await fetch(`${FUB_BASE}/tasks?${params}`, { headers: fubHeaders() });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+
+      let tasks = data.tasks || [];
+      if (status === "open") tasks = tasks.filter(t => !t.isCompleted);
+      else if (status === "completed") tasks = tasks.filter(t => t.isCompleted);
+
+      const result = tasks.map(t => ({
+        id: t.id,
+        type: t.type || "",
+        description: t.name || "",
+        dueDate: t.dueDate || null,
+        isCompleted: !!t.isCompleted,
+        assignedTo: t.AssignedTo || null,
+      }));
+
+      console.log(`[FUB] person-tasks: personId=${personId} status=${status} → ${result.length} tasks`);
+      res.json({ ok: true, person_id: personId, resolvedName, tasks: result, total: result.length });
+    } catch (e) {
+      console.error("[FUB] person-tasks error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
    * GET /fub/tasks
    *
    * Query params:
