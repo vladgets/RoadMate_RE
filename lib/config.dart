@@ -493,7 +493,7 @@ $trimmedPrefs''';
           },
           "due_date": {
             "type": "string",
-            "description": "Due date in YYYY-MM-DD format. Use today's date if the user doesn't specify."
+            "description": "Due date in YYYY-MM-DD format. Omit to default to today's date."
           },
           "task_type": {
             "type": "string",
@@ -501,7 +501,7 @@ $trimmedPrefs''';
             "description": "Type of task."
           }
         },
-        "required": ["agent_name", "description", "due_date", "task_type"]
+        "required": ["agent_name", "description", "task_type"]
       }
     },
     {

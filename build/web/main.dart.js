@@ -1029,7 +1029,7 @@ p.acA()
 return p},
 aZG(a){return new A.aab($.a4,a)},
 aIN(){var s,r,q,p,o=v.G,n=o.window,m=A.aZf(n.navigator)
-if(m==null||m.length===0)return B.ql
+if(m==null||m.length===0)return B.qk
 s=A.b([],t.ss)
 for(n=m.length,r=0;r<m.length;m.length===n||(0,A.F)(m),++r){q=m[r]
 p=new o.Intl.Locale(q)
@@ -8297,7 +8297,7 @@ o=a.h(0,f)==null?j:new A.M0(A.bX(a.h(0,f)))
 if(a.h(0,e)==null)n=j
 else{n=t.f.a(a.h(0,e)).eD(0,t.N,t.z)
 m=A.cZ(n.h(0,"contentType"))
-m=m!=null&&m<5?B.Nw[m]:B.nw
+m=m!=null&&m<5?B.Nx[m]:B.nw
 l=A.bX(n.h(0,"flags"))
 n=B.PT.h(0,A.cZ(n.h(0,"usage")))
 if(n==null)n=B.nz
@@ -12022,8 +12022,8 @@ break
 case 4:s=l.a
 s===$&&A.a()
 s=A.bA(s,200)
-r=A.bA(A.a8W(l,B.qm,B.Mi),24)
-q=A.bA(A.a8W(l,B.qm,B.N0),32)
+r=A.bA(A.a8W(l,B.ql,B.Mi),24)
+q=A.bA(A.a8W(l,B.ql,B.N1),32)
 p=A.bA(l.a,10)
 o=A.bA(l.a,12)
 l.d===$&&A.a()
@@ -12033,8 +12033,8 @@ break
 case 5:s=l.a
 s===$&&A.a()
 s=A.bA(A.CX(s+240),40)
-r=A.bA(A.a8W(l,B.qo,B.NX),24)
-q=A.bA(A.a8W(l,B.qo,B.NY),32)
+r=A.bA(A.a8W(l,B.qn,B.NY),24)
+q=A.bA(A.a8W(l,B.qn,B.NZ),32)
 p=A.bA(l.a+15,8)
 o=A.bA(l.a+15,12)
 l.d===$&&A.a()
@@ -12637,7 +12637,7 @@ aNL(a,b,c){if(b!=null&&!b.j(0,B.E))return A.aIw(b.aX(A.aZC(c)),a)
 return a},
 aZC(a){var s,r,q,p,o,n
 if(a<0)return 0
-for(s=0;r=B.qn[s],q=r.a,a>=q;){if(a===q||s+1===6)return r.b;++s}p=B.qn[s-1]
+for(s=0;r=B.qm[s],q=r.a,a>=q;){if(a===q||s+1===6)return r.b;++s}p=B.qm[s-1]
 o=p.a
 n=p.b
 return n+(a-o)/(q-o)*(r.b-n)},
@@ -22892,7 +22892,7 @@ if(a.as!==q)return q?-1:1
 return 0},
 aZz(a,b){var s=A.a0(b).i("a1<1,e0>")
 s=A.a_(new A.a1(b,new A.a9L(),s),s.i("af.E"))
-return A.aYT(!0,s,a,B.Nn,!0,B.HZ,null)},
+return A.aYT(!0,s,a,B.No,!0,B.HZ,null)},
 aIM(a){var s
 try{a.e_()}catch(s){a.Uj()}a.w=B.a68
 try{a.bp(A.b8l())}catch(s){}},
@@ -23508,7 +23508,7 @@ _.as=!0
 _.at=!1
 _.$ti=d},
 PF(a,b){var s
-if(a.j(0,b))return new A.MV(B.Nq)
+if(a.j(0,b))return new A.MV(B.Nr)
 s=A.b([],t.fJ)
 A.c2()
 a.pc(new A.adv(b,A.aJ(t.u),s))
@@ -27351,7 +27351,7 @@ b=A.eU(B.iu,!1,t.ls)
 k=A.eU(!1,!1,k)
 a=A.eU(new A.me(!1,B.ej),!1,t.w2)
 a0=B.d2.rn()
-a1=new A.a4z(B.Ne,B.Nf)
+a1=new A.a4z(B.Nf,B.Ng)
 a2=A.b([],t.DG)
 a3=A.aJj(!1)
 a4=A.aNi()
@@ -29974,7 +29974,7 @@ ac4(a){var s=a/100
 return(s<=0.0031308?s*12.92:1.055*Math.pow(s,0.4166666666666667)-0.055)*255},
 aJ4(a){var s=Math.pow(Math.abs(a),0.42)
 return A.ky(a)*400*s/(s+27.13)},
-aJ5(a){var s=A.o3(a,B.NU),r=A.aJ4(s[0]),q=A.aJ4(s[1]),p=A.aJ4(s[2])
+aJ5(a){var s=A.o3(a,B.NV),r=A.aJ4(s[0]),q=A.aJ4(s[1]),p=A.aJ4(s[2])
 return Math.atan2((r+q-2*p)/9,(11*r+-12*q+p)/11)},
 b_f(a,b){var s,r,q,p,o,n=B.e.by(b,4)<=1?0:100,m=(b&1)===0?0:100
 if(b<4){s=(a-n*0.7152-m*0.0722)/0.2126
@@ -30009,7 +30009,7 @@ if(q!==p){if(q<p){o=B.d.fX(A.ac4(q)-0.5)
 n=B.d.o9(A.ac4(a[r])-0.5)}else{o=B.d.o9(A.ac4(q)-0.5)
 n=B.d.fX(A.ac4(a[r])-0.5)}for(m=0;m<8;++m)if(Math.abs(n-o)<=1)break
 else{l=B.d.fX((o+n)/2)
-k=B.Ob[l]
+k=B.Oc[l]
 q=c[r]
 j=(k-q)/(a[r]-q)
 q=c[0]
@@ -31582,7 +31582,7 @@ zh(){var s=this.Q
 s===$&&A.a()
 return s},
 zi(a,b,c,d){var s,r,q,p
-if(a<0||b<0)return B.No
+if(a<0||b<0)return B.Np
 s=this.a
 s===$&&A.a()
 s=s.a
@@ -31844,7 +31844,7 @@ j(a,b){if(b==null)return!1
 if(!(b instanceof A.BF))return!1
 return b.d===this.d&&b.b==this.b&&A.hO(b.c,this.c)},
 gt(a){var s=this,r=s.c
-return A.S(s.d,s.a,s.b,A.bz(r==null?B.Nr:r),B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a)},
+return A.S(s.d,s.a,s.b,A.bz(r==null?B.Ns:r),B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a)},
 $ii0:1}
 A.Am.prototype={
 a_B(a,b){var s=this.TF(a),r=A.b5(new A.a6g(this,b,s))
@@ -36695,7 +36695,7 @@ ahv(){var s=this,r=s.r
 if(r==null){r=s.r=new A.M7(s.c)
 r.d=new A.aak(s)}return r},
 P7(a){var s,r,q,p,o,n,m=this
-if(B.b.p(B.O7,a.type)){s=m.ahv()
+if(B.b.p(B.O8,a.type)){s=m.ahv()
 s.toString
 r=m.c.$0()
 q=r.b
@@ -36708,7 +36708,7 @@ if(m.f!==B.pI){m.f=B.pI
 m.Wz()}}return m.d.a.a7J(a)},
 Wz(){var s,r
 for(s=this.w,r=0;r<s.length;++r)s[r].$1(this.f)},
-a7I(a){if(B.b.p(B.N4,a))return this.f===B.ia
+a7I(a){if(B.b.p(B.N5,a))return this.f===B.ia
 return!1}}
 A.aal.prototype={
 $0(){return new A.bN(Date.now(),0,!1)},
@@ -44347,7 +44347,7 @@ if(s==null||s.length<a)s=this.c=new Uint8Array(a)
 return J.jb(B.S.gco(s),s.byteOffset,a)}}
 A.at2.prototype={
 A(a,b){this.Ia(b,0,J.bH(b),!1)},
-ak(){this.Ia(B.Nb,0,0,!0)}}
+ak(){this.Ia(B.Nc,0,0,!0)}}
 A.asC.prototype={
 Ia(a,b,c,d){var s=this.b.Ne(a,b,c,d)
 if(s!=null)this.a.A(0,A.fM(s,0,null))
@@ -52264,7 +52264,7 @@ ae9(a){var s,r=this,q=null,p=r.a,o=p.e
 p=p.f
 s=r.gamj()
 r.a.toString
-return new A.GG(q,q,q,new A.ayq(),q,q,q,q,q,o,p,q,q,q,B.Ng,r.gams(),"",q,B.a1p,B.bw,q,s,q,q,B.ql,!1,!1,q,q,q,new A.qt(r,t.bT))},
+return new A.GG(q,q,q,new A.ayq(),q,q,q,q,q,o,p,q,q,q,B.Nh,r.gams(),"",q,B.a1p,B.bw,q,s,q,q,B.qk,!1,!1,q,q,q,new A.qt(r,t.bT))},
 K(a){var s,r=this.ae9(a)
 this.a.toString
 s=this.d
@@ -57523,7 +57523,7 @@ r.f=s.d},
 $S:0}
 A.Qf.prototype={
 K(a){var s=this.c.V(0,new A.o(0,40.95))
-return A.aPB(A.AK(null,B.H9,!0),B.K,new A.vX(1,B.NB,new A.cI(B.Ee,B.p)),s,1.25,B.YU)}}
+return A.aPB(A.AK(null,B.H9,!0),B.K,new A.vX(1,B.NC,new A.cI(B.Ee,B.p)),s,1.25,B.YU)}}
 A.qY.prototype={
 I(){return"MaterialType."+this.b}}
 A.CU.prototype={
@@ -60597,7 +60597,7 @@ gcr(){return new A.b8(new A.aCS(this),t.e)},
 gCN(){return 14},
 gEP(){return 14},
 gFM(){return 14},
-gG9(){return B.O4},
+gG9(){return B.O5},
 gv3(){return 31},
 gv5(){return 51},
 gGi(){return B.YP},
@@ -60695,7 +60695,7 @@ gFM(){return 14},
 gacr(){return 48},
 gacs(){return 40},
 gSc(){return 52},
-gG9(){return B.Nd},
+gG9(){return B.Ne},
 gv3(){return 32},
 gv5(){return 52},
 gGi(){return B.YQ},
@@ -64210,7 +64210,7 @@ return new A.nB(r.a.dw(s.gjr()),r.b,r.c)},
 d4(a){var s=this.b
 return s.a.c.d4(a.S(0,s.gjr()))},
 tW(){var s,r,q=this.b,p=q.gjr()
-if(!isFinite(p.a)||!isFinite(p.b))return B.Np
+if(!isFinite(p.a)||!isFinite(p.b))return B.Nq
 s=q.f
 if(s==null){s=q.a.c.tW()
 q.f=s}if(p.j(0,B.h))r=s
@@ -64394,7 +64394,7 @@ p=h.gpW()
 o=h.r
 o=o==null?g:o*a2+a1
 n=h.w
-n=n==null?g:B.Oa[B.e.ep(n.gqL(),0,8)]
+n=n==null?g:B.Ob[B.e.ep(n.gqL(),0,8)]
 m=h.y
 m=m==null?g:m*a6+a5
 l=h.z
@@ -73656,7 +73656,7 @@ break
 case 1:return A.k(q,r)}})
 return A.l($async$Jh,r)},
 ahb(a,b){var s,r,q,p
-if(a===b)return B.Nm
+if(a===b)return B.Nn
 s=A.b([],t.QP)
 if(a==null)s.push(b)
 else{r=B.b.iy(B.fh,a)
@@ -75578,7 +75578,7 @@ A.ml.prototype={}
 A.Rp.prototype={
 mW(a,b){var s,r,q,p,o,n=$.a2.G$.d.c
 if(n==null||n.e==null)return!1
-for(s=t.C,r=0;r<2;++r){q=B.N7[r]
+for(s=t.C,r=0;r<2;++r){q=B.N8[r]
 p=n.e
 p.toString
 o=A.aId(p,q,s)
@@ -78097,7 +78097,7 @@ h.Lm()
 r=h.gai2()
 q=q.y3
 h.e!==$&&A.b6()
-h.e=new A.SM(s,new A.c9(B.PJ,l),new A.qS(),p,B.cr,0,k,h.gakq(),h.gaks(),r,B.cr,0,j,h.gakk(),h.gakm(),r,i,B.Nc,f,g.CW,g.cx,g.cy,o,g,n,m,g.x,q,new A.Nx(),new A.Nx())
+h.e=new A.SM(s,new A.c9(B.PJ,l),new A.qS(),p,B.cr,0,k,h.gakq(),h.gaks(),r,B.cr,0,j,h.gakk(),h.gakm(),r,i,B.Nd,f,g.CW,g.cx,g.cy,o,g,n,m,g.x,q,new A.Nx(),new A.Nx())
 return h},
 AR(a,b){var s,r,q,p=this,o=p.a.c,n=o.a.a.length
 if(n<a.b||n<a.a)return
@@ -81521,7 +81521,7 @@ j(a,b){var s=this
 if(b==null)return!1
 if(J.U(b)!==A.v(s))return!1
 return b instanceof A.by&&b.a===s.a&&b.b==s.b&&b.d===s.d&&A.cL(null,null)},
-gt(a){return A.S(this.a,this.b,null,this.d,A.bz(B.Nl),B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a)},
+gt(a){return A.S(this.a,this.b,null,this.d,A.bz(B.Nm),B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a)},
 k(a){return"IconData(U+"+B.c.eg(B.e.nc(this.a,16).toUpperCase(),5,"0")+")"}}
 A.qz.prototype={
 cS(a){return!this.w.j(0,a.w)},
@@ -82950,7 +82950,7 @@ b=r?a1:a3.fr
 if(b==null)b=a2.b.c.z
 a3=r?a1:a3.fx
 a2=a3==null?a2.b.c.Q:a3
-a=new A.CY(a4,s,q,p,m,o,n,a5,g===!0,a6,a7,i,h,l,k,j,f,new A.vd(a1),B.Nj,e===!0,d,c,b,a2)
+a=new A.CY(a4,s,q,p,m,o,n,a5,g===!0,a6,a7,i,h,l,k,j,f,new A.vd(a1),B.Nk,e===!0,d,c,b,a2)
 if(!a.j(0,a0.e))a0.P(new A.ayL(a0,a))},
 DT(){if(this.d==null)this.tI()},
 MS(){this.tI()},
@@ -83345,7 +83345,7 @@ r.L(0,s.a5_(null,l))
 l.a.toString
 q=r.a
 p=0
-for(;!1;++p){o=B.Nh[p]
+for(;!1;++p){o=B.Ni[p]
 n=l.c
 n.toString
 m=new A.ip(o.MA(n),null,!0,B.nl,B.ca,new A.u5(new ($.a3T())(B.ca)),B.ca)
@@ -83701,7 +83701,7 @@ K(a){var s,r,q=this,p=null,o=q.gajV(),n=A.nA(a),m=q.c0$,l=q.d
 l===$&&A.a()
 s=q.a.ay
 if(l.gN()==null){r=q.gSA()
-r=J.nP(r.slice(0),A.a0(r).c)}else r=B.Ni
+r=J.nP(r.slice(0),A.a0(r).c)}else r=B.Nj
 return new A.qx(p,new A.dE(new A.aiu(q,a),A.vR(B.bN,new A.M1(!1,A.aaV(A.qi(!0,p,A.Uf(m,new A.wg(r,s,l)),p,p,p,q.y,!1,p,p,p,p,p,!0),n),p),p,o,q.gamV(),p,p,o),p,t.w3),p)}}
 A.ait.prototype={
 $1(a){var s=this.a.c
@@ -89621,7 +89621,7 @@ r.Cy()
 return s.aY()},
 l(){var s,r,q,p,o=this
 for(s=o.b,r=s.length,q=o.gJl(),p=0;p<s.length;s.length===r||(0,A.F)(s),++p)s[p].J(q)
-o.b=B.Nk
+o.b=B.Nl
 o.y=!1
 o.dA()},
 eq(a,b){return a.om(b)},
@@ -93704,7 +93704,7 @@ r=A.cD(r,p,"%0D%0A")
 s=s+'; filename="'+A.cD(r,'"',"%22")+'"'
 return s+"\r\n\r\n"},
 adN(){var s,r=J.aJc(51,t.S)
-for(s=0;s<51;++s)r[s]=B.NC[$.aUK().r_(66)]
+for(s=0;s<51;++s)r[s]=B.ND[$.aUK().r_(66)]
 return"dart-http-boundary-"+A.fM(r,0,null)}}
 A.aii.prototype={
 $2(a,b){var s=this.a
@@ -95064,7 +95064,7 @@ o=a.e
 if(o!=null){s=q.a.xr
 r=s.e.b!==B.t?s.gn():p
 r.toString
-s.A(0,r.a0H(B.NN[o.a]))}o=a.f
+s.A(0,r.a0H(B.NO[o.a]))}o=a.f
 if(o!=null){s=q.a.xr
 r=s.e.b!==B.t?s.gn():p
 r.toString
@@ -96009,7 +96009,7 @@ break
 case 1:return A.k(q,r)}})
 return A.l($async$jM,r)}}
 A.ahy.prototype={
-$1(a){var s,r,q,p=null,o="duration",n="icyMetadata",m=B.NM[A.bX(a.h(0,"processingState"))],l=A.q0(A.bX(a.h(0,"updateTime")),0,!1),k=A.cE(A.bX(a.h(0,"updatePosition")),0),j=A.cE(A.bX(a.h(0,"bufferedPosition")),0),i=a.h(0,o)==null||A.bX(a.h(0,o))<0?p:A.cE(A.bX(a.h(0,o)),0)
+$1(a){var s,r,q,p=null,o="duration",n="icyMetadata",m=B.NN[A.bX(a.h(0,"processingState"))],l=A.q0(A.bX(a.h(0,"updateTime")),0,!1),k=A.cE(A.bX(a.h(0,"updatePosition")),0),j=A.cE(A.bX(a.h(0,"bufferedPosition")),0),i=a.h(0,o)==null||A.bX(a.h(0,o))<0?p:A.cE(A.bX(a.h(0,o)),0)
 if(a.h(0,n)==null)s=p
 else{s=t.f
 r=s.a(a.h(0,n))
@@ -97820,7 +97820,7 @@ break
 case 1:return A.k(q,r)}})
 return A.l($async$kg,r)}}
 A.aGT.prototype={
-$2(a,b){return new A.aR(B.N2[a],[B.iE,B.cK,B.x5,B.x6,B.fA,B.x7][b],t.gM)},
+$2(a,b){return new A.aR(B.N3[a],[B.iE,B.cK,B.x5,B.x6,B.fA,B.x7][b],t.gM)},
 $S:616}
 A.aGX.prototype={
 $1(a){return a.a},
@@ -98134,7 +98134,7 @@ h="gpt-realtime-mini-2025-12-15"
 g="instructions"
 s=3
 return A.e(A.a78(),$async$t6)
-case 3:k.m(0,"session",j.f8(i.N(["type","realtime","model",h,g,d,"tools",B.qj,"tool_choice","auto","audio",A.N(["input",A.N(["turn_detection",A.N(["type","server_vad"],o,o),"transcription",A.N(["model","gpt-4o-mini-transcribe"],o,o)],o,t.GU),"output",A.N(["voice",$.AR],o,o)],o,t.nf)],o,t.K),null))
+case 3:k.m(0,"session",j.f8(i.N(["type","realtime","model",h,g,d,"tools",B.qo,"tool_choice","auto","audio",A.N(["input",A.N(["turn_detection",A.N(["type","server_vad"],o,o),"transcription",A.N(["model","gpt-4o-mini-transcribe"],o,o)],o,t.GU),"output",A.N(["voice",$.AR],o,o)],o,t.nf)],o,t.K),null))
 p.m(0,"sdp",b)
 s=4
 return A.e(l.zO(),$async$t6)
@@ -99927,7 +99927,7 @@ j=A.hb(a,0,A.n9(j,"count",t.S),A.a0(a).c)
 B.b.L(i,new A.a1(j,new A.aiL(),j.$ti.i("a1<af.E,ae<t,t>>")))
 i.push(A.N(["role","user","content",b],h,h))
 j=t.r5
-o=A.a_(new A.a1(B.qj,new A.aiM(),j),j.i("af.E"))
+o=A.a_(new A.a1(B.qo,new A.aiM(),j),j.i("af.E"))
 j=A.bG("/chat",0,null)
 n=A.N(["Content-Type","application/json"],h,h)
 s=3
@@ -106576,7 +106576,7 @@ B.aa=new A.Um()
 B.b_=new A.Un()
 B.d2=new A.ard()
 B.eu=new A.Ur(0,0,0,0)
-B.Nj=s([],A.al("B<a8v>"))
+B.Nk=s([],A.al("B<a8v>"))
 B.a7K=new A.arj()
 B.bo={}
 B.wD=new A.O(B.bo,[],t.w)
@@ -107339,12 +107339,12 @@ B.qd=s(["text","multiline","number","phone","datetime","emailAddress","url","vis
 B.Lp=s([239,191,189],t.t)
 B.qe=s(["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],t.s)
 B.LN=s([4,9,14,19],t.t)
-B.NO=s([137,80,78,71,13,10,26,10],t.Z)
+B.NP=s([137,80,78,71,13,10,26,10],t.Z)
 B.Kw=new A.nH(0,"png")
 B.KG=new A.kq(B.Kw,!1,0,"png")
-B.Ku=new A.lY(B.NO,B.KG,0,"png")
-B.NQ=s([71,73,70,56,55,97],t.Z)
-B.Kt=new A.lY(B.NQ,B.id,1,"gif87a")
+B.Ku=new A.lY(B.NP,B.KG,0,"png")
+B.NR=s([71,73,70,56,55,97],t.Z)
+B.Kt=new A.lY(B.NR,B.id,1,"gif87a")
 B.MS=s([71,73,70,56,57,97],t.Z)
 B.Ks=new A.lY(B.MS,B.id,2,"gif89a")
 B.Lq=s([255,216,255],t.Z)
@@ -107364,8 +107364,8 @@ B.LY=s([B.nn,B.D9],A.al("B<Jp>"))
 B.qf=s(["January","February","March","April","May","June","July","August","September","October","November","December"],t.s)
 B.MF=s([0.41233895,0.35762064,0.18051042],t.n)
 B.Mk=s([0.2126,0.7152,0.0722],t.n)
-B.O6=s([0.01932141,0.11916382,0.95034478],t.n)
-B.de=s([B.MF,B.Mk,B.O6],t.zg)
+B.O7=s([0.01932141,0.11916382,0.95034478],t.n)
+B.de=s([B.MF,B.Mk,B.O7],t.zg)
 B.qg=s([0,4,12,1,5,13,3,7,15],t.t)
 B.DY=new A.pD(1,"image")
 B.DZ=new A.pD(2,"video")
@@ -107391,8 +107391,8 @@ B.j7=new A.mD(5,"end")
 B.Ma=s([B.cR,B.eo,B.cS,B.h1,B.aQ,B.j7],A.al("B<mD>"))
 B.Mp=s([2,1.13276676],t.n)
 B.Ls=s([2.18349805,1.20311921],t.n)
-B.Nv=s([2.33888662,1.28698796],t.n)
-B.NA=s([2.48660575,1.36351941],t.n)
+B.Nw=s([2.33888662,1.28698796],t.n)
+B.NB=s([2.48660575,1.36351941],t.n)
 B.Mf=s([2.62226596,1.44717976],t.n)
 B.Ml=s([2.7514899,1.53385819],t.n)
 B.MP=s([3.36298265,1.98288283],t.n)
@@ -107400,249 +107400,13 @@ B.Mu=s([4.08649929,2.23811846],t.n)
 B.MH=s([4.85481134,2.47563463],t.n)
 B.Mj=s([5.62945551,2.72948597],t.n)
 B.Mq=s([6.43023796,2.98020421],t.n)
-B.qh=s([B.Mp,B.Ls,B.Nv,B.NA,B.Mf,B.Ml,B.MP,B.Mu,B.MH,B.Mj,B.Mq],t.zg)
+B.qh=s([B.Mp,B.Ls,B.Nw,B.NB,B.Mf,B.Ml,B.MP,B.Mu,B.MH,B.Mj,B.Mq],t.zg)
 B.Mc=s(["AM","PM"],t.s)
 B.qi=s(["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],t.s)
 B.Me=s([B.jQ,B.jR],A.al("B<A4>"))
 B.Mg=s(["BC","AD"],t.s)
 B.Mi=s([18,15,10,12,15,18,15,12,12],t.n)
-B.a7={type:0,name:1,description:2,parameters:3}
-B.wV={type:0,properties:1}
-B.wH=new A.O(B.bo,[],A.al("O<@,@>"))
-B.fx=new A.O(B.wV,["object",B.wH],t.M)
-B.RZ=new A.O(B.a7,["function","get_current_location","Get current GPS location.",B.fx],t.R)
-B.al={type:0,properties:1,required:2}
-B.TI={text:0}
-B.z={type:0,description:1}
-B.Ri=new A.O(B.z,["string","Fact to remember."],t.w)
-B.Qm=new A.O(B.TI,[B.Ri],t.d)
-B.O2=s(["text"],t.s)
-B.Qd=new A.O(B.al,["object",B.Qm,B.O2],t.M)
-B.S3=new A.O(B.a7,["function","memory_append","Save a fact to long-term memory.",B.Qd],t.R)
-B.RO=new A.O(B.a7,["function","memory_fetch","Fetch all long-term memory. Use automatically before asking for phone numbers, addresses, contacts, or personal info.",B.fx],t.R)
-B.TH={start_date:0,end_date:1}
-B.QL=new A.O(B.z,["string","Start of the date range (ISO 8601, e.g. '2026-03-19'). Defaults to 7 days ago."],t.w)
-B.Rf=new A.O(B.z,["string","End of the date range (ISO 8601, e.g. '2026-03-25'). Defaults to 7 days from now."],t.w)
-B.Sy=new A.O(B.TH,[B.QL,B.Rf],t.d)
-B.Sg=new A.O(B.wV,["object",B.Sy],t.M)
-B.RU=new A.O(B.a7,["function","get_calendar_data","Fetch calendar events. If the user asks about a specific date or range, pass start_date and end_date (ISO 8601, e.g. '2026-03-19'). If omitted, defaults to 7 days back and 7 days forward.",B.Sg],t.R)
-B.RP=new A.O(B.a7,["function","get_current_time","Get current local date and time.",B.fx],t.R)
-B.TF={query:0}
-B.wU={type:0}
-B.cG=new A.O(B.wU,["string"],t.w)
-B.Rw=new A.O(B.TF,[B.cG],t.d)
-B.NV=s(["query"],t.s)
-B.Qg=new A.O(B.al,["object",B.Rw,B.NV],t.M)
-B.S0=new A.O(B.a7,["function","web_search","Search web for up-to-date info.",B.Qg],t.R)
-B.TM={url:0}
-B.R4=new A.O(B.z,["string","The full URL to open, including https://"],t.w)
-B.St=new A.O(B.TM,[B.R4],t.d)
-B.O5=s(["url"],t.s)
-B.Q1=new A.O(B.al,["object",B.St,B.O5],t.M)
-B.Sd=new A.O(B.a7,["function","open_url","Open a URL in the device's default browser. Use when the user asks to open, visit, or follow a link mentioned in conversation.",B.Q1],t.R)
-B.Th={text:0,from:1,subject:2,unread_only:3,in_inbox:4,newer_than_days:5,max_results:6}
-B.Rg=new A.O(B.z,["string","Keywords to search for."],t.w)
-B.QS=new A.O(B.z,["string","Sender name or email (optional)."],t.w)
-B.R0=new A.O(B.z,["string","Subject keywords (optional)."],t.w)
-B.Rv=new A.O(B.z,["boolean","If true, only unread emails."],t.w)
-B.QW=new A.O(B.z,["boolean","If true, search inbox only."],t.w)
-B.wR={type:0,minimum:1,maximum:2,description:3}
-B.QE=new A.O(B.wR,["integer",1,365,"Limit to recent emails."],t.M)
-B.QD=new A.O(B.wR,["integer",1,10,"How many emails to return."],t.M)
-B.Sm=new A.O(B.Th,[B.Rg,B.QS,B.R0,B.Rv,B.QW,B.QE,B.QD],t.V1)
-B.e4=s([],t.ee)
-B.PZ=new A.O(B.al,["object",B.Sm,B.e4],t.M)
-B.RW=new A.O(B.a7,["function","gmail_search","Search Gmail. Returns from/subject/date/snippet.",B.PZ],t.R)
-B.Tx={message_id:0}
-B.R2=new A.O(B.z,["string","Unique message id."],t.w)
-B.QA=new A.O(B.Tx,[B.R2],t.d)
-B.NI=s(["message_id"],t.s)
-B.Qa=new A.O(B.al,["object",B.QA,B.NI],t.M)
-B.Se=new A.O(B.a7,["function","gmail_read_email","Read full email by ID.",B.Qa],t.R)
-B.Tq={file_id:0}
-B.QY=new A.O(B.z,["string","Google Drive file ID from the calendar event attachment."],t.w)
-B.RH=new A.O(B.Tq,[B.QY],t.d)
-B.Ns=s(["file_id"],t.s)
-B.Qh=new A.O(B.al,["object",B.RH,B.Ns],t.M)
-B.S7=new A.O(B.a7,["function","read_drive_file","Read the text content of a Google Drive file (PDF, Google Doc, or Google Sheet) attached to a calendar event. Use the file_id from the event's attachments array.",B.Qh],t.R)
-B.T2={destination:0,route_type:1,units:2}
-B.QF=new A.O(B.z,["string","Destination address"],t.w)
-B.lV={type:0,enum:1,description:2,default:3}
-B.qq=s(["by_car","on_foot"],t.s)
-B.Su=new A.O(B.lV,["string",B.qq,"Route type, defaults to by_car.","by_car"],t.M)
-B.NJ=s(["metric","imperial"],t.s)
-B.Sv=new A.O(B.lV,["string",B.NJ,"Distance units, defaults to imperial.","imperial"],t.M)
-B.Rx=new A.O(B.T2,[B.QF,B.Su,B.Sv],t.V1)
-B.qr=s(["destination"],t.s)
-B.Q7=new A.O(B.al,["object",B.Rx,B.qr],t.M)
-B.RQ=new A.O(B.a7,["function","traffic_eta","Get ETA and traffic to destination.",B.Q7],t.R)
-B.T8={destination:0,route_type:1,nav_app:2}
-B.QG=new A.O(B.z,["string","Destination address."],t.w)
-B.T5={type:0,enum:1,default:2}
-B.Qn=new A.O(B.T5,["string",B.qq,"by_car"],t.M)
-B.O0=s(["system","apple","google","waze"],t.s)
-B.Sw=new A.O(B.lV,["string",B.O0,"Which navigation app to open. system=platform default.","system"],t.M)
-B.Sp=new A.O(B.T8,[B.QG,B.Qn,B.Sw],t.V1)
-B.Qi=new A.O(B.al,["object",B.Sp,B.qr],t.M)
-B.RY=new A.O(B.a7,["function","navigate_to_destination","Open Maps app with route to destination.",B.Qi],t.R)
-B.TD={phone_number:0,contact_name:1}
-B.QX=new A.O(B.z,["string","Phone number, e.g. +14085551234"],t.w)
-B.Rm=new A.O(B.z,["string","Contact name"],t.w)
-B.RA=new A.O(B.TD,[B.QX,B.Rm],t.d)
-B.N6=s(["contact_name","phone_number"],t.s)
-B.Qb=new A.O(B.al,["object",B.RA,B.N6],t.M)
-B.RV=new A.O(B.a7,["function","call_phone","Place call. MUST call memory_fetch first if only contact name provided.",B.Qb],t.R)
-B.T0={text:0,when_iso:1,recurrence:2,day_of_week:3,ai_prompt:4}
-B.QQ=new A.O(B.z,["string","What to remind the user about. For AI reminders, this is a short human-readable label (e.g. 'Morning inspiration')."],t.w)
-B.Rh=new A.O(B.z,["string","Local date/time in ISO 8601 format, e.g. 2026-01-28T07:00:00. For recurring reminders this sets the time-of-day."],t.w)
-B.dp={type:0,enum:1,description:2}
-B.N9=s(["daily","weekly"],t.s)
-B.PM=new A.O(B.dp,["string",B.N9,"How often to repeat. Omit for a one-time reminder."],t.M)
-B.QU=new A.O(B.z,["integer","Day of week for weekly recurrence: 1=Monday, 2=Tuesday, ..., 7=Sunday."],t.w)
-B.Rp=new A.O(B.z,["string","If provided, AI generates the notification content at fire time using this instruction. Example: 'inspiring quote in style of Jensen Huang, 1-2 sentences'. Android only; iOS falls back to text label."],t.w)
-B.Sk=new A.O(B.T0,[B.QQ,B.Rh,B.PM,B.QU,B.Rp],t.V1)
-B.O8=s(["when_iso"],t.s)
-B.Q3=new A.O(B.al,["object",B.Sk,B.O8],t.M)
-B.S_=new A.O(B.a7,["function","reminder_create","Create a reminder with a local notification. Supports one-shot, recurring (daily/weekly), and AI-generated content. For recurring: set recurrence='daily' or 'weekly' (+ day_of_week for weekly). For AI-generated content: set ai_prompt with the instruction; text becomes a short label.",B.Q3],t.R)
-B.Sf=new A.O(B.a7,["function","reminder_list","List upcoming reminders.",B.fx],t.R)
-B.Tr={id:0}
-B.QP=new A.O(B.z,["integer","Reminder id returned when the reminder was created."],t.w)
-B.Qs=new A.O(B.Tr,[B.QP],t.d)
-B.Nz=s(["id"],t.s)
-B.Q5=new A.O(B.al,["object",B.Qs,B.Nz],t.M)
-B.RR=new A.O(B.a7,["function","reminder_cancel","Cancel reminder by ID.",B.Q5],t.R)
-B.Tm={contact_name:0,message:1,photo_location:2,photo_time:3,photo_limit:4,include_sender_name:5}
-B.Ra=new A.O(B.z,["string","Name of the contact (will be looked up in memory)"],t.w)
-B.Rt=new A.O(B.z,["string","Text message to send"],t.w)
-B.Rb=new A.O(B.z,["string","Optional: location to find photo(s) (e.g., 'Paris', 'home')"],t.w)
-B.Ru=new A.O(B.z,["string","Optional: time period (e.g., 'yesterday', 'last week')"],t.w)
-B.Rd=new A.O(B.z,["integer","Optional: number of photos to include (default: 1, max: 10). Use when user says 'send 3 photos' or 'send a few photos'."],t.w)
-B.Rk=new A.O(B.z,["boolean","If true, prepend 'From [Your Name]:' to message"],t.w)
-B.RD=new A.O(B.Tm,[B.Ra,B.Rt,B.Rb,B.Ru,B.Rd,B.Rk],t.d)
-B.N5=s(["contact_name","message"],t.s)
-B.Q4=new A.O(B.al,["object",B.RD,B.N5],t.M)
-B.S1=new A.O(B.a7,["function","send_whatsapp_message","Send WhatsApp message (contact must be in memory). Can include one or more photos.",B.Q4],t.R)
-B.RT=new A.O(B.a7,["function","stop_session","Stop the voice session and disconnect the microphone. Call this when the user says goodbye, bye, stop listening, that's all, stop, or any similar phrase that signals they want to end the conversation.",B.fx],t.R)
-B.T3={agent_name:0,person_id:1,client_name:2,description:3,due_date:4,task_type:5}
-B.QZ=new A.O(B.z,["string","Agent creating and assigned to the task. Use the agent's name from your identity (e.g. 'Roman') or 'me'."],t.w)
-B.wA=new A.O(B.z,["number","FUB contact ID \u2014 from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. NOT the agent user ID."],t.w)
-B.wz=new A.O(B.z,["string","Full or partial contact name. Used only when person_id is not already known."],t.w)
-B.Ro=new A.O(B.z,["string","Task description / title (free text)."],t.w)
-B.QH=new A.O(B.z,["string","Due date in YYYY-MM-DD format. Use today's date if the user doesn't specify."],t.w)
-B.NF=s(["Follow Up","Call","Email","Text","Showing","Closing","Open House","Thank You"],t.s)
-B.PN=new A.O(B.dp,["string",B.NF,"Type of task."],t.M)
-B.Qy=new A.O(B.T3,[B.QZ,B.wA,B.wz,B.Ro,B.QH,B.PN],t.V1)
-B.Oc=s(["agent_name","description","due_date","task_type"],t.s)
-B.Q9=new A.O(B.al,["object",B.Qy,B.Oc],t.M)
-B.S2=new A.O(B.a7,["function","fub_create_task","Create a task for a FUB contact. Use when the user says 'add a task', 'create a follow up', 'schedule a call', or similar. The task is assigned to the current agent. ALWAYS pass person_id when the contact was already resolved in this conversation \u2014 never use agent_id as person_id.",B.Q9],t.R)
-B.Tv={agent_name:0,person_id:1,client_name:2,status:3}
-B.Rj=new A.O(B.z,["string","Agent name for contact resolution scope. Use 'me' or the agent's name."],t.w)
-B.Rc=new A.O(B.z,["number","FUB contact ID \u2014 from prior search or task results. NOT the agent user ID."],t.w)
-B.NP=s(["open","completed","all"],t.s)
-B.PL=new A.O(B.dp,["string",B.NP,"Filter by task status. Defaults to 'all'."],t.M)
-B.Sl=new A.O(B.Tv,[B.Rj,B.Rc,B.wz,B.PL],t.V1)
-B.fg=s(["agent_name"],t.s)
-B.Q_=new A.O(B.al,["object",B.Sl,B.fg],t.M)
-B.S5=new A.O(B.a7,["function","fub_get_person_tasks","Fetch tasks for a specific FUB contact, both open and completed. Use when the user asks 'what tasks do I have for John', 'show me Sarah's tasks', 'any completed tasks for this client'. ALWAYS pass person_id when the contact was already resolved.",B.Q_],t.R)
-B.Tn={due_date:0,agent_name:1}
-B.QJ=new A.O(B.z,["string","Filter tasks by due date in YYYY-MM-DD format. Omit to get all tasks."],t.w)
-B.Re=new A.O(B.z,["string","Agent to fetch tasks for. Use the agent's name from your identity (e.g. 'Roman') or 'me'. Use 'all' only when user explicitly asks for the whole team's tasks."],t.w)
-B.PQ=new A.O(B.Tn,[B.QJ,B.Re],t.d)
-B.Q8=new A.O(B.al,["object",B.PQ,B.fg],t.M)
-B.Sa=new A.O(B.a7,["function","fub_get_tasks","Get incomplete tasks from Follow Up Boss CRM including contact details (name, phone, email, address). agent_name is required \u2014 always pass the agent's name from your identity or 'me'. For 'today's meetings/tasks/clients', pass due_date=today's date in YYYY-MM-DD format. Summarize by grouping overdue vs upcoming.",B.Q8],t.R)
-B.Tt={agent_name:0,query:1,limit:2}
-B.R1=new A.O(B.z,["string","Agent whose contacts to search. Use the agent's name from your identity or 'me'."],t.w)
-B.QT=new A.O(B.z,["string","Partial or full name to search for. Case-insensitive."],t.w)
-B.R_=new A.O(B.z,["number","Max number of results to return (default 10)."],t.w)
-B.Qp=new A.O(B.Tt,[B.R1,B.QT,B.R_],t.d)
-B.N_=s(["agent_name","query"],t.s)
-B.Q0=new A.O(B.al,["object",B.Qp,B.N_],t.M)
-B.RX=new A.O(B.a7,["function","fub_search_contacts","Search for FUB contacts by partial name (case-insensitive), scoped to the agent. Use when user asks to find or look up a client by name (e.g. 'find all my Johns', 'look up Smith', 'search for William'). Returns full contact details including the contact's id field \u2014 this is the person_id to use in fub_create_note, fub_send_text, and fub_update_person. Store it and reuse it; do NOT re-resolve or ask the user again.",B.Q0],t.R)
-B.Tu={agent_name:0,body:1,person_id:2,client_name:3}
-B.QI=new A.O(B.z,["string","Agent creating the note. Use the agent's name from your identity (e.g. 'Roman') or 'me'."],t.w)
-B.QK=new A.O(B.z,["string","The note content to save."],t.w)
-B.wB=new A.O(B.z,["number","FUB contact ID \u2014 from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. This is NOT the agent user ID."],t.w)
-B.lI=new A.O(B.z,["string","Full or partial name of the client. Used only when person_id is not already known from a prior search."],t.w)
-B.PW=new A.O(B.Tu,[B.QI,B.QK,B.wB,B.lI],t.d)
-B.MY=s(["agent_name","body"],t.s)
-B.Q2=new A.O(B.al,["object",B.PW,B.MY],t.M)
-B.S8=new A.O(B.a7,["function","fub_create_note","Create an internal note on a FUB client's timeline. Use ONLY when the user explicitly says 'add a note', 'log that', 'make a note', or similar. Do NOT use when the user says 'update', 'change', 'set', or 'add a [field]' \u2014 those go to fub_update_person. Examples that are NOT notes: updating an address, changing a phone number, updating a stage, adding an email. ALWAYS pass person_id from a prior search or task result \u2014 never use agent_id as person_id.",B.Q2],t.R)
-B.Ta={agent_name:0,message:1,person_id:2,client_name:3}
-B.R9=new A.O(B.z,["string","Agent sending the message. Use the agent's name from your identity (e.g. 'Roman') or 'me'."],t.w)
-B.Rr=new A.O(B.z,["string","The text message to send."],t.w)
-B.So=new A.O(B.Ta,[B.R9,B.Rr,B.wB,B.lI],t.d)
-B.MZ=s(["agent_name","message"],t.s)
-B.Qj=new A.O(B.al,["object",B.So,B.MZ],t.M)
-B.S6=new A.O(B.a7,["function","fub_send_text","Send a text message to a FUB client on behalf of the agent. IMPORTANT: Always read the message back to the user and get explicit confirmation ('yes', 'send it', etc.) before calling this tool \u2014 it sends a real message to a real client. Prefer person_id when the client was already resolved in this conversation (from fub_get_recent_contacts or fub_get_tasks). Use client_name when referring to someone by name for the first time.",B.Qj],t.R)
-B.ww=new A.O(B.al,["object",B.wH,B.e4],t.M)
-B.S4=new A.O(B.a7,["function","fub_get_stages","Get all available lead stages from Follow Up Boss CRM. Use when the user asks what stages are available, or before updating a stage to confirm the exact stage name.",B.ww],t.R)
-B.Tp={agent_name:0,person_id:1,client_name:2,stage:3,name:4,background_info:5,source:6,assigned_to:7,collaborators:8,tags:9,phones:10,emails:11,address:12}
-B.QV=new A.O(B.z,["string","Agent performing the update. Use the agent's name from your identity (e.g. 'Roman') or 'me'."],t.w)
-B.Rl=new A.O(B.z,["number","FUB contact ID \u2014 from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. This is NOT the agent user ID. Never pass agent_id here."],t.w)
-B.R3=new A.O(B.z,["string","New stage name. Must match a valid FUB stage exactly (e.g. 'Hot Lead', 'Active Buyer'). Omit if not changing."],t.w)
-B.QR=new A.O(B.z,["string","Full name to set on the contact. Omit if not changing."],t.w)
-B.R7=new A.O(B.z,["string","Background information / bio text to set on the contact. Omit if not changing."],t.w)
-B.QM=new A.O(B.z,["string","Lead source to set (e.g. 'Zillow', 'Referral', 'Website'). Must match a valid FUB source name \u2014 call fub_get_sources first if unsure. Omit if not changing."],t.w)
-B.Rs=new A.O(B.z,["string","Agent name to assign this contact to (e.g. 'Roman', 'me'). Resolved to a FUB user ID server-side. Omit if not changing."],t.w)
-B.wQ={type:0,description:1,properties:2,required:3}
-B.Ty={mode:0,agents:1}
-B.TK={type:0,enum:1}
-B.MX=s(["add","remove","set"],t.s)
-B.wu=new A.O(B.TK,["string",B.MX],t.M)
-B.TC={type:0,items:1,description:2}
-B.RG=new A.O(B.TC,["array",B.cG,"List of agent names (e.g. ['Roman', 'Sarah']). Resolved to FUB user IDs server-side."],t.M)
-B.RF=new A.O(B.Ty,[B.wu,B.RG],t.V1)
-B.NK=s(["mode","agents"],t.s)
-B.Sj=new A.O(B.wQ,["object","Collaborator update operation. 'add' adds agents without removing existing. 'remove' removes specific agents. 'set' replaces the full collaborator list.",B.RF,B.NK],t.M)
-B.Tz={mode:0,values:1}
-B.TL={type:0,items:1}
-B.Sn=new A.O(B.TL,["array",B.cG],t.M)
-B.PR=new A.O(B.Tz,[B.wu,B.Sn],t.V1)
-B.NL=s(["mode","values"],t.s)
-B.Si=new A.O(B.wQ,["object","Tag update operation. 'add' appends without removing existing. 'remove' deletes specific tags. 'set' replaces all tags with the provided list.",B.PR,B.NL],t.M)
-B.wS={type:0,description:1,items:2}
-B.T7={number:0,type:1,action:2}
-B.Rq=new A.O(B.z,["string","Phone number string."],t.w)
-B.NW=s(["mobile","home","work","fax","other"],t.s)
-B.PO=new A.O(B.dp,["string",B.NW,"Phone type. Defaults to mobile."],t.M)
-B.O_=s(["set","remove"],t.s)
-B.lH=new A.O(B.dp,["string",B.O_,"Omit or 'set' to add/update; 'remove' to delete by type."],t.M)
-B.Rz=new A.O(B.T7,[B.Rq,B.PO,B.lH],t.V1)
-B.qw=s(["type"],t.s)
-B.Qk=new A.O(B.al,["object",B.Rz,B.qw],t.M)
-B.Qw=new A.O(B.wS,["array","Phone number changes. Each entry adds/updates or removes a number of the given type.",B.Qk],t.M)
-B.Tl={address:0,type:1,action:2}
-B.QO=new A.O(B.z,["string","Email address."],t.w)
-B.NR=s(["personal","work","other"],t.s)
-B.PK=new A.O(B.dp,["string",B.NR,"Email type. Defaults to personal."],t.M)
-B.Qq=new A.O(B.Tl,[B.QO,B.PK,B.lH],t.V1)
-B.Q6=new A.O(B.al,["object",B.Qq,B.qw],t.M)
-B.Qv=new A.O(B.wS,["array","Email address changes. Each entry adds/updates or removes an email of the given type.",B.Q6],t.M)
-B.Tj={type:0,description:1,properties:2}
-B.TG={street:0,city:1,state:2,zip:3,country:4,type:5,action:6}
-B.Nx=s(["home","work","selling","other"],t.s)
-B.PP=new A.O(B.dp,["string",B.Nx,"Address type. Use 'selling' for the property being sold. Defaults to home."],t.M)
-B.Qx=new A.O(B.TG,[B.cG,B.cG,B.cG,B.cG,B.cG,B.PP,B.lH],t.V1)
-B.Ry=new A.O(B.Tj,["object","Mailing address to add, update, or remove. Matched by type \u2014 partial updates merge with existing fields.",B.Qx],t.M)
-B.RE=new A.O(B.Tp,[B.QV,B.Rl,B.lI,B.R3,B.QR,B.R7,B.QM,B.Rs,B.Sj,B.Si,B.Qw,B.Qv,B.Ry],t.V1)
-B.Qf=new A.O(B.al,["object",B.RE,B.fg],t.M)
-B.RS=new A.O(B.a7,["function","fub_update_person","Update one or more fields on a FUB contact in a single call. Use for any combination of: stage, tags, phone numbers, email addresses, mailing address, name, or background info. ALWAYS pass person_id when the client was already resolved in this conversation. If updating stage and you are unsure of the exact name, call fub_get_stages first.",B.Qf],t.R)
-B.TJ={agent_name:0,limit:1,days:2}
-B.R5=new A.O(B.z,["string","Agent whose contacts to fetch. Use the agent's name from your identity (e.g. 'Roman') or 'me'. Use 'all' only when user explicitly asks for the whole team."],t.w)
-B.Rn=new A.O(B.z,["number","Number of contacts to return. Default is 5 if not specified by the user."],t.w)
-B.R6=new A.O(B.z,["number","Only include contacts active within the last N days. Omit to return the most recent regardless of timeframe."],t.w)
-B.QB=new A.O(B.TJ,[B.R5,B.Rn,B.R6],t.d)
-B.Qe=new A.O(B.al,["object",B.QB,B.fg],t.M)
-B.S9=new A.O(B.a7,["function","fub_get_recent_contacts","Get the most recently contacted clients for an agent from Follow Up Boss CRM, sorted by last activity date with most recent first. Use when the user asks 'who are my latest clients', 'recent contacts', 'who did I work with recently', or similar. Always include lastActivityDate in your response for each contact.",B.Qe],t.R)
-B.Tf={agent_name:0,person_id:1,client_name:2}
-B.QN=new A.O(B.z,["string","Agent name (e.g. 'Roman') or 'me'. Required to scope contact lookup."],t.w)
-B.R8=new A.O(B.z,["string","Full or partial name of the client. Used only when person_id is not already known."],t.w)
-B.RN=new A.O(B.Tf,[B.QN,B.wA,B.R8],t.d)
-B.Qc=new A.O(B.al,["object",B.RN,B.fg],t.M)
-B.Sb=new A.O(B.a7,["function","fub_get_person_details","Read key fields of a FUB contact: tags, background info, source, stage, and collaborators. Use when the user asks about any of these fields (e.g. 'what tags does John have', 'what's Sarah's background', 'who are the collaborators on this contact', 'show me RoadMate's details'). ALWAYS pass person_id when the client was already resolved in this conversation.",B.Qc],t.R)
-B.Sc=new A.O(B.a7,["function","fub_get_sources","Get all available lead sources from Follow Up Boss CRM. Use when the user asks what sources are available, or before updating a source to confirm the exact name.",B.ww],t.R)
-B.qj=s([B.RZ,B.S3,B.RO,B.RU,B.RP,B.S0,B.Sd,B.RW,B.Se,B.S7,B.RQ,B.RY,B.RV,B.S_,B.Sf,B.RR,B.S1,B.RT,B.S2,B.S5,B.Sa,B.RX,B.S8,B.S6,B.S4,B.RS,B.S9,B.Sb,B.Sc],t.H7)
-B.qk=s(["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],t.s)
+B.qj=s(["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],t.s)
 B.Dq=new A.px(0,"defaultPolicy")
 B.Dr=new A.px(1,"longFormAudio")
 B.Ds=new A.px(2,"longFormVideo")
@@ -107667,8 +107431,8 @@ B.bV=new A.f8(9,"counter")
 B.cV=new A.f8(10,"container")
 B.Mr=s([B.aS,B.b6,B.ao,B.bg,B.bh,B.bi,B.ag,B.aZ,B.bU,B.bV,B.cV],A.al("B<f8>"))
 B.Oe=new A.qP("en",null,"US")
-B.ql=s([B.Oe],t.ss)
-B.qm=s([0,41,61,101,131,181,251,301,360],t.n)
+B.qk=s([B.Oe],t.ss)
+B.ql=s([0,41,61,101,131,181,251,301,360],t.n)
 B.mj=new A.Fi(0,"none")
 B.mk=new A.Fi(1,"all")
 B.Ms=s([B.mj,B.mk],A.al("B<Fi>"))
@@ -107678,7 +107442,7 @@ B.a6c=new A.mU(3,0.08)
 B.a6d=new A.mU(6,0.11)
 B.a6b=new A.mU(8,0.12)
 B.a6a=new A.mU(12,0.14)
-B.qn=s([B.a69,B.a6e,B.a6c,B.a6d,B.a6b,B.a6a],A.al("B<mU>"))
+B.qm=s([B.a69,B.a6e,B.a6c,B.a6d,B.a6b,B.a6a],A.al("B<mU>"))
 B.Di=new A.is(1,"gameChat")
 B.Dj=new A.is(2,"measurement")
 B.Dk=new A.is(3,"moviePlayback")
@@ -107688,7 +107452,7 @@ B.Dn=new A.is(6,"videoRecording")
 B.Do=new A.is(7,"voiceChat")
 B.Dp=new A.is(8,"voicePrompt")
 B.Mt=s([B.nt,B.Di,B.Dj,B.Dk,B.Dl,B.Dm,B.Dn,B.Do,B.Dp],A.al("B<is>"))
-B.qo=s([0,21,51,121,151,191,271,321,360],t.n)
+B.qn=s([0,21,51,121,151,191,271,321,360],t.n)
 B.MB=s(["Q1","Q2","Q3","Q4"],t.s)
 B.MC=s([-1,0,0,1,0,0,-1,0,1,0,0,0,-1,1,0,1,1,1,1,0],t.n)
 B.Eb=new A.MG(2,"outer")
@@ -107714,6 +107478,242 @@ B.FY=new A.pP(0,"auto")
 B.FZ=new A.pP(1,"full")
 B.G_=new A.pP(2,"chromium")
 B.MR=s([B.FY,B.FZ,B.G_,B.cD],A.al("B<pP>"))
+B.a7={type:0,name:1,description:2,parameters:3}
+B.wV={type:0,properties:1}
+B.wH=new A.O(B.bo,[],A.al("O<@,@>"))
+B.fx=new A.O(B.wV,["object",B.wH],t.M)
+B.RZ=new A.O(B.a7,["function","get_current_location","Get current GPS location.",B.fx],t.R)
+B.al={type:0,properties:1,required:2}
+B.TI={text:0}
+B.z={type:0,description:1}
+B.Ri=new A.O(B.z,["string","Fact to remember."],t.w)
+B.Qm=new A.O(B.TI,[B.Ri],t.d)
+B.O3=s(["text"],t.s)
+B.Qd=new A.O(B.al,["object",B.Qm,B.O3],t.M)
+B.S2=new A.O(B.a7,["function","memory_append","Save a fact to long-term memory.",B.Qd],t.R)
+B.RO=new A.O(B.a7,["function","memory_fetch","Fetch all long-term memory. Use automatically before asking for phone numbers, addresses, contacts, or personal info.",B.fx],t.R)
+B.TH={start_date:0,end_date:1}
+B.QK=new A.O(B.z,["string","Start of the date range (ISO 8601, e.g. '2026-03-19'). Defaults to 7 days ago."],t.w)
+B.Rf=new A.O(B.z,["string","End of the date range (ISO 8601, e.g. '2026-03-25'). Defaults to 7 days from now."],t.w)
+B.Sy=new A.O(B.TH,[B.QK,B.Rf],t.d)
+B.Sg=new A.O(B.wV,["object",B.Sy],t.M)
+B.RU=new A.O(B.a7,["function","get_calendar_data","Fetch calendar events. If the user asks about a specific date or range, pass start_date and end_date (ISO 8601, e.g. '2026-03-19'). If omitted, defaults to 7 days back and 7 days forward.",B.Sg],t.R)
+B.RP=new A.O(B.a7,["function","get_current_time","Get current local date and time.",B.fx],t.R)
+B.TF={query:0}
+B.wU={type:0}
+B.cG=new A.O(B.wU,["string"],t.w)
+B.Rw=new A.O(B.TF,[B.cG],t.d)
+B.NW=s(["query"],t.s)
+B.Qg=new A.O(B.al,["object",B.Rw,B.NW],t.M)
+B.S0=new A.O(B.a7,["function","web_search","Search web for up-to-date info.",B.Qg],t.R)
+B.TM={url:0}
+B.R4=new A.O(B.z,["string","The full URL to open, including https://"],t.w)
+B.St=new A.O(B.TM,[B.R4],t.d)
+B.O6=s(["url"],t.s)
+B.Q1=new A.O(B.al,["object",B.St,B.O6],t.M)
+B.Sd=new A.O(B.a7,["function","open_url","Open a URL in the device's default browser. Use when the user asks to open, visit, or follow a link mentioned in conversation.",B.Q1],t.R)
+B.Th={text:0,from:1,subject:2,unread_only:3,in_inbox:4,newer_than_days:5,max_results:6}
+B.Rg=new A.O(B.z,["string","Keywords to search for."],t.w)
+B.QS=new A.O(B.z,["string","Sender name or email (optional)."],t.w)
+B.R0=new A.O(B.z,["string","Subject keywords (optional)."],t.w)
+B.Rv=new A.O(B.z,["boolean","If true, only unread emails."],t.w)
+B.QW=new A.O(B.z,["boolean","If true, search inbox only."],t.w)
+B.wR={type:0,minimum:1,maximum:2,description:3}
+B.QE=new A.O(B.wR,["integer",1,365,"Limit to recent emails."],t.M)
+B.QD=new A.O(B.wR,["integer",1,10,"How many emails to return."],t.M)
+B.Sm=new A.O(B.Th,[B.Rg,B.QS,B.R0,B.Rv,B.QW,B.QE,B.QD],t.V1)
+B.e4=s([],t.ee)
+B.PZ=new A.O(B.al,["object",B.Sm,B.e4],t.M)
+B.RW=new A.O(B.a7,["function","gmail_search","Search Gmail. Returns from/subject/date/snippet.",B.PZ],t.R)
+B.Tx={message_id:0}
+B.R2=new A.O(B.z,["string","Unique message id."],t.w)
+B.QA=new A.O(B.Tx,[B.R2],t.d)
+B.NJ=s(["message_id"],t.s)
+B.Qa=new A.O(B.al,["object",B.QA,B.NJ],t.M)
+B.Se=new A.O(B.a7,["function","gmail_read_email","Read full email by ID.",B.Qa],t.R)
+B.Tq={file_id:0}
+B.QY=new A.O(B.z,["string","Google Drive file ID from the calendar event attachment."],t.w)
+B.RH=new A.O(B.Tq,[B.QY],t.d)
+B.Nt=s(["file_id"],t.s)
+B.Qh=new A.O(B.al,["object",B.RH,B.Nt],t.M)
+B.S6=new A.O(B.a7,["function","read_drive_file","Read the text content of a Google Drive file (PDF, Google Doc, or Google Sheet) attached to a calendar event. Use the file_id from the event's attachments array.",B.Qh],t.R)
+B.T2={destination:0,route_type:1,units:2}
+B.QF=new A.O(B.z,["string","Destination address"],t.w)
+B.lV={type:0,enum:1,description:2,default:3}
+B.qq=s(["by_car","on_foot"],t.s)
+B.Su=new A.O(B.lV,["string",B.qq,"Route type, defaults to by_car.","by_car"],t.M)
+B.NK=s(["metric","imperial"],t.s)
+B.Sv=new A.O(B.lV,["string",B.NK,"Distance units, defaults to imperial.","imperial"],t.M)
+B.Rx=new A.O(B.T2,[B.QF,B.Su,B.Sv],t.V1)
+B.qr=s(["destination"],t.s)
+B.Q8=new A.O(B.al,["object",B.Rx,B.qr],t.M)
+B.RQ=new A.O(B.a7,["function","traffic_eta","Get ETA and traffic to destination.",B.Q8],t.R)
+B.T8={destination:0,route_type:1,nav_app:2}
+B.QG=new A.O(B.z,["string","Destination address."],t.w)
+B.T5={type:0,enum:1,default:2}
+B.Qn=new A.O(B.T5,["string",B.qq,"by_car"],t.M)
+B.O1=s(["system","apple","google","waze"],t.s)
+B.Sw=new A.O(B.lV,["string",B.O1,"Which navigation app to open. system=platform default.","system"],t.M)
+B.Sp=new A.O(B.T8,[B.QG,B.Qn,B.Sw],t.V1)
+B.Qi=new A.O(B.al,["object",B.Sp,B.qr],t.M)
+B.RY=new A.O(B.a7,["function","navigate_to_destination","Open Maps app with route to destination.",B.Qi],t.R)
+B.TD={phone_number:0,contact_name:1}
+B.QX=new A.O(B.z,["string","Phone number, e.g. +14085551234"],t.w)
+B.Rm=new A.O(B.z,["string","Contact name"],t.w)
+B.RA=new A.O(B.TD,[B.QX,B.Rm],t.d)
+B.N7=s(["contact_name","phone_number"],t.s)
+B.Qb=new A.O(B.al,["object",B.RA,B.N7],t.M)
+B.RV=new A.O(B.a7,["function","call_phone","Place call. MUST call memory_fetch first if only contact name provided.",B.Qb],t.R)
+B.T0={text:0,when_iso:1,recurrence:2,day_of_week:3,ai_prompt:4}
+B.QQ=new A.O(B.z,["string","What to remind the user about. For AI reminders, this is a short human-readable label (e.g. 'Morning inspiration')."],t.w)
+B.Rh=new A.O(B.z,["string","Local date/time in ISO 8601 format, e.g. 2026-01-28T07:00:00. For recurring reminders this sets the time-of-day."],t.w)
+B.dp={type:0,enum:1,description:2}
+B.Na=s(["daily","weekly"],t.s)
+B.PM=new A.O(B.dp,["string",B.Na,"How often to repeat. Omit for a one-time reminder."],t.M)
+B.QU=new A.O(B.z,["integer","Day of week for weekly recurrence: 1=Monday, 2=Tuesday, ..., 7=Sunday."],t.w)
+B.Rp=new A.O(B.z,["string","If provided, AI generates the notification content at fire time using this instruction. Example: 'inspiring quote in style of Jensen Huang, 1-2 sentences'. Android only; iOS falls back to text label."],t.w)
+B.Sk=new A.O(B.T0,[B.QQ,B.Rh,B.PM,B.QU,B.Rp],t.V1)
+B.O9=s(["when_iso"],t.s)
+B.Q3=new A.O(B.al,["object",B.Sk,B.O9],t.M)
+B.S_=new A.O(B.a7,["function","reminder_create","Create a reminder with a local notification. Supports one-shot, recurring (daily/weekly), and AI-generated content. For recurring: set recurrence='daily' or 'weekly' (+ day_of_week for weekly). For AI-generated content: set ai_prompt with the instruction; text becomes a short label.",B.Q3],t.R)
+B.Sf=new A.O(B.a7,["function","reminder_list","List upcoming reminders.",B.fx],t.R)
+B.Tr={id:0}
+B.QP=new A.O(B.z,["integer","Reminder id returned when the reminder was created."],t.w)
+B.Qs=new A.O(B.Tr,[B.QP],t.d)
+B.NA=s(["id"],t.s)
+B.Q6=new A.O(B.al,["object",B.Qs,B.NA],t.M)
+B.RR=new A.O(B.a7,["function","reminder_cancel","Cancel reminder by ID.",B.Q6],t.R)
+B.Tm={contact_name:0,message:1,photo_location:2,photo_time:3,photo_limit:4,include_sender_name:5}
+B.Ra=new A.O(B.z,["string","Name of the contact (will be looked up in memory)"],t.w)
+B.Rt=new A.O(B.z,["string","Text message to send"],t.w)
+B.Rb=new A.O(B.z,["string","Optional: location to find photo(s) (e.g., 'Paris', 'home')"],t.w)
+B.Ru=new A.O(B.z,["string","Optional: time period (e.g., 'yesterday', 'last week')"],t.w)
+B.Rd=new A.O(B.z,["integer","Optional: number of photos to include (default: 1, max: 10). Use when user says 'send 3 photos' or 'send a few photos'."],t.w)
+B.Rk=new A.O(B.z,["boolean","If true, prepend 'From [Your Name]:' to message"],t.w)
+B.RD=new A.O(B.Tm,[B.Ra,B.Rt,B.Rb,B.Ru,B.Rd,B.Rk],t.d)
+B.N6=s(["contact_name","message"],t.s)
+B.Q5=new A.O(B.al,["object",B.RD,B.N6],t.M)
+B.S1=new A.O(B.a7,["function","send_whatsapp_message","Send WhatsApp message (contact must be in memory). Can include one or more photos.",B.Q5],t.R)
+B.RT=new A.O(B.a7,["function","stop_session","Stop the voice session and disconnect the microphone. Call this when the user says goodbye, bye, stop listening, that's all, stop, or any similar phrase that signals they want to end the conversation.",B.fx],t.R)
+B.T3={agent_name:0,person_id:1,client_name:2,description:3,due_date:4,task_type:5}
+B.QZ=new A.O(B.z,["string","Agent creating and assigned to the task. Use the agent's name from your identity (e.g. 'Roman') or 'me'."],t.w)
+B.wA=new A.O(B.z,["number","FUB contact ID \u2014 from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. NOT the agent user ID."],t.w)
+B.wz=new A.O(B.z,["string","Full or partial contact name. Used only when person_id is not already known."],t.w)
+B.Ro=new A.O(B.z,["string","Task description / title (free text)."],t.w)
+B.QM=new A.O(B.z,["string","Due date in YYYY-MM-DD format. Omit to default to today's date."],t.w)
+B.NG=s(["Follow Up","Call","Email","Text","Showing","Closing","Open House","Thank You"],t.s)
+B.PN=new A.O(B.dp,["string",B.NG,"Type of task."],t.M)
+B.Qy=new A.O(B.T3,[B.QZ,B.wA,B.wz,B.Ro,B.QM,B.PN],t.V1)
+B.MZ=s(["agent_name","description","task_type"],t.s)
+B.Q4=new A.O(B.al,["object",B.Qy,B.MZ],t.M)
+B.S9=new A.O(B.a7,["function","fub_create_task","Create a task for a FUB contact. Use when the user says 'add a task', 'create a follow up', 'schedule a call', or similar. The task is assigned to the current agent. ALWAYS pass person_id when the contact was already resolved in this conversation \u2014 never use agent_id as person_id.",B.Q4],t.R)
+B.Tv={agent_name:0,person_id:1,client_name:2,status:3}
+B.Rj=new A.O(B.z,["string","Agent name for contact resolution scope. Use 'me' or the agent's name."],t.w)
+B.Rc=new A.O(B.z,["number","FUB contact ID \u2014 from prior search or task results. NOT the agent user ID."],t.w)
+B.NQ=s(["open","completed","all"],t.s)
+B.PL=new A.O(B.dp,["string",B.NQ,"Filter by task status. Defaults to 'all'."],t.M)
+B.Sl=new A.O(B.Tv,[B.Rj,B.Rc,B.wz,B.PL],t.V1)
+B.fg=s(["agent_name"],t.s)
+B.Q_=new A.O(B.al,["object",B.Sl,B.fg],t.M)
+B.S4=new A.O(B.a7,["function","fub_get_person_tasks","Fetch tasks for a specific FUB contact, both open and completed. Use when the user asks 'what tasks do I have for John', 'show me Sarah's tasks', 'any completed tasks for this client'. ALWAYS pass person_id when the contact was already resolved.",B.Q_],t.R)
+B.Tn={due_date:0,agent_name:1}
+B.QI=new A.O(B.z,["string","Filter tasks by due date in YYYY-MM-DD format. Omit to get all tasks."],t.w)
+B.Re=new A.O(B.z,["string","Agent to fetch tasks for. Use the agent's name from your identity (e.g. 'Roman') or 'me'. Use 'all' only when user explicitly asks for the whole team's tasks."],t.w)
+B.PQ=new A.O(B.Tn,[B.QI,B.Re],t.d)
+B.Q9=new A.O(B.al,["object",B.PQ,B.fg],t.M)
+B.Sa=new A.O(B.a7,["function","fub_get_tasks","Get incomplete tasks from Follow Up Boss CRM including contact details (name, phone, email, address). agent_name is required \u2014 always pass the agent's name from your identity or 'me'. For 'today's meetings/tasks/clients', pass due_date=today's date in YYYY-MM-DD format. Summarize by grouping overdue vs upcoming.",B.Q9],t.R)
+B.Tt={agent_name:0,query:1,limit:2}
+B.R1=new A.O(B.z,["string","Agent whose contacts to search. Use the agent's name from your identity or 'me'."],t.w)
+B.QT=new A.O(B.z,["string","Partial or full name to search for. Case-insensitive."],t.w)
+B.R_=new A.O(B.z,["number","Max number of results to return (default 10)."],t.w)
+B.Qp=new A.O(B.Tt,[B.R1,B.QT,B.R_],t.d)
+B.N0=s(["agent_name","query"],t.s)
+B.Q0=new A.O(B.al,["object",B.Qp,B.N0],t.M)
+B.RX=new A.O(B.a7,["function","fub_search_contacts","Search for FUB contacts by partial name (case-insensitive), scoped to the agent. Use when user asks to find or look up a client by name (e.g. 'find all my Johns', 'look up Smith', 'search for William'). Returns full contact details including the contact's id field \u2014 this is the person_id to use in fub_create_note, fub_send_text, and fub_update_person. Store it and reuse it; do NOT re-resolve or ask the user again.",B.Q0],t.R)
+B.Tu={agent_name:0,body:1,person_id:2,client_name:3}
+B.QH=new A.O(B.z,["string","Agent creating the note. Use the agent's name from your identity (e.g. 'Roman') or 'me'."],t.w)
+B.QJ=new A.O(B.z,["string","The note content to save."],t.w)
+B.wB=new A.O(B.z,["number","FUB contact ID \u2014 from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. This is NOT the agent user ID."],t.w)
+B.lI=new A.O(B.z,["string","Full or partial name of the client. Used only when person_id is not already known from a prior search."],t.w)
+B.PW=new A.O(B.Tu,[B.QH,B.QJ,B.wB,B.lI],t.d)
+B.MY=s(["agent_name","body"],t.s)
+B.Q2=new A.O(B.al,["object",B.PW,B.MY],t.M)
+B.S7=new A.O(B.a7,["function","fub_create_note","Create an internal note on a FUB client's timeline. Use ONLY when the user explicitly says 'add a note', 'log that', 'make a note', or similar. Do NOT use when the user says 'update', 'change', 'set', or 'add a [field]' \u2014 those go to fub_update_person. Examples that are NOT notes: updating an address, changing a phone number, updating a stage, adding an email. ALWAYS pass person_id from a prior search or task result \u2014 never use agent_id as person_id.",B.Q2],t.R)
+B.Ta={agent_name:0,message:1,person_id:2,client_name:3}
+B.R9=new A.O(B.z,["string","Agent sending the message. Use the agent's name from your identity (e.g. 'Roman') or 'me'."],t.w)
+B.Rr=new A.O(B.z,["string","The text message to send."],t.w)
+B.So=new A.O(B.Ta,[B.R9,B.Rr,B.wB,B.lI],t.d)
+B.N_=s(["agent_name","message"],t.s)
+B.Qj=new A.O(B.al,["object",B.So,B.N_],t.M)
+B.S5=new A.O(B.a7,["function","fub_send_text","Send a text message to a FUB client on behalf of the agent. IMPORTANT: Always read the message back to the user and get explicit confirmation ('yes', 'send it', etc.) before calling this tool \u2014 it sends a real message to a real client. Prefer person_id when the client was already resolved in this conversation (from fub_get_recent_contacts or fub_get_tasks). Use client_name when referring to someone by name for the first time.",B.Qj],t.R)
+B.ww=new A.O(B.al,["object",B.wH,B.e4],t.M)
+B.S3=new A.O(B.a7,["function","fub_get_stages","Get all available lead stages from Follow Up Boss CRM. Use when the user asks what stages are available, or before updating a stage to confirm the exact stage name.",B.ww],t.R)
+B.Tp={agent_name:0,person_id:1,client_name:2,stage:3,name:4,background_info:5,source:6,assigned_to:7,collaborators:8,tags:9,phones:10,emails:11,address:12}
+B.QV=new A.O(B.z,["string","Agent performing the update. Use the agent's name from your identity (e.g. 'Roman') or 'me'."],t.w)
+B.Rl=new A.O(B.z,["number","FUB contact ID \u2014 from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. This is NOT the agent user ID. Never pass agent_id here."],t.w)
+B.R3=new A.O(B.z,["string","New stage name. Must match a valid FUB stage exactly (e.g. 'Hot Lead', 'Active Buyer'). Omit if not changing."],t.w)
+B.QR=new A.O(B.z,["string","Full name to set on the contact. Omit if not changing."],t.w)
+B.R7=new A.O(B.z,["string","Background information / bio text to set on the contact. Omit if not changing."],t.w)
+B.QL=new A.O(B.z,["string","Lead source to set (e.g. 'Zillow', 'Referral', 'Website'). Must match a valid FUB source name \u2014 call fub_get_sources first if unsure. Omit if not changing."],t.w)
+B.Rs=new A.O(B.z,["string","Agent name to assign this contact to (e.g. 'Roman', 'me'). Resolved to a FUB user ID server-side. Omit if not changing."],t.w)
+B.wQ={type:0,description:1,properties:2,required:3}
+B.Ty={mode:0,agents:1}
+B.TK={type:0,enum:1}
+B.MX=s(["add","remove","set"],t.s)
+B.wu=new A.O(B.TK,["string",B.MX],t.M)
+B.TC={type:0,items:1,description:2}
+B.RG=new A.O(B.TC,["array",B.cG,"List of agent names (e.g. ['Roman', 'Sarah']). Resolved to FUB user IDs server-side."],t.M)
+B.RF=new A.O(B.Ty,[B.wu,B.RG],t.V1)
+B.NL=s(["mode","agents"],t.s)
+B.Sj=new A.O(B.wQ,["object","Collaborator update operation. 'add' adds agents without removing existing. 'remove' removes specific agents. 'set' replaces the full collaborator list.",B.RF,B.NL],t.M)
+B.Tz={mode:0,values:1}
+B.TL={type:0,items:1}
+B.Sn=new A.O(B.TL,["array",B.cG],t.M)
+B.PR=new A.O(B.Tz,[B.wu,B.Sn],t.V1)
+B.NM=s(["mode","values"],t.s)
+B.Si=new A.O(B.wQ,["object","Tag update operation. 'add' appends without removing existing. 'remove' deletes specific tags. 'set' replaces all tags with the provided list.",B.PR,B.NM],t.M)
+B.wS={type:0,description:1,items:2}
+B.T7={number:0,type:1,action:2}
+B.Rq=new A.O(B.z,["string","Phone number string."],t.w)
+B.NX=s(["mobile","home","work","fax","other"],t.s)
+B.PO=new A.O(B.dp,["string",B.NX,"Phone type. Defaults to mobile."],t.M)
+B.O0=s(["set","remove"],t.s)
+B.lH=new A.O(B.dp,["string",B.O0,"Omit or 'set' to add/update; 'remove' to delete by type."],t.M)
+B.Rz=new A.O(B.T7,[B.Rq,B.PO,B.lH],t.V1)
+B.qw=s(["type"],t.s)
+B.Qk=new A.O(B.al,["object",B.Rz,B.qw],t.M)
+B.Qw=new A.O(B.wS,["array","Phone number changes. Each entry adds/updates or removes a number of the given type.",B.Qk],t.M)
+B.Tl={address:0,type:1,action:2}
+B.QO=new A.O(B.z,["string","Email address."],t.w)
+B.NS=s(["personal","work","other"],t.s)
+B.PK=new A.O(B.dp,["string",B.NS,"Email type. Defaults to personal."],t.M)
+B.Qq=new A.O(B.Tl,[B.QO,B.PK,B.lH],t.V1)
+B.Q7=new A.O(B.al,["object",B.Qq,B.qw],t.M)
+B.Qv=new A.O(B.wS,["array","Email address changes. Each entry adds/updates or removes an email of the given type.",B.Q7],t.M)
+B.Tj={type:0,description:1,properties:2}
+B.TG={street:0,city:1,state:2,zip:3,country:4,type:5,action:6}
+B.Ny=s(["home","work","selling","other"],t.s)
+B.PP=new A.O(B.dp,["string",B.Ny,"Address type. Use 'selling' for the property being sold. Defaults to home."],t.M)
+B.Qx=new A.O(B.TG,[B.cG,B.cG,B.cG,B.cG,B.cG,B.PP,B.lH],t.V1)
+B.Ry=new A.O(B.Tj,["object","Mailing address to add, update, or remove. Matched by type \u2014 partial updates merge with existing fields.",B.Qx],t.M)
+B.RE=new A.O(B.Tp,[B.QV,B.Rl,B.lI,B.R3,B.QR,B.R7,B.QL,B.Rs,B.Sj,B.Si,B.Qw,B.Qv,B.Ry],t.V1)
+B.Qf=new A.O(B.al,["object",B.RE,B.fg],t.M)
+B.RS=new A.O(B.a7,["function","fub_update_person","Update one or more fields on a FUB contact in a single call. Use for any combination of: stage, tags, phone numbers, email addresses, mailing address, name, or background info. ALWAYS pass person_id when the client was already resolved in this conversation. If updating stage and you are unsure of the exact name, call fub_get_stages first.",B.Qf],t.R)
+B.TJ={agent_name:0,limit:1,days:2}
+B.R5=new A.O(B.z,["string","Agent whose contacts to fetch. Use the agent's name from your identity (e.g. 'Roman') or 'me'. Use 'all' only when user explicitly asks for the whole team."],t.w)
+B.Rn=new A.O(B.z,["number","Number of contacts to return. Default is 5 if not specified by the user."],t.w)
+B.R6=new A.O(B.z,["number","Only include contacts active within the last N days. Omit to return the most recent regardless of timeframe."],t.w)
+B.QB=new A.O(B.TJ,[B.R5,B.Rn,B.R6],t.d)
+B.Qe=new A.O(B.al,["object",B.QB,B.fg],t.M)
+B.S8=new A.O(B.a7,["function","fub_get_recent_contacts","Get the most recently contacted clients for an agent from Follow Up Boss CRM, sorted by last activity date with most recent first. Use when the user asks 'who are my latest clients', 'recent contacts', 'who did I work with recently', or similar. Always include lastActivityDate in your response for each contact.",B.Qe],t.R)
+B.Tf={agent_name:0,person_id:1,client_name:2}
+B.QN=new A.O(B.z,["string","Agent name (e.g. 'Roman') or 'me'. Required to scope contact lookup."],t.w)
+B.R8=new A.O(B.z,["string","Full or partial name of the client. Used only when person_id is not already known."],t.w)
+B.RN=new A.O(B.Tf,[B.QN,B.wA,B.R8],t.d)
+B.Qc=new A.O(B.al,["object",B.RN,B.fg],t.M)
+B.Sb=new A.O(B.a7,["function","fub_get_person_details","Read key fields of a FUB contact: tags, background info, source, stage, and collaborators. Use when the user asks about any of these fields (e.g. 'what tags does John have', 'what's Sarah's background', 'who are the collaborators on this contact', 'show me RoadMate's details'). ALWAYS pass person_id when the client was already resolved in this conversation.",B.Qc],t.R)
+B.Sc=new A.O(B.a7,["function","fub_get_sources","Get all available lead sources from Follow Up Boss CRM. Use when the user asks what sources are available, or before updating a source to confirm the exact name.",B.ww],t.R)
+B.qo=s([B.RZ,B.S2,B.RO,B.RU,B.RP,B.S0,B.Sd,B.RW,B.Se,B.S6,B.RQ,B.RY,B.RV,B.S_,B.Sf,B.RR,B.S1,B.RT,B.S9,B.S4,B.Sa,B.RX,B.S7,B.S5,B.S3,B.RS,B.S8,B.Sb,B.Sc],t.H7)
 B.wo=new A.vV(0,"off")
 B.wp=new A.vV(1,"one")
 B.wq=new A.vV(2,"all")
@@ -107748,7 +107748,7 @@ B.Wp=new A.ag(0.66416338,0.0734653)
 B.Wm=new A.ag(0.68675338,0.06974996)
 B.WC=new A.ag(0.70678034,0.06529512)
 B.qp=s([B.WG,B.WF,B.Ws,B.Wv,B.WE,B.Wl,B.Wq,B.Wt,B.Wo,B.WB,B.WI,B.Wp,B.Wm,B.WC],A.al("B<+(R,R)>"))
-B.N0=s([35,30,20,25,30,35,30,25,25],t.n)
+B.N1=s([35,30,20,25,30,35,30,25,25],t.n)
 B.UG=new A.bJ(0)
 B.lZ=new A.bJ(1)
 B.UQ=new A.bJ(2)
@@ -107789,44 +107789,44 @@ B.V5=new A.bJ(36)
 B.V6=new A.bJ(37)
 B.V7=new A.bJ(38)
 B.V8=new A.bJ(39)
-B.N2=s([B.UG,B.lZ,B.UQ,B.fB,B.UD,B.UE,B.V9,B.fD,B.UF,B.Va,B.UH,B.UI,B.UJ,B.UK,B.UL,B.UM,B.UN,B.fC,B.UO,B.UP,B.UR,B.UC,B.US,B.UT,B.UU,B.UV,B.UW,B.UX,B.UY,B.UZ,B.V_,B.V0,B.V1,B.V2,B.V3,B.V4,B.V5,B.V6,B.V7,B.V8],t.o_)
-B.N4=s(["click","scroll"],t.s)
+B.N3=s([B.UG,B.lZ,B.UQ,B.fB,B.UD,B.UE,B.V9,B.fD,B.UF,B.Va,B.UH,B.UI,B.UJ,B.UK,B.UL,B.UM,B.UN,B.fC,B.UO,B.UP,B.UR,B.UC,B.US,B.UT,B.UU,B.UV,B.UW,B.UX,B.UY,B.UZ,B.V_,B.V0,B.V1,B.V2,B.V3,B.V4,B.V5,B.V6,B.V7,B.V8],t.o_)
+B.N5=s(["click","scroll"],t.s)
 B.EG=new A.up()
 B.fK=new A.SE(1,"page")
 B.iT=new A.eN(B.bj,B.fK)
-B.N7=s([B.EG,B.iT],A.al("B<b1>"))
-B.Ne=s([],A.al("B<aXs>"))
-B.Nm=s([],t.QP)
-B.Nd=s([],t.sq)
+B.N8=s([B.EG,B.iT],A.al("B<b1>"))
+B.Nf=s([],A.al("B<aXs>"))
+B.Nn=s([],t.QP)
+B.Ne=s([],t.sq)
 B.qs=s([],A.al("B<ba4>"))
-B.Nf=s([],A.al("B<aYB>"))
-B.Nn=s([],t.D)
-B.Nq=s([],t.fJ)
-B.Np=s([],t.ER)
+B.Ng=s([],A.al("B<aYB>"))
+B.No=s([],t.D)
+B.Nr=s([],t.fJ)
+B.Nq=s([],t.ER)
 B.a7X=s([],t.ss)
-B.Ng=s([],t.tc)
+B.Nh=s([],t.tc)
 B.ij=s([],t.jl)
-B.Ni=s([],t.wi)
-B.Nh=s([],A.al("B<aPe<@>>"))
+B.Nj=s([],t.wi)
+B.Ni=s([],A.al("B<aPe<@>>"))
 B.lo=s([],t.AO)
-B.Nk=s([],t.D1)
+B.Nl=s([],t.D1)
 B.ln=s([],t.QF)
-B.No=s([],t.Lx)
-B.Nc=s([],t.AS)
+B.Np=s([],t.Lx)
+B.Nd=s([],t.AS)
 B.a7Y=s([],t.p)
-B.Nr=s([],t.n)
-B.Nb=s([],t.t)
-B.Nl=s([],t._m)
+B.Ns=s([],t.n)
+B.Nc=s([],t.t)
+B.Nm=s([],t._m)
 B.qt=s(["S","M","T","W","T","F","S"],t.s)
 B.qu=s(["J","F","M","A","M","J","J","A","S","O","N","D"],t.s)
 B.DA=new A.nk(1,"speech")
 B.DB=new A.nk(3,"movie")
 B.DC=new A.nk(4,"sonification")
-B.Nw=s([B.nw,B.DA,B.nx,B.DB,B.DC],A.al("B<nk>"))
+B.Nx=s([B.nw,B.DA,B.nx,B.DB,B.DC],A.al("B<nk>"))
 B.TP=new A.o(0,2)
 B.Ew=new A.dZ(0.75,B.cY,B.ot,B.TP,1.5)
-B.NB=s([B.Ew],t.sq)
-B.NC=s([43,95,45,46,48,49,50,51,52,53,54,55,56,57,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122],t.t)
+B.NC=s([B.Ew],t.sq)
+B.ND=s([43,95,45,46,48,49,50,51,52,53,54,55,56,57,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122],t.t)
 B.lp=s(["marin","echo"],t.s)
 B.fh=s([B.cA,B.bI,B.eH,B.hd,B.he],t.QP)
 B.ds=new A.oj(0,"idle")
@@ -107834,17 +107834,17 @@ B.AL=new A.oj(1,"loading")
 B.iJ=new A.oj(2,"buffering")
 B.m2=new A.oj(3,"ready")
 B.AM=new A.oj(4,"completed")
-B.NM=s([B.ds,B.AL,B.iJ,B.m2,B.AM],A.al("B<oj>"))
+B.NN=s([B.ds,B.AL,B.iJ,B.m2,B.AM],A.al("B<oj>"))
 B.iu=new A.kw(0,"off")
 B.lF=new A.kw(1,"one")
 B.wr=new A.kw(2,"all")
-B.NN=s([B.iu,B.lF,B.wr],A.al("B<kw>"))
+B.NO=s([B.iu,B.lF,B.wr],A.al("B<kw>"))
 B.M3=s([0.001200833568784504,0.002389694492170889,0.0002795742885861124],t.n)
-B.N8=s([0.0005891086651375999,0.0029785502573438758,0.0003270666104008398],t.n)
+B.N9=s([0.0005891086651375999,0.0029785502573438758,0.0003270666104008398],t.n)
 B.Mh=s([0.00010146692491640572,0.0005364214359186694,0.0032979401770712076],t.n)
-B.NU=s([B.M3,B.N8,B.Mh],t.zg)
-B.NX=s([45,95,45,20,45,90,45,45,45],t.n)
-B.NY=s([120,120,20,45,20,15,20,120,120],t.n)
+B.NV=s([B.M3,B.N9,B.Mh],t.zg)
+B.NY=s([45,95,45,20,45,90,45,45,45],t.n)
+B.NZ=s([120,120,20,45,20,15,20,120,120],t.n)
 B.e6=new A.i3(0,"controlModifier")
 B.e7=new A.i3(1,"shiftModifier")
 B.e8=new A.i3(2,"altModifier")
@@ -107855,23 +107855,23 @@ B.lR=new A.i3(6,"scrollLockModifier")
 B.lS=new A.i3(7,"functionModifier")
 B.wO=new A.i3(8,"symbolModifier")
 B.qv=s([B.e6,B.e7,B.e8,B.e9,B.lP,B.lQ,B.lR,B.lS,B.wO],A.al("B<i3>"))
-B.O1=s(["1st quarter","2nd quarter","3rd quarter","4th quarter"],t.s)
+B.O2=s(["1st quarter","2nd quarter","3rd quarter","4th quarter"],t.s)
 B.lq=s([!0,!1],t.HZ)
 B.Go=new A.G(0.14901960784313725,0,0,0,B.f)
 B.wX=new A.o(0,3)
 B.Ey=new A.dZ(0,B.cY,B.Go,B.wX,8)
 B.Hi=new A.G(0.058823529411764705,0,0,0,B.f)
 B.Ez=new A.dZ(0,B.cY,B.Hi,B.wX,1)
-B.O4=s([B.Ey,B.Ez],t.sq)
-B.O7=s(["pointerdown","pointermove","pointerleave","pointerup","pointercancel","touchstart","touchend","touchmove","touchcancel","mousedown","mousemove","mouseleave","mouseup","wheel"],t.s)
-B.O9=s(["Before Christ","Anno Domini"],t.s)
+B.O5=s([B.Ey,B.Ez],t.sq)
+B.O8=s(["pointerdown","pointermove","pointerleave","pointerup","pointercancel","touchstart","touchend","touchmove","touchcancel","mousedown","mousemove","mouseleave","mouseup","wheel"],t.s)
+B.Oa=s(["Before Christ","Anno Domini"],t.s)
 B.le=new A.ht(100)
 B.Ja=new A.ht(200)
 B.Jb=new A.ht(300)
 B.Jc=new A.ht(800)
 B.pE=new A.ht(900)
-B.Oa=s([B.le,B.Ja,B.Jb,B.o,B.a6,B.i8,B.ba,B.Jc,B.pE],A.al("B<ht>"))
-B.Ob=s([0.015176349177441876,0.045529047532325624,0.07588174588720938,0.10623444424209313,0.13658714259697685,0.16693984095186062,0.19729253930674434,0.2276452376616281,0.2579979360165119,0.28835063437139563,0.3188300904430532,0.350925934958123,0.3848314933096426,0.42057480301049466,0.458183274052838,0.4976837250274023,0.5391024159806381,0.5824650784040898,0.6277969426914107,0.6751227633498623,0.7244668422128921,0.775853049866786,0.829304845476233,0.8848452951698498,0.942497089126609,1.0022825574869039,1.0642236851973577,1.1283421258858297,1.1946592148522128,1.2631959812511864,1.3339731595349034,1.407011200216447,1.4823302800086415,1.5599503113873272,1.6398909516233677,1.7221716113234105,1.8068114625156377,1.8938294463134073,1.9832442801866852,2.075074464868551,2.1693382909216234,2.2660538449872063,2.36523901573795,2.4669114995532007,2.5710888059345764,2.6777882626779785,2.7870270208169257,2.898822059350997,3.0131901897720907,3.1301480604002863,3.2497121605402226,3.3718988244681087,3.4967242352587946,3.624204428461639,3.754355295633311,3.887192587735158,4.022731918402185,4.160988767090289,4.301978482107941,4.445716283538092,4.592217266055746,4.741496401646282,4.893568542229298,5.048448422192488,5.20615066083972,5.3666897647573375,5.5300801301023865,5.696336044816294,5.865471690767354,6.037501145825082,6.212438385869475,6.390297286737924,6.571091626112461,6.7548350853498045,6.941541251256611,7.131223617812143,7.323895587840543,7.5195704746346665,7.7182615035334345,7.919981813454504,8.124744458384042,8.332562408825165,8.543448553206703,8.757415699253682,8.974476575321063,9.194643831691977,9.417930041841839,9.644347703669503,9.873909240696694,10.106627003236781,10.342513269534024,10.58158024687427,10.8238400726681,11.069304815507364,11.317986476196008,11.569896988756009,11.825048221409341,12.083451977536606,12.345119996613247,12.610063955123938,12.878295467455942,13.149826086772048,13.42466730586372,13.702830557985108,13.984327217668513,14.269168601521828,14.55736596900856,14.848930523210871,15.143873411576273,15.44220572664832,15.743938506781891,16.04908273684337,16.35764934889634,16.66964922287304,16.985093187232053,17.30399201960269,17.62635644741625,17.95219714852476,18.281524751807332,18.614349837764564,18.95068293910138,19.290534541298456,19.633915083172692,19.98083495742689,20.331304511189067,20.685334046541502,21.042933821039977,21.404114048223256,21.76888489811322,22.137256497705877,22.50923893145328,22.884842241736916,23.264076429332462,23.6469514538663,24.033477234264016,24.42366364919083,24.817520537484558,25.21505769858089,25.61628489293138,26.021211842414342,26.429848230738664,26.842203703840827,27.258287870275353,27.678110301598522,28.10168053274597,28.529008062403893,28.96010235337422,29.39497283293396,29.83362889318845,30.276079891419332,30.722335150426627,31.172403958865512,31.62629557157785,32.08401920991837,32.54558406207592,33.010999283389665,33.4802739966603,33.953417292456834,34.430438229418264,34.911345834551085,35.39614910352207,35.88485700094671,36.37747846067349,36.87402238606382,37.37449765026789,37.87891309649659,38.38727753828926,38.89959975977785,39.41588851594697,39.93615253289054,40.460400508064545,40.98864111053629,41.520882981230194,42.05713473317016,42.597404951718396,43.141702194811224,43.6900349931913,44.24241185063697,44.798841244188324,45.35933162437017,45.92389141541209,46.49252901546552,47.065252796817916,47.64207110610409,48.22299226451468,48.808024568002054,49.3971762874833,49.9904556690408,50.587870934119984,51.189430279724725,51.79514187861014,52.40501387947288,53.0190544071392,53.637271562750364,54.259673423945976,54.88626804504493,55.517063457223934,56.15206766869424,56.79128866487574,57.43473440856916,58.08241284012621,58.734331877617365,59.39049941699807,60.05092333227251,60.715611475655585,61.38457167773311,62.057811747619894,62.7353394731159,63.417162620860914,64.10328893648692,64.79372614476921,65.48848194977529,66.18756403501224,66.89098006357258,67.59873767827808,68.31084450182222,69.02730813691093,69.74813616640164,70.47333615344107,71.20291564160104,71.93688215501312,72.67524319850172,73.41800625771542,74.16517879925733,74.9167682708136,75.67278210128072,76.43322770089146,77.1981124613393,77.96744375590167,78.74122893956174,79.51947534912904,80.30219030335869,81.08938110306934,81.88105503125999,82.67721935322541,83.4778813166706,84.28304815182372,85.09272707154808,85.90692527145302,86.72564993000343,87.54890820862819,88.3767072518277,89.2090541872801,90.04595612594655,90.88742016217518,91.73345337380438,92.58406282226491,93.43925555268066,94.29903859396902,95.16341895893969,96.03240364439274,96.9059996312159,97.78421388448044,98.6670533535366,99.55452497210776],t.n)
+B.Ob=s([B.le,B.Ja,B.Jb,B.o,B.a6,B.i8,B.ba,B.Jc,B.pE],A.al("B<ht>"))
+B.Oc=s([0.015176349177441876,0.045529047532325624,0.07588174588720938,0.10623444424209313,0.13658714259697685,0.16693984095186062,0.19729253930674434,0.2276452376616281,0.2579979360165119,0.28835063437139563,0.3188300904430532,0.350925934958123,0.3848314933096426,0.42057480301049466,0.458183274052838,0.4976837250274023,0.5391024159806381,0.5824650784040898,0.6277969426914107,0.6751227633498623,0.7244668422128921,0.775853049866786,0.829304845476233,0.8848452951698498,0.942497089126609,1.0022825574869039,1.0642236851973577,1.1283421258858297,1.1946592148522128,1.2631959812511864,1.3339731595349034,1.407011200216447,1.4823302800086415,1.5599503113873272,1.6398909516233677,1.7221716113234105,1.8068114625156377,1.8938294463134073,1.9832442801866852,2.075074464868551,2.1693382909216234,2.2660538449872063,2.36523901573795,2.4669114995532007,2.5710888059345764,2.6777882626779785,2.7870270208169257,2.898822059350997,3.0131901897720907,3.1301480604002863,3.2497121605402226,3.3718988244681087,3.4967242352587946,3.624204428461639,3.754355295633311,3.887192587735158,4.022731918402185,4.160988767090289,4.301978482107941,4.445716283538092,4.592217266055746,4.741496401646282,4.893568542229298,5.048448422192488,5.20615066083972,5.3666897647573375,5.5300801301023865,5.696336044816294,5.865471690767354,6.037501145825082,6.212438385869475,6.390297286737924,6.571091626112461,6.7548350853498045,6.941541251256611,7.131223617812143,7.323895587840543,7.5195704746346665,7.7182615035334345,7.919981813454504,8.124744458384042,8.332562408825165,8.543448553206703,8.757415699253682,8.974476575321063,9.194643831691977,9.417930041841839,9.644347703669503,9.873909240696694,10.106627003236781,10.342513269534024,10.58158024687427,10.8238400726681,11.069304815507364,11.317986476196008,11.569896988756009,11.825048221409341,12.083451977536606,12.345119996613247,12.610063955123938,12.878295467455942,13.149826086772048,13.42466730586372,13.702830557985108,13.984327217668513,14.269168601521828,14.55736596900856,14.848930523210871,15.143873411576273,15.44220572664832,15.743938506781891,16.04908273684337,16.35764934889634,16.66964922287304,16.985093187232053,17.30399201960269,17.62635644741625,17.95219714852476,18.281524751807332,18.614349837764564,18.95068293910138,19.290534541298456,19.633915083172692,19.98083495742689,20.331304511189067,20.685334046541502,21.042933821039977,21.404114048223256,21.76888489811322,22.137256497705877,22.50923893145328,22.884842241736916,23.264076429332462,23.6469514538663,24.033477234264016,24.42366364919083,24.817520537484558,25.21505769858089,25.61628489293138,26.021211842414342,26.429848230738664,26.842203703840827,27.258287870275353,27.678110301598522,28.10168053274597,28.529008062403893,28.96010235337422,29.39497283293396,29.83362889318845,30.276079891419332,30.722335150426627,31.172403958865512,31.62629557157785,32.08401920991837,32.54558406207592,33.010999283389665,33.4802739966603,33.953417292456834,34.430438229418264,34.911345834551085,35.39614910352207,35.88485700094671,36.37747846067349,36.87402238606382,37.37449765026789,37.87891309649659,38.38727753828926,38.89959975977785,39.41588851594697,39.93615253289054,40.460400508064545,40.98864111053629,41.520882981230194,42.05713473317016,42.597404951718396,43.141702194811224,43.6900349931913,44.24241185063697,44.798841244188324,45.35933162437017,45.92389141541209,46.49252901546552,47.065252796817916,47.64207110610409,48.22299226451468,48.808024568002054,49.3971762874833,49.9904556690408,50.587870934119984,51.189430279724725,51.79514187861014,52.40501387947288,53.0190544071392,53.637271562750364,54.259673423945976,54.88626804504493,55.517063457223934,56.15206766869424,56.79128866487574,57.43473440856916,58.08241284012621,58.734331877617365,59.39049941699807,60.05092333227251,60.715611475655585,61.38457167773311,62.057811747619894,62.7353394731159,63.417162620860914,64.10328893648692,64.79372614476921,65.48848194977529,66.18756403501224,66.89098006357258,67.59873767827808,68.31084450182222,69.02730813691093,69.74813616640164,70.47333615344107,71.20291564160104,71.93688215501312,72.67524319850172,73.41800625771542,74.16517879925733,74.9167682708136,75.67278210128072,76.43322770089146,77.1981124613393,77.96744375590167,78.74122893956174,79.51947534912904,80.30219030335869,81.08938110306934,81.88105503125999,82.67721935322541,83.4778813166706,84.28304815182372,85.09272707154808,85.90692527145302,86.72564993000343,87.54890820862819,88.3767072518277,89.2090541872801,90.04595612594655,90.88742016217518,91.73345337380438,92.58406282226491,93.43925555268066,94.29903859396902,95.16341895893969,96.03240364439274,96.9059996312159,97.78421388448044,98.6670533535366,99.55452497210776],t.n)
 B.fi=new A.qR(0,"denied")
 B.ik=new A.qR(1,"deniedForever")
 B.lr=new A.qR(2,"whileInUse")
@@ -108466,38 +108466,38 @@ B.LD=s([4294968072,null,null,8589935161],t.Z)
 B.MM=s([8589934850,8589934850,8589934851,null],t.Z)
 B.wI=new A.d2(["*",B.LG,"+",B.LH,"-",B.LI,".",B.LJ,"/",B.LK,"0",B.LL,"1",B.LM,"2",B.LO,"3",B.LQ,"4",B.LR,"5",B.LS,"6",B.LT,"7",B.LU,"8",B.LV,"9",B.LX,"Alt",B.MJ,"AltGraph",B.Lv,"ArrowDown",B.Lw,"ArrowLeft",B.Lx,"ArrowRight",B.Ly,"ArrowUp",B.Lz,"Clear",B.LE,"Control",B.MK,"Delete",B.Lu,"End",B.LA,"Enter",B.Lt,"Home",B.LB,"Insert",B.LF,"Meta",B.ML,"PageDown",B.LC,"PageUp",B.LD,"Shift",B.MM],A.al("d2<t,T<p?>>"))
 B.LW=s([B.qD,null,null,B.wj],t.L)
-B.Nt=s([B.w5,null,null,B.wk],t.L)
+B.Nu=s([B.w5,null,null,B.wk],t.L)
 B.Mo=s([B.w6,null,null,B.wl],t.L)
 B.MN=s([B.w7,null,null,B.di],t.L)
 B.Lm=s([B.w8,null,null,B.wm],t.L)
-B.NS=s([B.w9,null,null,B.lB],t.L)
-B.NH=s([B.wa,null,null,B.fs],t.L)
+B.NT=s([B.w9,null,null,B.lB],t.L)
+B.NI=s([B.wa,null,null,B.fs],t.L)
 B.M2=s([B.wb,null,null,B.dj],t.L)
-B.O3=s([B.wc,null,null,B.ft],t.L)
-B.NG=s([B.wd,null,null,B.dk],t.L)
+B.O4=s([B.wc,null,null,B.ft],t.L)
+B.NH=s([B.wd,null,null,B.dk],t.L)
 B.M_=s([B.we,null,null,B.lC],t.L)
 B.Lr=s([B.wf,null,null,B.dl],t.L)
 B.Md=s([B.wg,null,null,B.fu],t.L)
-B.Nu=s([B.wh,null,null,B.dm],t.L)
-B.Ny=s([B.wi,null,null,B.fv],t.L)
+B.Nv=s([B.wh,null,null,B.dm],t.L)
+B.Nz=s([B.wi,null,null,B.fv],t.L)
 B.M4=s([B.fq,B.fq,B.is,null],t.L)
-B.NT=s([B.io,null,B.io,null],t.L)
+B.NU=s([B.io,null,B.io,null],t.L)
 B.Mv=s([B.bZ,null,null,B.dj],t.L)
 B.Mw=s([B.bQ,null,null,B.dk],t.L)
 B.Mx=s([B.bR,null,null,B.dl],t.L)
-B.NZ=s([B.c_,null,null,B.dm],t.L)
-B.ND=s([B.lv,null,null,B.lC],t.L)
+B.O_=s([B.c_,null,null,B.dm],t.L)
+B.NE=s([B.lv,null,null,B.lC],t.L)
 B.M5=s([B.fp,B.fp,B.ir,null],t.L)
-B.N1=s([B.b2,null,null,B.di],t.L)
+B.N2=s([B.b2,null,null,B.di],t.L)
 B.My=s([B.df,null,null,B.fs],t.L)
 B.LZ=s([B.im,null,null,B.lA],t.L)
 B.Mz=s([B.dg,null,null,B.fu],t.L)
-B.NE=s([B.fo,null,null,B.lB],t.L)
+B.NF=s([B.fo,null,null,B.lB],t.L)
 B.M6=s([B.fr,B.fr,B.it,null],t.L)
 B.MA=s([B.fm,null,null,B.ft],t.L)
-B.Na=s([B.fn,null,null,B.fv],t.L)
+B.Nb=s([B.fn,null,null,B.fv],t.L)
 B.M7=s([B.cF,B.cF,B.dh,null],t.L)
-B.RM=new A.d2(["*",B.LW,"+",B.Nt,"-",B.Mo,".",B.MN,"/",B.Lm,"0",B.NS,"1",B.NH,"2",B.M2,"3",B.O3,"4",B.NG,"5",B.M_,"6",B.Lr,"7",B.Md,"8",B.Nu,"9",B.Ny,"Alt",B.M4,"AltGraph",B.NT,"ArrowDown",B.Mv,"ArrowLeft",B.Mw,"ArrowRight",B.Mx,"ArrowUp",B.NZ,"Clear",B.ND,"Control",B.M5,"Delete",B.N1,"End",B.My,"Enter",B.LZ,"Home",B.Mz,"Insert",B.NE,"Meta",B.M6,"PageDown",B.MA,"PageUp",B.Na,"Shift",B.M7],A.al("d2<t,T<n?>>"))
+B.RM=new A.d2(["*",B.LW,"+",B.Nu,"-",B.Mo,".",B.MN,"/",B.Lm,"0",B.NT,"1",B.NI,"2",B.M2,"3",B.O4,"4",B.NH,"5",B.M_,"6",B.Lr,"7",B.Md,"8",B.Nv,"9",B.Nz,"Alt",B.M4,"AltGraph",B.NU,"ArrowDown",B.Mv,"ArrowLeft",B.Mw,"ArrowRight",B.Mx,"ArrowUp",B.O_,"Clear",B.NE,"Control",B.M5,"Delete",B.N2,"End",B.My,"Enter",B.LZ,"Home",B.Mz,"Insert",B.NF,"Meta",B.M6,"PageDown",B.MA,"PageUp",B.Nb,"Shift",B.M7],A.al("d2<t,T<n?>>"))
 B.Tb={".aac":0,".mp3":1,".ogg":2,".opus":3,".wav":4,".weba":5,".mp4":6,".m4a":7,".aif":8,".aifc":9,".aiff":10,".m3u":11}
 B.Sh=new A.O(B.Tb,["audio/aac","audio/mpeg","audio/ogg","audio/opus","audio/wav","audio/webm","audio/mp4","audio/mp4","audio/x-aiff","audio/x-aiff","audio/x-aiff","audio/x-mpegurl"],t.w)
 B.Ti={KeyA:0,KeyB:1,KeyC:2,KeyD:3,KeyE:4,KeyF:5,KeyG:6,KeyH:7,KeyI:8,KeyJ:9,KeyK:10,KeyL:11,KeyM:12,KeyN:13,KeyO:14,KeyP:15,KeyQ:16,KeyR:17,KeyS:18,KeyT:19,KeyU:20,KeyV:21,KeyW:22,KeyX:23,KeyY:24,KeyZ:25,Digit1:26,Digit2:27,Digit3:28,Digit4:29,Digit5:30,Digit6:31,Digit7:32,Digit8:33,Digit9:34,Digit0:35,Minus:36,Equal:37,BracketLeft:38,BracketRight:39,Backslash:40,Semicolon:41,Quote:42,Backquote:43,Comma:44,Period:45,Slash:46}
@@ -109154,9 +109154,9 @@ B.Bu=new A.t1(null)
 B.H1=new A.G(0.23529411764705882,0,0,0,B.f)
 B.TS=new A.o(0,4)
 B.EA=new A.dZ(0.5,B.cY,B.H1,B.TS,10)
-B.N3=s([B.EA],t.sq)
+B.N4=s([B.EA],t.sq)
 B.WV=new A.kM(B.nG,B.p)
-B.XT=new A.ic(null,null,null,B.N3,B.WV)
+B.XT=new A.ic(null,null,null,B.N4,B.WV)
 B.XU=new A.ah(B.fo,!1,!0,!1,!1,B.m)
 B.Bv=new A.ah(B.lt,!1,!1,!1,!0,B.m)
 B.XV=new A.ah(B.qy,!0,!1,!1,!1,B.m)
@@ -110653,7 +110653,7 @@ s($,"baE","aLE",()=>new A.E())
 r($,"b_q","aLD",()=>{var q=new A.ahC()
 q.pC($.aLE())
 return q})
-s($,"bf8","aWX",()=>new A.a7V("en_US",B.Mg,B.O9,B.qu,B.qu,B.qf,B.qf,B.qe,B.qe,B.qi,B.qi,B.qk,B.qk,B.qt,B.qt,B.MB,B.O1,B.Mc))
+s($,"bf8","aWX",()=>new A.a7V("en_US",B.Mg,B.Oa,B.qu,B.qu,B.qf,B.qf,B.qe,B.qe,B.qi,B.qi,B.qj,B.qj,B.qt,B.qt,B.MB,B.O2,B.Mc))
 r($,"bdK","aHX",()=>A.aQJ("initializeDateFormatting(<locale>)",$.aWX()))
 r($,"bf4","aMc",()=>A.aQJ("initializeDateFormatting(<locale>)",B.RB))
 s($,"beW","aWT",()=>48)

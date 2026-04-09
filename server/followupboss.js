@@ -247,8 +247,8 @@ export function registerFollowUpBossRoutes(app) {
       const { person_id, client_name, description, due_date, task_type } = req.body || {};
 
       if (!description?.trim()) return res.status(400).json({ ok: false, error: "description is required" });
-      if (!due_date?.trim()) return res.status(400).json({ ok: false, error: "due_date is required" });
       if (!task_type?.trim()) return res.status(400).json({ ok: false, error: "task_type is required" });
+      const effectiveDueDate = due_date?.trim() || new Date().toISOString().slice(0, 10);
 
       const agentId = await resolveAgentFromRequest(req);
       if (!agentId) return res.status(400).json({ ok: false, error: "Could not resolve agent identity" });
@@ -279,7 +279,7 @@ export function registerFollowUpBossRoutes(app) {
         personId,
         assignedUserId: agentId,
         name: description.trim(),
-        dueDate: due_date.trim(),
+        dueDate: effectiveDueDate,
         type: task_type.trim(),
       };
 
@@ -295,7 +295,7 @@ export function registerFollowUpBossRoutes(app) {
       }
 
       console.log(`[FUB] task created id=${data.id} for personId=${personId} by agentId=${agentId}`);
-      res.json({ ok: true, taskId: data.id, personId, resolvedName: resolvedName || null, type: task_type, dueDate: due_date });
+      res.json({ ok: true, taskId: data.id, personId, resolvedName: resolvedName || null, type: task_type, dueDate: effectiveDueDate });
     } catch (e) {
       console.error("[FUB] create task error:", e);
       res.status(500).json({ ok: false, error: String(e) });
