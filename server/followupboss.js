@@ -312,6 +312,7 @@ export function registerFollowUpBossRoutes(app) {
           isCompleted: !!t.isCompleted,
           assignedTo: t.AssignedTo || null,
           contact: t.personId ? {
+            person_id: t.personId,
             name: contact.name || null,
             phones: contact.phones || [],
             emails: contact.emails || [],
@@ -359,7 +360,7 @@ export function registerFollowUpBossRoutes(app) {
       if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
 
       const contacts = (data.people || []).map(p => ({
-        id: p.id,
+        person_id: p.id,
         name: p.name || null,
         stage: p.stage || null,
         lastActivityDate: p.lastActivity || null,
@@ -458,7 +459,7 @@ export function registerFollowUpBossRoutes(app) {
         const emails = (p.emails || []).map(em => ({ address: em.value, type: em.type }));
         const addr = p.addresses?.[0];
         return {
-          id: p.id,
+          person_id: p.id,
           name: p.name || null,
           phones,
           emails,
@@ -518,7 +519,7 @@ export function registerFollowUpBossRoutes(app) {
         const emails = (p.emails || []).map(em => ({ address: em.value, type: em.type }));
         const addr = p.addresses?.[0];
         return {
-          id: p.id,
+          person_id: p.id,
           name: p.name || null,
           phones,
           emails,
