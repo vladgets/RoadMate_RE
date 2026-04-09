@@ -553,8 +553,8 @@ export function registerFollowUpBossRoutes(app) {
         return res.status(400).json({ ok: false, error: "message is required" });
       }
 
-      const userId = await resolveAgentFromRequest(req);
-      if (!userId) {
+      const agentId = await resolveAgentFromRequest(req);
+      if (!agentId) {
         return res.status(400).json({ ok: false, error: "Could not resolve agent identity" });
       }
 
@@ -566,7 +566,7 @@ export function registerFollowUpBossRoutes(app) {
         if (!client_name?.trim()) {
           return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
         }
-        const match = await resolvePersonByName(client_name.trim(), userId);
+        const match = await resolvePersonByName(client_name.trim(), agentId);
         if (!match) {
           return res.json({ ok: false, error: `No contact found matching "${client_name}" for this agent` });
         }
@@ -574,14 +574,14 @@ export function registerFollowUpBossRoutes(app) {
         resolvedName = match.name;
         console.log(`[FUB] text: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
       } else {
-        if (personId === userId) {
-          console.warn(`[FUB] text WARNING: person_id=${personId} equals agentId=${userId} — likely a model error`);
+        if (personId === agentId) {
+          console.warn(`[FUB] text WARNING: person_id=${personId} equals agentId=${agentId} — likely a model error`);
           return res.status(400).json({ ok: false, error: `person_id ${personId} matches the agent user ID — this is likely wrong. Search for the contact first.` });
         }
         console.log(`[FUB] text: using direct person_id=${personId}`);
       }
 
-      // Send text message via FUB (omit userId — API key owner's texting number is used)
+      // Send text message via FUB (omit agentId — API key owner's texting number is used)
       const payload = { personId, message: message.trim() };
       const r = await fetch(`${FUB_BASE}/textMessages`, {
         method: "POST",
@@ -594,7 +594,7 @@ export function registerFollowUpBossRoutes(app) {
         throw new Error(data?.message || data?.error || `FUB error ${r.status}`);
       }
 
-      console.log(`[FUB] text sent to personId=${personId} by userId=${userId}`);
+      console.log(`[FUB] text sent to personId=${personId} by agentId=${agentId}`);
       res.json({ ok: true, personId, resolvedName, messageId: data.id || null });
     } catch (e) {
       console.error("[FUB] text error:", e);
@@ -619,8 +619,8 @@ export function registerFollowUpBossRoutes(app) {
         return res.status(400).json({ ok: false, error: "body is required" });
       }
 
-      const userId = await resolveAgentFromRequest(req);
-      if (!userId) {
+      const agentId = await resolveAgentFromRequest(req);
+      if (!agentId) {
         return res.status(400).json({ ok: false, error: "Could not resolve agent identity" });
       }
 
@@ -632,7 +632,7 @@ export function registerFollowUpBossRoutes(app) {
         if (!client_name?.trim()) {
           return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
         }
-        const match = await resolvePersonByName(client_name.trim(), userId);
+        const match = await resolvePersonByName(client_name.trim(), agentId);
         if (!match) {
           return res.json({ ok: false, error: `No contact found matching "${client_name}" for this agent` });
         }
@@ -640,14 +640,14 @@ export function registerFollowUpBossRoutes(app) {
         resolvedName = match.name;
         console.log(`[FUB] note: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
       } else {
-        if (personId === userId) {
-          console.warn(`[FUB] note WARNING: person_id=${personId} equals agentId=${userId} — likely a model error`);
+        if (personId === agentId) {
+          console.warn(`[FUB] note WARNING: person_id=${personId} equals agentId=${agentId} — likely a model error`);
           return res.status(400).json({ ok: false, error: `person_id ${personId} matches the agent user ID — this is likely wrong. Search for the contact first.` });
         }
         console.log(`[FUB] note: using direct person_id=${personId}`);
       }
 
-      // Create note via FUB (userId is optional — omit to avoid potential 400)
+      // Create note via FUB (agentId is optional — omit to avoid potential 400)
       const payload = { personId, body: noteBody.trim() };
       const r = await fetch(`${FUB_BASE}/notes`, {
         method: "POST",
@@ -660,7 +660,7 @@ export function registerFollowUpBossRoutes(app) {
         throw new Error(data?.message || data?.error || `FUB error ${r.status}`);
       }
 
-      console.log(`[FUB] note created for personId=${personId} by userId=${userId}`);
+      console.log(`[FUB] note created for personId=${personId} by agentId=${agentId}`);
       res.json({ ok: true, personId, resolvedName, noteId: data.id || null });
     } catch (e) {
       console.error("[FUB] note error:", e);
@@ -1015,8 +1015,8 @@ export function registerFollowUpBossRoutes(app) {
         return res.status(400).json({ ok: false, error: "stage is required" });
       }
 
-      const userId = await resolveAgentFromRequest(req);
-      if (!userId) {
+      const agentId = await resolveAgentFromRequest(req);
+      if (!agentId) {
         return res.status(400).json({ ok: false, error: "Could not resolve agent identity" });
       }
 
@@ -1028,7 +1028,7 @@ export function registerFollowUpBossRoutes(app) {
         if (!client_name?.trim()) {
           return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
         }
-        const match = await resolvePersonByName(client_name.trim(), userId);
+        const match = await resolvePersonByName(client_name.trim(), agentId);
         if (!match) {
           return res.json({ ok: false, error: `No contact found matching "${client_name}" for this agent` });
         }
