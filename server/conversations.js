@@ -227,19 +227,33 @@ async function deleteConv(filename) {
       const d = JSON.parse(fs.readFileSync(fpath, "utf8"));
       const messages = d.messages || [];
 
-      const bubbles = messages.map(m => {
+      let lastDay = null;
+      const bubbleParts = [];
+      for (const m of messages) {
         const isUser = m.role === "user";
         const typeLabel = m.type === "voice_transcript" ? "🎤" : m.type === "text_with_images" ? "📷" : "";
+        let daySep = "";
+        if (m.timestamp) {
+          const msgDate = new Date(m.timestamp);
+          const dayKey = msgDate.toDateString();
+          if (dayKey !== lastDay) {
+            const dayLabel = msgDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+            daySep = `<div class="day-sep"><span>${escapeHtml(dayLabel)}</span></div>`;
+            lastDay = dayKey;
+          }
+        }
         const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "";
-        return `
+        bubbleParts.push(`
+        ${daySep}
         <div class="msg ${isUser ? "user" : "assistant"}">
           <div class="bubble">
             ${typeLabel ? `<span class="type-label">${typeLabel}</span>` : ""}
             ${escapeHtml(m.content)}
           </div>
           <div class="meta">${time}</div>
-        </div>`;
-      }).join("");
+        </div>`);
+      }
+      const bubbles = bubbleParts.join("");
 
       res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -265,6 +279,8 @@ async function deleteConv(filename) {
   .meta { font-size: 0.7rem; color: #6e6e73; margin-top: 3px; padding: 0 4px; }
   .type-label { font-size: 0.75rem; opacity: 0.7; margin-right: 4px; }
   .empty { text-align: center; color: #6e6e73; padding: 48px; }
+  .day-sep { display: flex; align-items: center; justify-content: center; padding: 16px 0 8px; align-self: stretch; }
+  .day-sep span { background: #e5e5ea; color: #6e6e73; font-size: 0.72rem; font-weight: 600; padding: 4px 12px; border-radius: 12px; letter-spacing: 0.03em; }
 </style>
 </head>
 <body>
