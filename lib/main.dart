@@ -141,8 +141,13 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   // Google Drive client — reads PDFs and Docs attached to calendar events.
   late final GDriveClient gDriveClient;
   String? _clientId;
-  // 'apple' | 'google' — only meaningful on mobile; web always uses 'google'.
-  String _calendarSource = 'apple';
+  /// Always reads the current calendar source from SharedPreferences so that
+  /// changes made in Extensions Settings take effect immediately without restart.
+  Future<String> _getCalendarSource() async {
+    if (kIsWeb) return 'google';
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('calendar_source') ?? 'apple';
+  }
   // Deduplicate tool calls (Realtime may emit in_progress + completed, and can resend events).
   final Set<String> _handledToolCallIds = <String>{};
 
@@ -221,15 +226,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       gCalendarClient = GCalendarClient(baseUrl: Config.serverUrl, clientId: cid);
       gDriveClient = GDriveClient(baseUrl: Config.serverUrl, clientId: cid);
       debugPrint('[ClientId] $cid');
-
-      // Load calendar source preference (mobile only; web always uses Google).
-      if (!kIsWeb) {
-        final prefs = await SharedPreferences.getInstance();
-        final source = prefs.getString('calendar_source') ?? 'apple';
-        _calendarSource = source;
-      } else {
-        _calendarSource = 'google';
-      }
 
       if (mounted) setState(() {});
     });
@@ -642,25 +638,29 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   // Calendar tools — Apple Calendar only on iOS when user chose it;
   // all other platforms (web, Android) always use Google Calendar.
   'get_calendar_data': (args) async {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && _calendarSource == 'apple') {
+    final src = await _getCalendarSource();
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && src == 'apple') {
       return await CalendarStore.toolGetCalendarData(args);
     }
     return await gCalendarClient.toolGetCalendarData(args);
   },
   'create_calendar_event': (args) async {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && _calendarSource == 'apple') {
+    final src = await _getCalendarSource();
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && src == 'apple') {
       return await CalendarStore.toolCreateCalendarEvent(args);
     }
     return await gCalendarClient.toolCreateCalendarEvent(args);
   },
   'update_calendar_event': (args) async {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && _calendarSource == 'apple') {
+    final src = await _getCalendarSource();
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && src == 'apple') {
       return await CalendarStore.toolUpdateCalendarEvent(args);
     }
     return await gCalendarClient.toolUpdateCalendarEvent(args);
   },
   'delete_calendar_event': (args) async {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && _calendarSource == 'apple') {
+    final src = await _getCalendarSource();
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && src == 'apple') {
       return await CalendarStore.toolDeleteCalendarEvent(args);
     }
     return await gCalendarClient.toolDeleteCalendarEvent(args);
