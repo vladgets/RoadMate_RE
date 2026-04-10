@@ -156,8 +156,8 @@ export function registerConversationRoutes(app) {
           <td>${escapeHtml(f.agent_name)}</td>
           <td title="${escapeHtml(f.client_id)}">${escapeHtml(f.client_id.substring(0, 8))}…</td>
           <td>${escapeHtml(f.location || "—")}</td>
-          <td>${formatDate(f.session_start)}</td>
-          <td>${formatDate(f.last_updated)}</td>
+          <td><span class="ts" data-ts="${escapeHtml(f.session_start || "")}">—</span></td>
+          <td><span class="ts" data-ts="${escapeHtml(f.last_updated || "")}">—</span></td>
           <td style="text-align:center">${f.message_count}</td>
           <td style="text-align:center">
             <button class="del-btn" onclick="event.stopPropagation(); deleteConv('${escapeHtml(f.filename)}')" title="Delete">🗑</button>
@@ -206,6 +206,16 @@ async function deleteConv(filename) {
   if (res.ok) location.reload();
   else alert('Delete failed');
 }
+document.querySelectorAll('.ts[data-ts]').forEach(el => {
+  const ts = el.dataset.ts;
+  if (!ts) return;
+  try {
+    el.textContent = new Date(ts).toLocaleString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch {}
+});
 </script>
 </body>
 </html>`);
@@ -227,30 +237,18 @@ async function deleteConv(filename) {
       const d = JSON.parse(fs.readFileSync(fpath, "utf8"));
       const messages = d.messages || [];
 
-      let lastDay = null;
       const bubbleParts = [];
       for (const m of messages) {
         const isUser = m.role === "user";
         const typeLabel = m.type === "voice_transcript" ? "🎤" : m.type === "text_with_images" ? "📷" : "";
-        let daySep = "";
-        if (m.timestamp) {
-          const msgDate = new Date(m.timestamp);
-          const dayKey = msgDate.toDateString();
-          if (dayKey !== lastDay) {
-            const dayLabel = msgDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
-            daySep = `<div class="day-sep"><span>${escapeHtml(dayLabel)}</span></div>`;
-            lastDay = dayKey;
-          }
-        }
-        const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "";
+        const tsAttr = m.timestamp ? ` data-ts="${escapeHtml(m.timestamp)}"` : "";
         bubbleParts.push(`
-        ${daySep}
-        <div class="msg ${isUser ? "user" : "assistant"}">
+        <div class="msg ${isUser ? "user" : "assistant"}"${tsAttr}>
           <div class="bubble">
             ${typeLabel ? `<span class="type-label">${typeLabel}</span>` : ""}
             ${escapeHtml(m.content)}
           </div>
-          <div class="meta">${time}</div>
+          <div class="meta"></div>
         </div>`);
       }
       const bubbles = bubbleParts.join("");
@@ -288,12 +286,51 @@ async function deleteConv(filename) {
   <a class="back" href="/admin/conversations">← All Conversations</a>
   <div class="header-info">
     <h2>${platformIcon(d.platform)} ${escapeHtml(d.agent_name || "Unknown agent")} &nbsp;·&nbsp; ${escapeHtml(d.platform)}</h2>
-    <p>${formatDate(d.session_start)} &nbsp;·&nbsp; ${messages.length} message${messages.length !== 1 ? "s" : ""}${d.location ? " &nbsp;·&nbsp; 📍 " + escapeHtml(d.location) : ""} &nbsp;·&nbsp; Client: ${escapeHtml(d.client_id)}</p>
+    <p><span class="ts" data-ts="${escapeHtml(d.session_start || "")}">—</span> &nbsp;·&nbsp; ${messages.length} message${messages.length !== 1 ? "s" : ""}${d.location ? " &nbsp;·&nbsp; 📍 " + escapeHtml(d.location) : ""} &nbsp;·&nbsp; Client: ${escapeHtml(d.client_id)}</p>
   </div>
 </div>
 <div class="chat">
   ${bubbles || '<div class="empty">No messages</div>'}
 </div>
+<script>
+(function () {
+  var fmtTime = function(ts) {
+    return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  };
+  var fmtDay = function(ts) {
+    return new Date(ts).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  };
+  var dayKey = function(ts) { return new Date(ts).toDateString(); };
+
+  // Format header session start
+  document.querySelectorAll('.ts[data-ts]').forEach(function(el) {
+    var ts = el.dataset.ts;
+    if (!ts) return;
+    try {
+      el.textContent = new Date(ts).toLocaleString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      });
+    } catch {}
+  });
+
+  // Format message times and insert day separators
+  var msgs = document.querySelectorAll('.msg[data-ts]');
+  var lastDay = null;
+  msgs.forEach(function(msg) {
+    var ts = msg.dataset.ts;
+    msg.querySelector('.meta').textContent = fmtTime(ts);
+    var dk = dayKey(ts);
+    if (dk !== lastDay) {
+      var sep = document.createElement('div');
+      sep.className = 'day-sep';
+      sep.innerHTML = '<span>' + fmtDay(ts) + '</span>';
+      msg.parentNode.insertBefore(sep, msg);
+      lastDay = dk;
+    }
+  });
+})();
+</script>
 </body>
 </html>`);
     } catch (e) {
