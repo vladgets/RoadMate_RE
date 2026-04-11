@@ -17,6 +17,36 @@ async function extractText(buffer, mimeType) {
   return buffer.toString("utf-8");
 }
 
+// OCR fallback for scanned/image-based PDFs.
+// Copies the file as a Google Doc (Drive applies OCR automatically),
+// exports the result as plain text, then deletes the temp copy.
+async function extractTextWithDriveOcr(drive, fileId, fileName) {
+  let copyId = null;
+  try {
+    const copy = await drive.files.copy({
+      fileId,
+      requestBody: { name: `__ocr_tmp_${fileId}`, mimeType: "application/vnd.google-apps.document" },
+      fields: "id",
+    });
+    copyId = copy.data.id;
+
+    const exported = await drive.files.export(
+      { fileId: copyId, mimeType: "text/plain" },
+      { responseType: "arraybuffer" }
+    );
+    return Buffer.from(exported.data).toString("utf-8");
+  } catch (e) {
+    console.warn(`[drive] OCR fallback failed for "${fileName}": ${e.message}`);
+    return "";
+  } finally {
+    if (copyId) {
+      drive.files.delete({ fileId: copyId }).catch((e) =>
+        console.warn(`[drive] failed to delete OCR temp copy ${copyId}: ${e.message}`)
+      );
+    }
+  }
+}
+
 export function registerDriveRoutes(app) {
   // ── Read file text content ────────────────────────────────────────────────
   // Supports: PDF, Google Docs (exported as text), Google Sheets (exported as CSV)
@@ -78,7 +108,14 @@ export function registerDriveRoutes(app) {
           { fileId, alt: "media" },
           { responseType: "arraybuffer" }
         );
-        text = await extractText(Buffer.from(downloaded.data), mimeType);
+        const buffer = Buffer.from(downloaded.data);
+        text = await extractText(buffer, mimeType);
+
+        // If pdf-parse returned nothing, it's likely a scanned/image PDF — try Drive OCR.
+        if (!text && mimeType === "application/pdf") {
+          console.log(`[drive] no text layer in "${name}", trying Drive OCR`);
+          text = await extractTextWithDriveOcr(drive, fileId, name);
+        }
       }
 
       text = text.replace(/\s+/g, " ").trim();
@@ -86,8 +123,7 @@ export function registerDriveRoutes(app) {
       if (!text) {
         return res.json({
           ok: false,
-          error:
-            "No text could be extracted. The file may be a scanned image PDF (not machine-readable).",
+          error: "No text could be extracted. The file may be a scanned image with no recognizable text.",
           file_name: name,
         });
       }

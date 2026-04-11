@@ -4,7 +4,7 @@ import { google } from "googleapis";
 const SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/calendar",
-  "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/drive",
 ];
 const TOKEN_DIR = process.env.GOOGLE_TOKEN_DIR || "/data/gmail_tokens";
 
