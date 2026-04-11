@@ -111,10 +111,12 @@ export function registerDriveRoutes(app) {
         const buffer = Buffer.from(downloaded.data);
         text = await extractText(buffer, mimeType);
 
-        // If pdf-parse returned nothing, it's likely a scanned/image PDF — try Drive OCR.
-        if (!text && mimeType === "application/pdf") {
+        // If pdf-parse returned nothing (or only whitespace), it's likely a scanned/image PDF — try Drive OCR.
+        console.log(`[drive] pdf-parse extracted ${text.trim().length} chars from "${name}"`);
+        if (!text.trim() && mimeType === "application/pdf") {
           console.log(`[drive] no text layer in "${name}", trying Drive OCR`);
           text = await extractTextWithDriveOcr(drive, fileId, name);
+          console.log(`[drive] Drive OCR extracted ${text.trim().length} chars from "${name}"`);
         }
       }
 
