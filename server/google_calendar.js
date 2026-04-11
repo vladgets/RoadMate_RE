@@ -10,20 +10,17 @@ import {
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-function parseDate(str, fallback, endOfDay = false) {
+// tzOffsetMinutes: minutes to ADD to UTC to get local time (e.g. PDT = -420, UTC+1 = +60).
+// Date-only strings are parsed as UTC midnight by JS, so we shift by -tzOffsetMinutes
+// to arrive at the correct UTC equivalent of local midnight / end-of-day.
+function parseDate(str, fallback, endOfDay = false, tzOffsetMinutes = 0) {
   if (!str) return fallback;
   const d = new Date(str);
   if (isNaN(d.getTime())) return fallback;
-  // Date-only strings (YYYY-MM-DD) are parsed as UTC midnight by JS.
-  // The client passes local dates without timezone info, so we expand the
-  // window by ±14h to cover all UTC offsets (UTC-14 to UTC+14).
-  // This ensures a "5pm PDT" event (stored as next-day UTC) is never missed.
   if (DATE_ONLY_RE.test(str)) {
-    if (endOfDay) {
-      d.setUTCHours(23 + 14, 59, 59, 999); // +14h → covers UTC-14 users
-    } else {
-      d.setUTCHours(0 - 14, 0, 0, 0);      // -14h → covers UTC+14 users
-    }
+    // Shift UTC midnight to local midnight, then optionally advance to 23:59:59.999 local.
+    d.setTime(d.getTime() - tzOffsetMinutes * 60_000);
+    if (endOfDay) d.setTime(d.getTime() + (23 * 3600 + 59 * 60 + 59) * 1000 + 999);
   }
   return d;
 }
@@ -45,10 +42,11 @@ export function registerCalendarRoutes(app) {
       const defaultEnd = new Date(now);
       defaultEnd.setDate(defaultEnd.getDate() + 7);
 
-      const startDate = parseDate(req.query.start_date, defaultStart);
-      const endDate = parseDate(req.query.end_date, defaultEnd, true);
+      const tzOffset = parseInt(req.query.tz_offset ?? "0", 10) || 0;
+      const startDate = parseDate(req.query.start_date, defaultStart, false, tzOffset);
+      const endDate = parseDate(req.query.end_date, defaultEnd, true, tzOffset);
 
-      console.log(`[calendar] fetching events for client_id=${clientId}, range=${startDate.toISOString()} → ${endDate.toISOString()}`);
+      console.log(`[calendar] fetching events for client_id=${clientId}, tz_offset=${tzOffset}min, range=${startDate.toISOString()} → ${endDate.toISOString()}`);
 
       const calListRes = await calApi.calendarList.list({ minAccessRole: "reader" });
       const calendars = calListRes.data.items || [];

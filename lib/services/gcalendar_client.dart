@@ -44,6 +44,9 @@ class GCalendarClient {
     final params = <String, String>{};
     if (startDate != null) params['start_date'] = startDate;
     if (endDate != null) params['end_date'] = endDate;
+    // Always send local UTC offset so the server can convert date-only strings
+    // to the correct UTC window (e.g. "2026-04-10" at PDT = UTC-7 → 07:00Z–06:59Z next day).
+    params['tz_offset'] = DateTime.now().timeZoneOffset.inMinutes.toString();
 
     final uri = _u('/calendar/events').replace(queryParameters: params);
     try {
