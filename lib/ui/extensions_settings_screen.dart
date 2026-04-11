@@ -13,7 +13,8 @@ class ExtensionsSettingsScreen extends StatefulWidget {
   State<ExtensionsSettingsScreen> createState() => _ExtensionsSettingsScreenState();
 }
 
-class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
+class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen>
+    with WidgetsBindingObserver {
   bool _loading = false;
   String? _clientId;
 
@@ -40,7 +41,22 @@ class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadSettings();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // When the user returns from the browser after OAuth, re-check connection.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkGoogleConnection();
+    }
   }
 
   bool get _isIOS =>
@@ -116,8 +132,8 @@ class _ExtensionsSettingsScreenState extends State<ExtensionsSettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefGCalendarEnabled, value);
 
-    // On web always keep calendar_source = 'google'
-    if (kIsWeb && value) {
+    // When enabling Google Calendar, make it the active source on all platforms.
+    if (value) {
       await prefs.setString(_prefCalendarSource, 'google');
       if (mounted) setState(() => _calendarSource = 'google');
     }
