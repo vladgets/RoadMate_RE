@@ -8,14 +8,22 @@ import {
 // OAuth and token storage are handled by gmail.js (shared token, combined scopes).
 // This module only registers the Calendar API proxy routes.
 
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 function parseDate(str, fallback, endOfDay = false) {
   if (!str) return fallback;
   const d = new Date(str);
   if (isNaN(d.getTime())) return fallback;
   // Date-only strings (YYYY-MM-DD) are parsed as UTC midnight by JS.
-  // When used as an end boundary, push to 23:59:59 UTC so the full day is included.
-  if (endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(str)) {
-    d.setUTCHours(23, 59, 59, 999);
+  // The client passes local dates without timezone info, so we expand the
+  // window by ±14h to cover all UTC offsets (UTC-14 to UTC+14).
+  // This ensures a "5pm PDT" event (stored as next-day UTC) is never missed.
+  if (DATE_ONLY_RE.test(str)) {
+    if (endOfDay) {
+      d.setUTCHours(23 + 14, 59, 59, 999); // +14h → covers UTC-14 users
+    } else {
+      d.setUTCHours(0 - 14, 0, 0, 0);      // -14h → covers UTC+14 users
+    }
   }
   return d;
 }
@@ -44,6 +52,7 @@ export function registerCalendarRoutes(app) {
 
       const calListRes = await calApi.calendarList.list({ minAccessRole: "reader" });
       const calendars = calListRes.data.items || [];
+      console.log(`[calendar] found ${calendars.length} calendar(s): ${calendars.map(c => `"${c.summary}"`).join(", ")}`);
 
       const allEvents = [];
 
@@ -59,7 +68,9 @@ export function registerCalendarRoutes(app) {
             supportsAttachments: true,
           });
 
-          for (const evt of eventsRes.data.items || []) {
+          const items = eventsRes.data.items || [];
+          console.log(`[calendar] "${cal.summary}": ${items.length} event(s)`);
+          for (const evt of items) {
             allEvents.push({
               event_id: evt.id || "",
               title: evt.summary || "",
@@ -80,6 +91,7 @@ export function registerCalendarRoutes(app) {
           console.warn(`[calendar] skip cal "${cal.summary}": ${e.message}`);
         }
       }
+      console.log(`[calendar] total events returned: ${allEvents.length}`);
 
       allEvents.sort((a, b) => a.start.localeCompare(b.start));
 
