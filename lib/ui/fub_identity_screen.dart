@@ -20,12 +20,19 @@ class _FubIdentityScreenState extends State<FubIdentityScreen> {
   List<_FubUser> _users = [];
   bool _loading = true;
   String? _error;
-  String? _selectedName;
+
+  /// Currently saved agent (persisted in SharedPreferences).
+  String? _savedName;
+  int? _savedId;
+
+  /// Tapped but not yet saved.
+  _FubUser? _pendingUser;
 
   @override
   void initState() {
     super.initState();
-    _selectedName = Config.fubAgentName;
+    _savedName = Config.fubAgentName;
+    _savedId = Config.fubAgentId;
     _loadUsers();
   }
 
@@ -62,19 +69,33 @@ class _FubIdentityScreenState extends State<FubIdentityScreen> {
     }
   }
 
-  Future<void> _select(_FubUser user) async {
-    await Config.setFubAgent(user.name, user.id);
-    setState(() => _selectedName = user.name);
-    if (widget.standalone && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Identity set to ${user.name}')),
-      );
-    }
+  void _onTap(_FubUser user) {
+    setState(() {
+      if (_pendingUser?.id == user.id) {
+        // Tapping the already-pending user deselects it
+        _pendingUser = null;
+      } else if (_savedId == user.id && _pendingUser == null) {
+        // Tapping the already-saved user when nothing is pending — no-op
+      } else {
+        _pendingUser = user;
+      }
+    });
   }
 
-  Future<void> _clear() async {
-    await Config.clearFubAgent();
-    setState(() => _selectedName = null);
+  Future<void> _save() async {
+    final user = _pendingUser;
+    if (user == null) return;
+    await Config.setFubAgent(user.name, user.id);
+    setState(() {
+      _savedName = user.name;
+      _savedId = user.id;
+      _pendingUser = null;
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Identity saved as ${user.name}')),
+      );
+    }
   }
 
   @override
@@ -85,13 +106,6 @@ class _FubIdentityScreenState extends State<FubIdentityScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('CRM Identity'),
-        actions: [
-          if (_selectedName != null)
-            TextButton(
-              onPressed: _clear,
-              child: const Text('Clear'),
-            ),
-        ],
       ),
       body: content,
     );
@@ -121,19 +135,25 @@ class _FubIdentityScreenState extends State<FubIdentityScreen> {
       );
     }
 
+    final hasPending = _pendingUser != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(
-            _selectedName != null
-                ? 'Signed in as $_selectedName'
-                : 'Select your name from the brokerage team:',
+            hasPending
+                ? 'Tap Save to confirm: ${_pendingUser!.name}'
+                : (_savedName != null
+                    ? 'Signed in as $_savedName'
+                    : 'Select your name from the brokerage team:'),
             style: TextStyle(
               fontSize: 14,
-              color: _selectedName != null ? Colors.green.shade700 : Colors.grey.shade700,
-              fontWeight: _selectedName != null ? FontWeight.w600 : FontWeight.normal,
+              color: hasPending
+                  ? Colors.orange.shade700
+                  : (_savedName != null ? Colors.green.shade700 : Colors.grey.shade700),
+              fontWeight: (hasPending || _savedName != null) ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
         ),
@@ -143,26 +163,66 @@ class _FubIdentityScreenState extends State<FubIdentityScreen> {
             separatorBuilder: (context2, i2) => const Divider(height: 1),
             itemBuilder: (context, i) {
               final user = _users[i];
-              final selected = user.name == _selectedName;
+              final isSaved = user.id == _savedId;
+              final isPending = user.id == _pendingUser?.id;
+
+              Widget? trailing;
+              Color avatarColor;
+              Color textColor;
+
+              if (isPending) {
+                trailing = Icon(Icons.radio_button_checked, color: Colors.orange.shade600);
+                avatarColor = Colors.orange.shade400;
+                textColor = Colors.orange.shade800;
+              } else if (isSaved && !hasPending) {
+                trailing = const Icon(Icons.check_circle, color: Colors.blue);
+                avatarColor = Colors.blue;
+                textColor = Colors.black;
+              } else {
+                trailing = null;
+                avatarColor = Colors.grey.shade200;
+                textColor = Colors.black87;
+              }
+
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: selected ? Colors.blue : Colors.grey.shade200,
+                  backgroundColor: avatarColor,
                   child: Text(
                     user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
                     style: TextStyle(
-                      color: selected ? Colors.white : Colors.grey.shade700,
+                      color: (isPending || (isSaved && !hasPending)) ? Colors.white : Colors.grey.shade700,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                title: Text(user.name,
-                    style: TextStyle(fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
-                trailing: selected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
-                onTap: () => _select(user),
+                title: Text(
+                  user.name,
+                  style: TextStyle(
+                    fontWeight: (isPending || (isSaved && !hasPending)) ? FontWeight.bold : FontWeight.normal,
+                    color: textColor,
+                  ),
+                ),
+                trailing: trailing,
+                onTap: () => _onTap(user),
               );
             },
           ),
         ),
+        if (hasPending)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Save Identity'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
