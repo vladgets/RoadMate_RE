@@ -525,9 +525,9 @@ class _ChatScreenState extends State<ChatScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!isUser) ...[
-            CircleAvatar(
-              backgroundColor: Colors.blue.shade100,
-              child: Icon(Icons.smart_toy, size: 20, color: Colors.blue.shade700),
+            const CircleAvatar(
+              radius: 20,
+              backgroundImage: AssetImage('assets/icon/app_icon_round.png'),
             ),
             const SizedBox(width: 8),
           ],
