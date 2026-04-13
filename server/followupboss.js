@@ -943,16 +943,16 @@ export function registerFollowUpBossRoutes(app) {
         const currentIds = (current?.collaboratorIds || []).map(Number);
 
         if (mode === "set") {
-          payload.collaboratorIds = incomingIds;
+          payload.collaborators = incomingIds;
         } else if (mode === "add") {
           const idSet = new Set(currentIds);
           for (const id of incomingIds) idSet.add(id);
-          payload.collaboratorIds = [...idSet];
+          payload.collaborators = [...idSet];
         } else if (mode === "remove") {
           const removeSet = new Set(incomingIds);
-          payload.collaboratorIds = currentIds.filter(id => !removeSet.has(id));
+          payload.collaborators = currentIds.filter(id => !removeSet.has(id));
         }
-        console.log(`[FUB] update: collaborators (${mode}) → [${payload.collaboratorIds?.join(", ")}]`);
+        console.log(`[FUB] update: collaborators (${mode}) → [${payload.collaborators?.join(", ")}]`);
       }
 
       // Tags merge
