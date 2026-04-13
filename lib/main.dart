@@ -1049,6 +1049,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
           ),
         ],
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: FloatingActionButton(
         tooltip: 'Chat',
         backgroundColor: Colors.white12,
