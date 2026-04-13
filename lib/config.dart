@@ -36,6 +36,7 @@ FUB CRM: {{FUB_AGENT_LINE}}
 FUB IDs: agent_id (your identity as an agent) and person_id (a contact's ID) are DIFFERENT ID spaces. NEVER use agent_id as person_id.
 FUB contacts: person_id comes ONLY from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. If you don't have it, call fub_search_contacts first — never guess or reuse the agent ID.
 Once person_id is resolved, remember it for the rest of the conversation.
+{{LAST_CLIENT_LINE}}
 fub_update_person: use whenever the user says "update", "change", "set", "add a phone/email/address", or "move to [stage]". Examples: "update John's address", "change Sarah's phone", "move to Hot Lead" → always fub_update_person, never fub_create_note.
 fub_create_note: only for free-text observations the user explicitly wants logged ("note that...", "log that...", "add a note that..."). Never use it to change a contact field.
 
@@ -59,14 +60,22 @@ Date: {{CURRENT_DATE_READABLE}}
   // static final serverUrl = kIsWeb ? '' : 'http://10.0.0.219:3000'; // local test
   static const prefKeyClientId = 'roadmate_client_id';
   static const prefKeyVoice = 'roadmate_voice';
-static const prefKeyFubAgentName = 'fub_agent_name';
+  static const prefKeyFubAgentName = 'fub_agent_name';
   static const prefKeyFubAgentId = 'fub_agent_id';
+  static const prefKeyLastClientId = 'fub_last_client_id';
+  static const prefKeyLastClientName = 'fub_last_client_name';
+  static const prefKeyLastClientTs = 'fub_last_client_ts';
 
   /// Currently identified FUB agent name (in-memory, loaded at startup).
   static String? fubAgentName;
 
   /// Currently identified FUB agent ID (in-memory, loaded at startup).
   static int? fubAgentId;
+
+  /// Last resolved FUB contact (in-memory, loaded at startup).
+  static String? lastClientName;
+  static int? lastClientId;
+  static int? lastClientTs; // Unix milliseconds
 
   /// Read saved voice from SharedPreferences (call during app startup).
   static Future<void> loadSavedVoice() async {
@@ -124,6 +133,29 @@ static const prefKeyFubAgentName = 'fub_agent_name';
     } catch (_) {}
   }
 
+  /// Load the last resolved FUB client from SharedPreferences.
+  static Future<void> loadLastClient() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      lastClientName = prefs.getString(prefKeyLastClientName);
+      lastClientId = prefs.getInt(prefKeyLastClientId);
+      lastClientTs = prefs.getInt(prefKeyLastClientTs);
+    } catch (_) {}
+  }
+
+  /// Persist the last resolved FUB client and update in-memory values.
+  static Future<void> setLastClient(String name, int id) async {
+    lastClientName = name;
+    lastClientId = id;
+    lastClientTs = DateTime.now().millisecondsSinceEpoch;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(prefKeyLastClientName, name);
+      await prefs.setInt(prefKeyLastClientId, id);
+      await prefs.setInt(prefKeyLastClientTs, lastClientTs!);
+    } catch (_) {}
+  }
+
   /// Returns the FUB CRM instruction line based on whether an agent is identified.
   static String _fubAgentLine() {
     if (fubAgentName != null && fubAgentName!.isNotEmpty) {
@@ -132,10 +164,26 @@ static const prefKeyFubAgentName = 'fub_agent_name';
     return "agent_name is required for all fub_ tools. Use 'me' unless the user specifies a different agent or the whole team.";
   }
 
+  /// Returns a system prompt hint about the last active client if within 1 hour,
+  /// empty string otherwise.
+  static String _lastClientLine() {
+    if (lastClientId == null || lastClientName == null || lastClientTs == null) return '';
+    final ageMs = DateTime.now().millisecondsSinceEpoch - lastClientTs!;
+    if (ageMs > 3600000) return ''; // older than 1 hour — ignore
+    final ageMin = (ageMs / 60000).round();
+    return "Recent client from previous session: $lastClientName (person_id=$lastClientId, ~${ageMin}m ago). "
+        "Use this person_id directly if the user refers to this client without asking to search.";
+  }
+
   static String _applyPlaceholders(String template) {
+    final lastClientLine = _lastClientLine();
     return template
         .replaceAll('{{CURRENT_DATE_READABLE}}', getCurrentReadableDate())
-        .replaceAll('{{FUB_AGENT_LINE}}', _fubAgentLine());
+        .replaceAll('{{FUB_AGENT_LINE}}', _fubAgentLine())
+        .replaceAll(
+          '{{LAST_CLIENT_LINE}}',
+          lastClientLine.isNotEmpty ? '$lastClientLine\n' : '',
+        );
   }
 
   /// Build the system prompt with the current readable date

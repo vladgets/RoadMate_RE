@@ -47,6 +47,7 @@ Future<void> main() async {
   // some initial setup
   await Config.loadSavedVoice();
   await Config.loadFubAgent();
+  await Config.loadLastClient();
 
   // Initialize reminders service
   await RemindersService.instance.init();
@@ -615,6 +616,18 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     return raw;
   }
 
+  /// Saves the resolved FUB contact as the last active client if the result
+  /// contains a valid person identity. Called after single-person operations.
+  void _maybeUpdateLastClient(Map<String, dynamic> result) {
+    if (result['ok'] != true) return;
+    final rawId = result['personId'] ?? result['person_id'];
+    final id = rawId is num ? rawId.toInt() : int.tryParse(rawId?.toString() ?? '');
+    final name = result['resolvedName'] as String? ?? result['name'] as String?;
+    if (id != null && id > 0 && name != null && name.isNotEmpty) {
+      Config.setLastClient(name, id);
+    }
+  }
+
   /// Returns the stored agent ID when available (preferred over name).
   /// Only returns null if no agent is identified.
   int? _resolveFubAgentId(String? rawName) {
@@ -762,7 +775,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     final taskType = (args is Map) ? args['task_type'] as String? ?? '' : '';
     final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
     final clientName = (args is Map) ? args['client_name'] as String? : null;
-    return await FubClient().createTask(
+    final result = await FubClient().createTask(
       description: description,
       dueDate: dueDate,
       taskType: taskType,
@@ -771,6 +784,8 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       personId: personId,
       clientName: clientName,
     );
+    _maybeUpdateLastClient(result);
+    return result;
   },
   'fub_get_person_tasks': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
@@ -820,12 +835,14 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     final raw = (args is Map) ? args['agent_name'] as String? : null;
     final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
     final clientName = (args is Map) ? args['client_name'] as String? : null;
-    return await FubClient().getPersonDetails(
+    final result = await FubClient().getPersonDetails(
       agentId: _resolveFubAgentId(raw),
       agentName: _resolveFubAgent(raw),
       personId: personId,
       clientName: clientName,
     );
+    _maybeUpdateLastClient(result);
+    return result;
   },
   'fub_get_sources': (_) async {
     return await FubClient().getSources();
@@ -846,7 +863,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     final emailsRaw = (args is Map && args['emails'] is List) ? args['emails'] as List : null;
     final emails = emailsRaw?.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     final address = (args is Map && args['address'] is Map) ? Map<String, dynamic>.from(args['address'] as Map) : null;
-    return await FubClient().updatePerson(
+    final result = await FubClient().updatePerson(
       agentId: _resolveFubAgentId(raw),
       agentName: _resolveFubAgent(raw),
       personId: personId,
@@ -862,6 +879,8 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       emails: emails,
       address: address,
     );
+    _maybeUpdateLastClient(result);
+    return result;
   },
   'fub_get_stages': (_) async {
     return await FubClient().getStages();
@@ -871,26 +890,30 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     final body = (args is Map) ? args['body'] as String? ?? '' : '';
     final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
     final clientName = (args is Map) ? args['client_name'] as String? : null;
-    return await FubClient().createNote(
+    final result = await FubClient().createNote(
       body: body,
       agentId: _resolveFubAgentId(raw),
       agentName: _resolveFubAgent(raw) ?? 'me',
       personId: personId,
       clientName: clientName,
     );
+    _maybeUpdateLastClient(result);
+    return result;
   },
   'fub_send_text': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
     final message = (args is Map) ? args['message'] as String? ?? '' : '';
     final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
     final clientName = (args is Map) ? args['client_name'] as String? : null;
-    return await FubClient().sendText(
+    final result = await FubClient().sendText(
       message: message,
       agentId: _resolveFubAgentId(raw),
       agentName: _resolveFubAgent(raw) ?? 'me',
       personId: personId,
       clientName: clientName,
     );
+    _maybeUpdateLastClient(result);
+    return result;
   },
 };
 
