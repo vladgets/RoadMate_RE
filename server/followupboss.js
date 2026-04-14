@@ -1346,4 +1346,85 @@ export function registerFollowUpBossRoutes(app) {
       res.status(500).json({ ok: false, error: String(e) });
     }
   });
+
+  /**
+   * POST /fub/log_call
+   *
+   * Log a call record on a FUB contact with optional note, outcome, and duration.
+   *
+   * Body: { agent?, agent_id?, person_id?, client_name?, phone?, note?, outcome?, duration? }
+   *
+   * Valid outcomes: Interested | Not Interested | Left Message | No Answer | Busy | Bad Number
+   */
+  app.post("/fub/log_call", async (req, res) => {
+    try {
+      const { person_id, client_name, phone, note, outcome, duration } = req.body || {};
+
+      const agentId = await resolveAgentFromRequest(req);
+      if (!agentId) {
+        return res.status(400).json({ ok: false, error: "Could not resolve agent identity" });
+      }
+
+      // Resolve personId and phone number
+      let personId = person_id ? Number(person_id) : null;
+      let resolvedName = null;
+      let resolvedPhone = phone || null;
+
+      if (!personId) {
+        if (!client_name?.trim()) {
+          return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
+        }
+        const match = await resolvePersonByName(client_name.trim(), agentId);
+        if (!match) {
+          return res.json({ ok: false, error: `No contact found matching "${client_name}"` });
+        }
+        personId = match.id;
+        resolvedName = match.name;
+        console.log(`[FUB] log_call: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
+      }
+
+      // If no phone provided, fetch it from FUB
+      if (!resolvedPhone) {
+        const personResp = await fetch(`${FUB_BASE}/people/${personId}`, { headers: fubHeaders() });
+        const personData = await personResp.json();
+        if (personResp.ok) {
+          if (!resolvedName) resolvedName = personData.name || null;
+          const phones = personData.phones || [];
+          const mobile = phones.find(p => p.type?.toLowerCase() === 'mobile');
+          resolvedPhone = (mobile || phones[0])?.value || null;
+        }
+      }
+
+      if (!resolvedPhone) {
+        return res.json({ ok: false, error: `No phone number on file for contact` });
+      }
+
+      const payload = {
+        personId,
+        phone: resolvedPhone,
+        isIncoming: false,
+        ...(note && { note: note.trim() }),
+        ...(outcome && { outcome }),
+        ...(duration != null && { duration: Number(duration) }),
+      };
+
+      console.log(`[FUB] log_call: posting call record for personId=${personId}`, payload);
+      const r = await fetch(`${FUB_BASE}/calls`, {
+        method: "POST",
+        headers: fubHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        console.error(`[FUB] log_call API error ${r.status}:`, JSON.stringify(data));
+        throw new Error(data?.message || data?.error || `FUB error ${r.status}`);
+      }
+
+      console.log(`[FUB] log_call: call logged for personId=${personId}, callId=${data.id}`);
+      res.json({ ok: true, personId, resolvedName, callId: data.id || null });
+    } catch (e) {
+      console.error("[FUB] log_call error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
 }
