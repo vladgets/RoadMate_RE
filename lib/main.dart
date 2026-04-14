@@ -729,9 +729,27 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   },
   // phone call tool — disconnect session before handing off to the dialer
   'call_phone': (args) async {
-    final result = await handlePhoneCallTool(args);
+    final personId = (args is Map && args['person_id'] != null)
+        ? (args['person_id'] as num).toInt()
+        : null;
+    final contactName = (args is Map) ? args['contact_name'] as String? ?? '' : '';
+
+    // Always stop the session when placing a call
     unawaited(_disconnect());
-    return result;
+
+    if (personId != null) {
+      // FUB contact — open FUB app via universal link for calling with transcription
+      final uri = Uri.parse(
+        'https://${Config.fubSubdomain}.followupboss.com/2/people/view/$personId',
+      );
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      return {'ok': true, 'status': 'opening_fub', 'contact_name': contactName, 'person_id': personId};
+    }
+
+    // Fallback: native dialer for non-FUB contacts
+    return await handlePhoneCallTool(args);
   },
   // Reminders tools (local notifications)
   'reminder_create': (args) async {

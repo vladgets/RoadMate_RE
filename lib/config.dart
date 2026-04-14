@@ -38,7 +38,7 @@ FUB contacts: person_id comes ONLY from fub_search_contacts, fub_get_tasks, or f
 Once person_id is resolved, remember it for the rest of the conversation.
 {{LAST_CLIENT_LINE}}
 fub_update_person: use whenever the user says "update", "change", "set", "add a phone/email/address", or "move to [stage]". Examples: "update John's address", "change Sarah's phone", "move to Hot Lead" → always fub_update_person, never fub_create_note.
-fub_create_note: only for free-text observations the user explicitly wants logged ("note that...", "log that...", "add a note that..."). Never use it to change a contact field.
+fub_create_note: only for free-text observations the user explicitly wants logged for a given client.
 
 Date: {{CURRENT_DATE_READABLE}}
 ''';
@@ -58,6 +58,11 @@ Date: {{CURRENT_DATE_READABLE}}
   // On mobile, use the absolute production URL.
   static final serverUrl = kIsWeb ? '' : 'https://roadmate-flutter.onrender.com';
   // static final serverUrl = kIsWeb ? '' : 'http://10.0.0.219:3000'; // local test
+
+  /// FUB account subdomain — used to build deep links into the FUB mobile app.
+  /// Format: https://{fubSubdomain}.followupboss.com/2/people/view/{personId}
+  static const fubSubdomain = 'newjerseyresidence';
+
   static const prefKeyClientId = 'roadmate_client_id';
   static const prefKeyVoice = 'roadmate_voice';
   static const prefKeyFubAgentName = 'fub_agent_name';
@@ -400,20 +405,24 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "call_phone",
-      "description": "Place call. MUST call memory_fetch first if only contact name provided.",
+      "description": "Place a phone call. For FUB contacts, always pass person_id (from fub_search_contacts or fub_get_recent_contacts) — this opens the FUB app directly on the client screen with calling ready. For non-FUB contacts (personal contacts, memory), pass phone_number only and the native dialer is used as fallback.",
       "parameters": {
         "type": "object",
         "properties": {
           "phone_number": {
             "type": "string",
-            "description": "Phone number, e.g. +14085551234",
+            "description": "Phone number e.g. +14085551234. Required when person_id is not available.",
           },
           "contact_name": {
             "type": "string",
             "description": "Contact name",
           },
+          "person_id": {
+            "type": "integer",
+            "description": "FUB person ID. When provided, opens the FUB app on the client's contact page for calling with automatic transcription and AI summary.",
+          },
         },
-        "required": ["contact_name", "phone_number"],
+        "required": ["contact_name"],
       },
     },
     // ---------------- Reminders tools ----------------
