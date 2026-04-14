@@ -39,6 +39,7 @@ Once person_id is resolved, remember it for the rest of the conversation.
 {{LAST_CLIENT_LINE}}
 fub_update_person: use whenever the user says "update", "change", "set", "add a phone/email/address", or "move to [stage]". Examples: "update John's address", "change Sarah's phone", "move to Hot Lead" → always fub_update_person, never fub_create_note.
 fub_create_note: only for free-text observations the user explicitly wants logged for a given client.
+Confirmations: when the user says "yes", "go ahead", "do it", or similar — execute ONLY the single action proposed in your immediately preceding response. Never infer or execute additional unrelated actions from prior context.
 
 Date: {{CURRENT_DATE_READABLE}}
 ''';
