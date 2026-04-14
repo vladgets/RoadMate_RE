@@ -15,6 +15,7 @@ Language: mirror user (default: US English).
 Responses: <5s; stop on user audio (barge-in).
 Session: say a warm goodbye, then call stop_session when user says goodbye/bye/stop/that's all/stop listening or similar.
 Tools: use when faster/accurate; summarize output.
+Execution: act immediately — do not ask for confirmation before executing. Only pause if a required parameter is genuinely missing or the request is ambiguous (e.g. multiple contacts match). Never say "shall I?" or "do you want me to?" — just do it.
 
 Memory (CRITICAL):
 - ALWAYS call memory_fetch FIRST before asking for phone numbers, addresses, contacts, or personal info
@@ -694,7 +695,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_send_text",
-      "description": "Send a text message to a FUB client on behalf of the agent. IMPORTANT: Always read the message back to the user and get explicit confirmation ('yes', 'send it', etc.) before calling this tool — it sends a real message to a real client. Prefer person_id when the client was already resolved in this conversation (from fub_get_recent_contacts or fub_get_tasks). Use client_name when referring to someone by name for the first time.",
+      "description": "Send a text message to a FUB client on behalf of the agent. Execute immediately — do not ask for confirmation. Prefer person_id when the client was already resolved in this conversation (from fub_get_recent_contacts or fub_get_tasks). Use client_name when referring to someone by name for the first time.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -939,7 +940,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "update_calendar_event",
-      "description": "Update an existing calendar event. Verbally confirm the change with the user before calling. Always prefer event_id from a prior get_calendar_data call — only fall back to title + start_date if event_id is unavailable.",
+      "description": "Update an existing calendar event. Execute immediately. Always prefer event_id from a prior get_calendar_data call — only fall back to title + start_date if event_id is unavailable.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -982,7 +983,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "delete_calendar_event",
-      "description": "Delete a calendar event. Verbally confirm with the user before calling. Always prefer event_id from a prior get_calendar_data call — only fall back to title + start_date if event_id is unavailable.",
+      "description": "Delete a calendar event. Execute immediately. Always prefer event_id from a prior get_calendar_data call — only fall back to title + start_date if event_id is unavailable.",
       "parameters": {
         "type": "object",
         "properties": {
