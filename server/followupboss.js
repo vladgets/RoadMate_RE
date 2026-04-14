@@ -13,11 +13,15 @@ function fubHeaders() {
   const key = process.env.FUB_API_KEY;
   if (!key) throw new Error("FUB_API_KEY environment variable not set");
   const encoded = Buffer.from(`${key}:`).toString("base64");
-  return {
+  const headers = {
     "Authorization": `Basic ${encoded}`,
     "Content-Type": "application/json",
     "Accept": "application/json",
+    "X-System": "RoadMate.ai_app",
   };
+  const systemKey = process.env.FUB_SYSTEM_KEY;
+  if (systemKey) headers["X-System-Key"] = systemKey;
+  return headers;
 }
 
 /**
@@ -789,23 +793,25 @@ export function registerFollowUpBossRoutes(app) {
         return res.json({ ok: false, error: `No phone number on file for ${resolvedName || `person ${personId}`}` });
       }
 
-      // Log the message as a FUB note (textMessages API requires registered system access)
-      const notePayload = { personId, body: `[Text sent]: ${message.trim()}` };
-      const noteResp = await fetch(`${FUB_BASE}/notes`, {
+      // Log as a native FUB text message entry using registered system credentials
+      const toNumber = phoneNumber.replace(/\D/g, '');
+      const fromNumber = process.env.FUB_FROM_NUMBER || '7326381281'; // company number
+      const textPayload = { personId, message: message.trim(), toNumber, fromNumber };
+      const textResp = await fetch(`${FUB_BASE}/textMessages`, {
         method: "POST",
         headers: fubHeaders(),
-        body: JSON.stringify(notePayload),
+        body: JSON.stringify(textPayload),
       });
-      const noteData = await noteResp.json();
-      if (!noteResp.ok) {
-        console.warn(`[FUB] text: note log failed ${noteResp.status}:`, JSON.stringify(noteData));
-        // Non-fatal — still return phone number so device can send SMS
+      const textData = await textResp.json();
+      if (!textResp.ok) {
+        console.warn(`[FUB] text: textMessages failed ${textResp.status}:`, JSON.stringify(textData));
+        // Non-fatal — device SMS still opens
       } else {
-        console.log(`[FUB] text: logged note for personId=${personId}, noteId=${noteData.id}`);
+        console.log(`[FUB] text: logged as text message, id=${textData.id}`);
       }
 
       console.log(`[FUB] text: returning phone=${phoneNumber} for personId=${personId}`);
-      res.json({ ok: true, personId, resolvedName, phone_number: phoneNumber, noteId: noteData?.id || null });
+      res.json({ ok: true, personId, resolvedName, phone_number: phoneNumber, messageId: textData?.id || null });
     } catch (e) {
       console.error("[FUB] text error:", e);
       res.status(500).json({ ok: false, error: String(e) });
