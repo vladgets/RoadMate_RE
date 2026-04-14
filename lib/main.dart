@@ -734,14 +734,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
         : null;
     final contactName = (args is Map) ? args['contact_name'] as String? ?? '' : '';
 
-    // Web has no phone capability — inform the user
-    if (kIsWeb) {
-      return {
-        'ok': false,
-        'error': 'Calling is not available in the web app. Please use the RoadMate mobile app to place calls.',
-      };
-    }
-
     // Always stop the session when placing a call
     unawaited(_disconnect());
 
