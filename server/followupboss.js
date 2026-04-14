@@ -771,21 +771,41 @@ export function registerFollowUpBossRoutes(app) {
         console.log(`[FUB] text: using direct person_id=${personId}`);
       }
 
-      // Send text message via FUB (omit agentId — API key owner's texting number is used)
-      const payload = { personId, message: message.trim() };
-      const r = await fetch(`${FUB_BASE}/textMessages`, {
-        method: "POST",
-        headers: fubHeaders(),
-        body: JSON.stringify(payload),
-      });
-      const data = await r.json();
-      if (!r.ok) {
-        console.error(`[FUB] text API error ${r.status}:`, JSON.stringify(data));
-        throw new Error(data?.message || data?.error || `FUB error ${r.status}`);
+      // Fetch contact details to get phone number for device SMS
+      const personResp = await fetch(`${FUB_BASE}/people/${personId}`, { headers: fubHeaders() });
+      const personData = await personResp.json();
+      if (!personResp.ok) {
+        console.error(`[FUB] text: failed to fetch person ${personId}:`, JSON.stringify(personData));
+        throw new Error(personData?.message || `FUB error ${personResp.status}`);
+      }
+      if (!resolvedName) resolvedName = personData.name || null;
+
+      // Pick best phone number: prefer mobile, then first available
+      const phones = personData.phones || [];
+      const mobilePhone = phones.find(p => p.type?.toLowerCase() === 'mobile');
+      const phoneNumber = (mobilePhone || phones[0])?.value || null;
+
+      if (!phoneNumber) {
+        return res.json({ ok: false, error: `No phone number on file for ${resolvedName || `person ${personId}`}` });
       }
 
-      console.log(`[FUB] text sent to personId=${personId} by agentId=${agentId}`);
-      res.json({ ok: true, personId, resolvedName, messageId: data.id || null });
+      // Log the message as a FUB note (textMessages API requires registered system access)
+      const notePayload = { personId, body: `[Text sent]: ${message.trim()}` };
+      const noteResp = await fetch(`${FUB_BASE}/notes`, {
+        method: "POST",
+        headers: fubHeaders(),
+        body: JSON.stringify(notePayload),
+      });
+      const noteData = await noteResp.json();
+      if (!noteResp.ok) {
+        console.warn(`[FUB] text: note log failed ${noteResp.status}:`, JSON.stringify(noteData));
+        // Non-fatal — still return phone number so device can send SMS
+      } else {
+        console.log(`[FUB] text: logged note for personId=${personId}, noteId=${noteData.id}`);
+      }
+
+      console.log(`[FUB] text: returning phone=${phoneNumber} for personId=${personId}`);
+      res.json({ ok: true, personId, resolvedName, phone_number: phoneNumber, noteId: noteData?.id || null });
     } catch (e) {
       console.error("[FUB] text error:", e);
       res.status(500).json({ ok: false, error: String(e) });

@@ -913,6 +913,21 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       clientName: clientName,
     );
     _maybeUpdateLastClient(result);
+    // Open native SMS app with pre-filled message using phone number from server
+    if (result['ok'] == true) {
+      final phone = result['phone_number'] as String?;
+      if (phone != null && phone.isNotEmpty) {
+        final clean = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+        final smsUri = Uri(
+          scheme: 'sms',
+          path: clean,
+          queryParameters: {'body': message},
+        );
+        if (await canLaunchUrl(smsUri)) {
+          await launchUrl(smsUri, mode: LaunchMode.externalApplication);
+        }
+      }
+    }
     return result;
   },
 };
