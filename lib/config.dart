@@ -755,7 +755,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_update_person",
-      "description": "Update FUB contact fields: stage, tags, phones, emails, address, name, background, source, lender, assigned agent, collaborators. Pass person_id when resolved. Check fub_get_stages/fub_get_lenders/fub_get_sources if names uncertain.",
+      "description": "Update FUB contact fields: stage, tags, phones, emails, address, name, background, source, lender, assigned agent, collaborators. Pass person_id when resolved. Call fub_get_stages before updating stage, fub_get_lenders before assigning lender, fub_get_sources before updating source — only if name is uncertain.",
       "parameters": {
         "type": "object",
         "properties": {
