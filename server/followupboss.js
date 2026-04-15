@@ -1044,18 +1044,14 @@ export function registerFollowUpBossRoutes(app) {
           console.log(`[FUB] update: lender "${lender}" resolved to id=${resolvedLenderId}`);
         }
       }
-      if (source !== undefined) {
-        if (!source?.trim()) {
-          payload.sourceId = 1; // 1 = <unspecified> in FUB
-        } else {
-          const { map: sourceMap } = await getFubSources();
-          const match = sourceMap[source.trim().toLowerCase()];
-          if (!match) {
-            return res.status(400).json({ ok: false, error: `Unknown source "${source}" — call fub_get_sources to see available names` });
-          }
-          payload.sourceId = match.id;
-          console.log(`[FUB] update: source "${source}" resolved to id=${match.id}`);
+      if (source?.trim()) {
+        const { map: sourceMap } = await getFubSources();
+        const match = sourceMap[source.trim().toLowerCase()];
+        if (!match) {
+          return res.status(400).json({ ok: false, error: `Unknown source "${source}" — call fub_get_sources to see available names` });
         }
+        payload.sourceId = match.id;
+        console.log(`[FUB] update: source "${source}" resolved to id=${match.id}`);
       }
       if (assigned_to) {
         const resolvedAgentId = await resolveAgentId(assigned_to.trim());
