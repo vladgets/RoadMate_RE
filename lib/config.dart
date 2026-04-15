@@ -745,7 +745,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_lenders",
-      "description": "Get all lenders configured in Follow Up Boss CRM. Use when the user asks 'what lenders do we have', 'list our lenders', or before assigning a lender to a contact to confirm the exact name.",
+      "description": "Get all lenders in Follow Up Boss CRM. Use when the user asks about lenders in any way — 'what lenders do we have', 'list lenders', 'who are the lenders', 'known lenders', 'show me lenders' — or before assigning a lender to a contact to confirm the exact name.",
       "parameters": {
         "type": "object",
         "properties": {},
