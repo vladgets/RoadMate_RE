@@ -462,34 +462,37 @@ export function registerFollowUpBossRoutes(app) {
         console.log(`[FUB] appointment: using direct person_id=${personId}`);
       }
 
-      // Fetch agent email from /me
+      // Fetch agent info from /me
       const me = await getFubMe();
       const agentEmail = me.email || null;
+      const agentName = me.name || null;
 
-      // Fetch person email from their contact record
+      // Fetch person info from their contact record
       const personRes = await fetch(`${FUB_BASE}/people/${personId}`, { headers: fubHeaders() });
       const personData = await personRes.json();
       const personEmails = personData.emails || [];
       const personEmail = personEmails.length > 0 ? personEmails[0].value : null;
-      if (!resolvedName) resolvedName = personData.name || null;
+      const personName = personData.name || resolvedName || null;
+      if (!resolvedName) resolvedName = personName;
 
-      // Build guests list from available emails
-      const guests = [];
-      if (personEmail) guests.push(personEmail);
-      if (agentEmail) guests.push(agentEmail);
+      // Build invitees: person + agent
+      const invitees = [];
+      const personInvitee = { personId: String(personId) };
+      if (personName) personInvitee.name = personName;
+      if (personEmail) personInvitee.email = personEmail;
+      invitees.push(personInvitee);
+      invitees.push({ userId: agentId, name: agentName });
 
       const payload = {
-        personId,
-        assignedUserId: agentId,
         title: title.trim(),
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
+        start: startTime.toISOString(),
+        end: endTime.toISOString(),
+        invitees,
       };
       if (location?.trim()) payload.location = location.trim();
       if (description?.trim()) payload.description = description.trim();
-      if (guests.length > 0) payload.guests = guests;
 
-      console.log(`[FUB] creating appointment for personId=${personId} agentId=${agentId} guests=${guests.join(",")}`);
+      console.log(`[FUB] creating appointment for personId=${personId} agentId=${agentId} invitees=${invitees.map(i => i.email || i.userId).join(",")}`);
 
       const r = await fetch(`${FUB_BASE}/appointments`, {
         method: "POST",
@@ -499,7 +502,7 @@ export function registerFollowUpBossRoutes(app) {
       const data = await r.json();
       if (!r.ok) {
         console.error(`[FUB] appointment API error ${r.status}:`, JSON.stringify(data));
-        throw new Error(data?.message || data?.error || `FUB error ${r.status}`);
+        throw new Error(data?.errorMessage || data?.message || data?.error || `FUB error ${r.status}`);
       }
 
       console.log(`[FUB] appointment created id=${data.id} for personId=${personId}`);
@@ -509,9 +512,8 @@ export function registerFollowUpBossRoutes(app) {
         personId,
         personName: resolvedName,
         title: data.title || title,
-        startTime: data.startTime || startTime.toISOString(),
-        endTime: data.endTime || endTime.toISOString(),
-        guests,
+        startTime: data.start || startTime.toISOString(),
+        endTime: data.end || endTime.toISOString(),
       });
     } catch (e) {
       console.error("[FUB] create appointment error:", e);
