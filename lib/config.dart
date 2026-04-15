@@ -283,13 +283,13 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "open_url",
-      "description": "Open a URL in the device's default browser. Use when the user asks to open, visit, or follow a link mentioned in conversation.",
+      "description": "Open a URL in the browser.",
       "parameters": {
         "type": "object",
         "properties": {
           "url": {
             "type": "string",
-            "description": "The full URL to open, including https://"
+            "description": "Full URL including https://"
           }
         },
         "required": ["url"]
@@ -329,13 +329,13 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "read_drive_file",
-      "description": "Read the text content of a Google Drive file (PDF, Google Doc, or Google Sheet) attached to a calendar event. Use the file_id from the event's attachments array.",
+      "description": "Read a Google Drive file (PDF/Doc/Sheet) attached to a calendar event.",
       "parameters": {
         "type": "object",
         "properties": {
           "file_id": {
             "type": "string",
-            "description": "Google Drive file ID from the calendar event attachment."
+            "description": "Drive file ID from the calendar event attachment."
           }
         },
         "required": ["file_id"]
@@ -401,21 +401,21 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "call_phone",
-      "description": "Place a phone call. For FUB contacts, always pass person_id (from fub_search_contacts or fub_get_recent_contacts) — this opens the FUB app directly on the client screen with calling ready. For non-FUB contacts (personal contacts, memory), pass phone_number only and the native dialer is used as fallback.",
+      "description": "Place a call. For FUB contacts pass person_id — opens FUB app with calling ready. For others pass phone_number for native dialer.",
       "parameters": {
         "type": "object",
         "properties": {
           "phone_number": {
             "type": "string",
-            "description": "Phone number e.g. +14085551234. Required when person_id is not available.",
+            "description": "Phone number e.g. +14085551234. Required when person_id unavailable.",
           },
           "contact_name": {
             "type": "string",
-            "description": "Contact name",
+            "description": "Contact name.",
           },
           "person_id": {
             "type": "integer",
-            "description": "FUB person ID. When provided, opens the FUB app on the client's contact page for calling with automatic transcription and AI summary.",
+            "description": "FUB contact ID — opens FUB app for calling with transcription.",
           },
         },
         "required": ["contact_name"],
@@ -425,30 +425,30 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "reminder_create",
-      "description": "Create a reminder with a local notification. Supports one-shot, recurring (daily/weekly), and AI-generated content. For recurring: set recurrence='daily' or 'weekly' (+ day_of_week for weekly). For AI-generated content: set ai_prompt with the instruction; text becomes a short label.",
+      "description": "Create a reminder. For recurring: recurrence='daily'/'weekly' + day_of_week. For AI content at fire time: set ai_prompt.",
       "parameters": {
         "type": "object",
         "properties": {
           "text": {
             "type": "string",
-            "description": "What to remind the user about. For AI reminders, this is a short human-readable label (e.g. 'Morning inspiration')."
+            "description": "Reminder label. For AI reminders, a short label (e.g. 'Morning inspiration')."
           },
           "when_iso": {
             "type": "string",
-            "description": "Local date/time in ISO 8601 format, e.g. 2026-01-28T07:00:00. For recurring reminders this sets the time-of-day."
+            "description": "ISO 8601 datetime, e.g. 2026-01-28T07:00:00."
           },
           "recurrence": {
             "type": "string",
             "enum": ["daily", "weekly"],
-            "description": "How often to repeat. Omit for a one-time reminder."
+            "description": "Omit for one-time."
           },
           "day_of_week": {
             "type": "integer",
-            "description": "Day of week for weekly recurrence: 1=Monday, 2=Tuesday, ..., 7=Sunday."
+            "description": "1=Mon … 7=Sun. Required for weekly."
           },
           "ai_prompt": {
             "type": "string",
-            "description": "If provided, AI generates the notification content at fire time using this instruction. Example: 'inspiring quote in style of Jensen Huang, 1-2 sentences'. Android only; iOS falls back to text label."
+            "description": "Instruction to generate notification content at fire time (Android only)."
           }
         },
         "required": ["when_iso"]
@@ -478,33 +478,33 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "send_whatsapp_message",
-      "description": "Send WhatsApp message (contact must be in memory). Can include one or more photos.",
+      "description": "Send WhatsApp message (contact must be in memory). Can include photos.",
       "parameters": {
         "type": "object",
         "properties": {
           "contact_name": {
             "type": "string",
-            "description": "Name of the contact (will be looked up in memory)"
+            "description": "Contact name (looked up in memory)."
           },
           "message": {
             "type": "string",
-            "description": "Text message to send"
+            "description": "Text message."
           },
           "photo_location": {
             "type": "string",
-            "description": "Optional: location to find photo(s) (e.g., 'Paris', 'home')"
+            "description": "Location to find photos (e.g. 'Paris')."
           },
           "photo_time": {
             "type": "string",
-            "description": "Optional: time period (e.g., 'yesterday', 'last week')"
+            "description": "Time period for photos (e.g. 'yesterday')."
           },
           "photo_limit": {
             "type": "integer",
-            "description": "Optional: number of photos to include (default: 1, max: 10). Use when user says 'send 3 photos' or 'send a few photos'."
+            "description": "Number of photos (default 1, max 10)."
           },
           "include_sender_name": {
             "type": "boolean",
-            "description": "If true, prepend 'From [Your Name]:' to message"
+            "description": "Prepend 'From [Name]:' to message."
           },
         },
         "required": ["contact_name", "message"]
@@ -513,7 +513,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "stop_session",
-      "description": "Stop the voice session and disconnect the microphone. Call this when the user says goodbye, bye, stop listening, that's all, stop, or any similar phrase that signals they want to end the conversation.",
+      "description": "End the voice session.",
       "parameters": {
         "type": "object",
         "properties": {}
@@ -524,34 +524,34 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_create_task",
-      "description": "Create a task for a FUB contact. Use when the user says 'add a task', 'create a follow up', 'schedule a call', or similar. The task is assigned to the current agent. ALWAYS pass person_id when the contact was already resolved in this conversation — never use agent_id as person_id.",
+      "description": "Create a task for a FUB contact ('add a task', 'follow up', 'schedule a call'). Pass person_id when already resolved.",
       "parameters": {
         "type": "object",
         "properties": {
           "agent_name": {
             "type": "string",
-            "description": "Agent creating and assigned to the task. Use the agent's name from your identity (e.g. 'Roman') or 'me'."
+            "description": "Agent name or 'me'."
           },
           "person_id": {
             "type": "number",
-            "description": "FUB contact ID — from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. NOT the agent user ID."
+            "description": "FUB contact ID (not agent_id)."
           },
           "client_name": {
             "type": "string",
-            "description": "Full or partial contact name. Used only when person_id is not already known."
+            "description": "Partial name; only when person_id unknown."
           },
           "description": {
             "type": "string",
-            "description": "Task description / title (free text)."
+            "description": "Task description / title."
           },
           "due_date": {
             "type": "string",
-            "description": "Due date in YYYY-MM-DD format. Omit to default to today's date."
+            "description": "YYYY-MM-DD. Defaults to today."
           },
           "task_type": {
             "type": "string",
             "enum": ["Follow Up", "Call", "Email", "Text", "Showing", "Closing", "Open House", "Thank You"],
-            "description": "Type of task."
+            "description": "Task type."
           }
         },
         "required": ["agent_name", "description", "task_type"]
@@ -560,30 +560,30 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_update_task",
-      "description": "Edit a FUB task or mark it complete/incomplete. Use when the user says 'mark task as done', 'complete this task', 'reopen task', 'change task description', 'reschedule task'. Requires task_id from fub_get_person_tasks results. All fields except task_id are optional.",
+      "description": "Edit or complete/reopen a FUB task. task_id from fub_get_person_tasks.",
       "parameters": {
         "type": "object",
         "properties": {
           "task_id": {
             "type": "number",
-            "description": "The task ID from fub_get_person_tasks results."
+            "description": "Task ID from fub_get_person_tasks."
           },
           "is_completed": {
             "type": "boolean",
-            "description": "true to mark the task complete, false to reopen it."
+            "description": "true=complete, false=reopen."
           },
           "description": {
             "type": "string",
-            "description": "New task description. Omit if not changing."
+            "description": "New description. Omit if unchanged."
           },
           "due_date": {
             "type": "string",
-            "description": "New due date in YYYY-MM-DD format. Omit if not changing."
+            "description": "New due date YYYY-MM-DD. Omit if unchanged."
           },
           "task_type": {
             "type": "string",
             "enum": ["Follow Up", "Call", "Email", "Text", "Showing", "Closing", "Open House", "Thank You"],
-            "description": "New task type. Omit if not changing."
+            "description": "New type. Omit if unchanged."
           }
         },
         "required": ["task_id"]
@@ -592,26 +592,26 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_person_tasks",
-      "description": "Fetch tasks for a specific FUB contact, both open and completed. Use when the user asks 'what tasks do I have for John', 'show me Sarah's tasks', 'any completed tasks for this client'. ALWAYS pass person_id when the contact was already resolved.",
+      "description": "Fetch tasks for a FUB contact. Pass person_id when already resolved.",
       "parameters": {
         "type": "object",
         "properties": {
           "agent_name": {
             "type": "string",
-            "description": "Agent name for contact resolution scope. Use 'me' or the agent's name."
+            "description": "Agent name or 'me'."
           },
           "person_id": {
             "type": "number",
-            "description": "FUB contact ID — from prior search or task results. NOT the agent user ID."
+            "description": "FUB contact ID (not agent_id)."
           },
           "client_name": {
             "type": "string",
-            "description": "Full or partial contact name. Used only when person_id is not already known."
+            "description": "Partial name; only when person_id unknown."
           },
           "status": {
             "type": "string",
             "enum": ["open", "completed", "all"],
-            "description": "Filter by task status. Defaults to 'all'."
+            "description": "Defaults to 'all'."
           }
         },
         "required": ["agent_name"]
@@ -620,17 +620,17 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_tasks",
-      "description": "Get incomplete tasks from Follow Up Boss CRM including contact details (name, phone, email, address). agent_name is required — always pass the agent's name from your identity or 'me'. For 'today's meetings/tasks/clients', pass due_date=today's date in YYYY-MM-DD format. Summarize by grouping overdue vs upcoming.",
+      "description": "Get agent's incomplete tasks with contact details. For 'today's tasks' pass due_date. Group overdue vs upcoming in response.",
       "parameters": {
         "type": "object",
         "properties": {
           "due_date": {
             "type": "string",
-            "description": "Filter tasks by due date in YYYY-MM-DD format. Omit to get all tasks."
+            "description": "YYYY-MM-DD. Omit for all tasks."
           },
           "agent_name": {
             "type": "string",
-            "description": "Agent to fetch tasks for. Use the agent's name from your identity (e.g. 'Roman') or 'me'. Use 'all' only when user explicitly asks for the whole team's tasks."
+            "description": "Agent name or 'me'. 'all' for whole team."
           }
         },
         "required": ["agent_name"]
@@ -639,21 +639,21 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_search_contacts",
-      "description": "Search for FUB contacts by partial name (case-insensitive), scoped to the agent. Use when user asks to find or look up a client by name (e.g. 'find all my Johns', 'look up Smith', 'search for William'). Returns full contact details including the contact's id field — this is the person_id to use in fub_create_note, fub_send_text, and fub_update_person. Store it and reuse it; do NOT re-resolve or ask the user again.",
+      "description": "Search FUB contacts by name. Returns id (=person_id) — store and reuse it.",
       "parameters": {
         "type": "object",
         "properties": {
           "agent_name": {
             "type": "string",
-            "description": "Agent whose contacts to search. Use the agent's name from your identity or 'me'."
+            "description": "Agent name or 'me'."
           },
           "query": {
             "type": "string",
-            "description": "Partial or full name to search for. Case-insensitive."
+            "description": "Partial or full name."
           },
           "limit": {
             "type": "number",
-            "description": "Max number of results to return (default 10)."
+            "description": "Max results (default 10)."
           }
         },
         "required": ["agent_name", "query"]
@@ -662,25 +662,25 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_create_note",
-      "description": "Create an internal note on a FUB client's timeline. Use ONLY when the user explicitly says 'add a note', 'log that', 'make a note', or similar. Do NOT use when the user says 'update', 'change', 'set', or 'add a [field]' — those go to fub_update_person. Examples that are NOT notes: updating an address, changing a phone number, updating a stage, adding an email. ALWAYS pass person_id from a prior search or task result — never use agent_id as person_id.",
+      "description": "Log a note on a FUB contact timeline. ONLY for 'add a note'/'log that' — not for field updates (those go to fub_update_person).",
       "parameters": {
         "type": "object",
         "properties": {
           "agent_name": {
             "type": "string",
-            "description": "Agent creating the note. Use the agent's name from your identity (e.g. 'Roman') or 'me'."
+            "description": "Agent name or 'me'."
           },
           "body": {
             "type": "string",
-            "description": "The note content to save."
+            "description": "Note content."
           },
           "person_id": {
             "type": "number",
-            "description": "FUB contact ID — from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. This is NOT the agent user ID."
+            "description": "FUB contact ID (not agent_id)."
           },
           "client_name": {
             "type": "string",
-            "description": "Full or partial name of the client. Used only when person_id is not already known from a prior search."
+            "description": "Partial name; only when person_id unknown."
           }
         },
         "required": ["agent_name", "body"]
@@ -689,17 +689,17 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_open_contact",
-      "description": "Open a FUB client's contact page in the FUB app for visual review. Use when the user says 'open', 'show me', 'pull up', or 'view' a client in FUB. Requires person_id — call fub_search_contacts first if not yet resolved.",
+      "description": "Open a FUB contact page in the app ('open', 'pull up', 'show me' a client).",
       "parameters": {
         "type": "object",
         "properties": {
           "person_id": {
             "type": "integer",
-            "description": "FUB contact ID from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts.",
+            "description": "FUB contact ID (not agent_id).",
           },
           "contact_name": {
             "type": "string",
-            "description": "Contact name for confirmation in the response.",
+            "description": "Contact name for response confirmation.",
           },
         },
         "required": ["person_id"],
@@ -708,25 +708,25 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_send_text",
-      "description": "Send a text message to a FUB client on behalf of the agent. Execute immediately — do not ask for confirmation. Prefer person_id when the client was already resolved in this conversation (from fub_get_recent_contacts or fub_get_tasks). Use client_name when referring to someone by name for the first time.",
+      "description": "Send a text to a FUB client. Prefer person_id when already resolved.",
       "parameters": {
         "type": "object",
         "properties": {
           "agent_name": {
             "type": "string",
-            "description": "Agent sending the message. Use the agent's name from your identity (e.g. 'Roman') or 'me'."
+            "description": "Agent name or 'me'."
           },
           "message": {
             "type": "string",
-            "description": "The text message to send."
+            "description": "Text message."
           },
           "person_id": {
             "type": "number",
-            "description": "FUB contact ID — from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. This is NOT the agent user ID."
+            "description": "FUB contact ID (not agent_id)."
           },
           "client_name": {
             "type": "string",
-            "description": "Full or partial name of the client. Used only when person_id is not already known from a prior search."
+            "description": "Partial name; only when person_id unknown."
           }
         },
         "required": ["agent_name", "message"]
@@ -735,7 +735,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_stages",
-      "description": "Get all available lead stages from Follow Up Boss CRM. Use when the user asks what stages are available, or before updating a stage to confirm the exact stage name.",
+      "description": "List FUB lead stages. Call before updating stage if name uncertain.",
       "parameters": {
         "type": "object",
         "properties": {},
@@ -745,7 +745,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_lenders",
-      "description": "Get all lenders in Follow Up Boss CRM. Use when the user asks about lenders in any way — 'what lenders do we have', 'list lenders', 'who are the lenders', 'known lenders', 'show me lenders' — or before assigning a lender to a contact to confirm the exact name.",
+      "description": "List FUB lenders. Use when asked about lenders ('who are the lenders', 'known lenders', 'list lenders') or before assigning one.",
       "parameters": {
         "type": "object",
         "properties": {},
@@ -755,111 +755,101 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_update_person",
-      "description": "Update one or more fields on a FUB contact in a single call. Use for any combination of: stage, tags, phone numbers, email addresses, mailing address, name, background info, or lender. ALWAYS pass person_id when the client was already resolved in this conversation. If updating stage and you are unsure of the exact name, call fub_get_stages first. If assigning a lender and you are unsure of the exact name, call fub_get_lenders first.",
+      "description": "Update FUB contact fields: stage, tags, phones, emails, address, name, background, source, lender, assigned agent, collaborators. Pass person_id when resolved. Check fub_get_stages/fub_get_lenders/fub_get_sources if names uncertain.",
       "parameters": {
         "type": "object",
         "properties": {
           "agent_name": {
             "type": "string",
-            "description": "Agent performing the update. Use the agent's name from your identity (e.g. 'Roman') or 'me'."
+            "description": "Agent name or 'me'."
           },
           "person_id": {
             "type": "number",
-            "description": "FUB contact ID — from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. This is NOT the agent user ID. Never pass agent_id here."
+            "description": "FUB contact ID (not agent_id)."
           },
           "client_name": {
             "type": "string",
-            "description": "Full or partial name of the client. Used only when person_id is not already known from a prior search."
+            "description": "Partial name; only when person_id unknown."
           },
           "stage": {
             "type": "string",
-            "description": "New stage name. Must match a valid FUB stage exactly (e.g. 'Hot Lead', 'Active Buyer'). Omit if not changing."
+            "description": "Stage name — call fub_get_stages if unsure."
           },
           "name": {
             "type": "string",
-            "description": "Full name to set on the contact. Omit if not changing."
+            "description": "Full name."
           },
           "background_info": {
             "type": "string",
-            "description": "Background information / bio text to set on the contact. Omit if not changing."
+            "description": "Background / bio text."
           },
           "source": {
             "type": "string",
-            "description": "Lead source to set (e.g. 'Zillow', 'Referral', 'Website'). Must match a valid FUB source name — call fub_get_sources first if unsure. Omit if not changing."
+            "description": "Lead source — call fub_get_sources if unsure."
           },
           "lender": {
             "type": "string",
-            "description": "Lender to assign to this contact. Must match a lender name exactly — call fub_get_lenders first if unsure. Pass empty string to remove. Omit if not changing."
+            "description": "Lender name — call fub_get_lenders if unsure. Empty string to remove."
           },
           "assigned_to": {
             "type": "string",
-            "description": "Agent name to assign this contact to (e.g. 'Roman', 'me'). Resolved to a FUB user ID server-side. Omit if not changing."
+            "description": "Agent name to assign contact to."
           },
           "collaborators": {
             "type": "object",
-            "description": "Collaborator update operation. 'add' adds agents without removing existing. 'remove' removes specific agents. 'set' replaces the full collaborator list.",
+            "description": "mode: add/remove/set. agents: list of names.",
             "properties": {
               "mode": {"type": "string", "enum": ["add", "remove", "set"]},
-              "agents": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "List of agent names (e.g. ['Roman', 'Sarah']). Resolved to FUB user IDs server-side."
-              }
+              "agents": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["mode", "agents"]
           },
           "tags": {
             "type": "object",
-            "description": "Tag update operation. 'add' appends without removing existing. 'remove' deletes specific tags. 'set' replaces all tags with the provided list.",
+            "description": "mode: add/remove/set. values: list of tag strings.",
             "properties": {
-              "mode": {
-                "type": "string",
-                "enum": ["add", "remove", "set"]
-              },
-              "values": {
-                "type": "array",
-                "items": {"type": "string"}
-              }
+              "mode": {"type": "string", "enum": ["add", "remove", "set"]},
+              "values": {"type": "array", "items": {"type": "string"}}
             },
             "required": ["mode", "values"]
           },
           "phones": {
             "type": "array",
-            "description": "Phone number changes. Each entry adds/updates or removes a number of the given type.",
+            "description": "Phone changes. Each: {number, type, action}. action omit/'set' to add; 'remove' to delete.",
             "items": {
               "type": "object",
               "properties": {
-                "number": {"type": "string", "description": "Phone number string."},
-                "type": {"type": "string", "enum": ["mobile", "home", "work", "fax", "other"], "description": "Phone type. Defaults to mobile."},
-                "action": {"type": "string", "enum": ["set", "remove"], "description": "Omit or 'set' to add/update; 'remove' to delete by type."}
+                "number": {"type": "string"},
+                "type": {"type": "string", "enum": ["mobile", "home", "work", "fax", "other"]},
+                "action": {"type": "string", "enum": ["set", "remove"]}
               },
               "required": ["type"]
             }
           },
           "emails": {
             "type": "array",
-            "description": "Email address changes. Each entry adds/updates or removes an email of the given type.",
+            "description": "Email changes. Each: {address, type, action}.",
             "items": {
               "type": "object",
               "properties": {
-                "address": {"type": "string", "description": "Email address."},
-                "type": {"type": "string", "enum": ["personal", "work", "other"], "description": "Email type. Defaults to personal."},
-                "action": {"type": "string", "enum": ["set", "remove"], "description": "Omit or 'set' to add/update; 'remove' to delete by type."}
+                "address": {"type": "string"},
+                "type": {"type": "string", "enum": ["personal", "work", "other"]},
+                "action": {"type": "string", "enum": ["set", "remove"]}
               },
               "required": ["type"]
             }
           },
           "address": {
             "type": "object",
-            "description": "Mailing address to add, update, or remove. Matched by type — partial updates merge with existing fields.",
+            "description": "Address. type: home/work/selling/other. action: set/remove.",
             "properties": {
               "street": {"type": "string"},
               "city": {"type": "string"},
               "state": {"type": "string"},
               "zip": {"type": "string"},
               "country": {"type": "string"},
-              "type": {"type": "string", "enum": ["home", "work", "selling", "other"], "description": "Address type. Use 'selling' for the property being sold. Defaults to home."},
-              "action": {"type": "string", "enum": ["set", "remove"], "description": "Omit or 'set' to add/update; 'remove' to delete by type."}
+              "type": {"type": "string", "enum": ["home", "work", "selling", "other"]},
+              "action": {"type": "string", "enum": ["set", "remove"]}
             }
           }
         },
@@ -869,21 +859,21 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_recent_contacts",
-      "description": "Get the most recently contacted clients for an agent from Follow Up Boss CRM, sorted by last activity date with most recent first. Use when the user asks 'who are my latest clients', 'recent contacts', 'who did I work with recently', or similar. Always include lastActivityDate in your response for each contact.",
+      "description": "Get agent's most recently active FUB contacts. Include lastActivityDate in response.",
       "parameters": {
         "type": "object",
         "properties": {
           "agent_name": {
             "type": "string",
-            "description": "Agent whose contacts to fetch. Use the agent's name from your identity (e.g. 'Roman') or 'me'. Use 'all' only when user explicitly asks for the whole team."
+            "description": "Agent name or 'me'. 'all' for whole team."
           },
           "limit": {
             "type": "number",
-            "description": "Number of contacts to return. Default is 5 if not specified by the user."
+            "description": "Number to return (default 5)."
           },
           "days": {
             "type": "number",
-            "description": "Only include contacts active within the last N days. Omit to return the most recent regardless of timeframe."
+            "description": "Only contacts active within last N days."
           }
         },
         "required": ["agent_name"]
@@ -892,21 +882,21 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_person_details",
-      "description": "Read key fields of a FUB contact: tags, background info, source, stage, lender, and collaborators. Use when the user asks about any of these fields (e.g. 'what tags does John have', 'what's Sarah's background', 'who is the lender on this contact', 'show me RoadMate's details'). ALWAYS pass person_id when the client was already resolved in this conversation.",
+      "description": "Read FUB contact fields: tags, background, source, stage, lender, collaborators.",
       "parameters": {
         "type": "object",
         "properties": {
           "agent_name": {
             "type": "string",
-            "description": "Agent name (e.g. 'Roman') or 'me'. Required to scope contact lookup."
+            "description": "Agent name or 'me'."
           },
           "person_id": {
             "type": "number",
-            "description": "FUB contact ID — from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts results. NOT the agent user ID."
+            "description": "FUB contact ID (not agent_id)."
           },
           "client_name": {
             "type": "string",
-            "description": "Full or partial name of the client. Used only when person_id is not already known."
+            "description": "Partial name; only when person_id unknown."
           }
         },
         "required": ["agent_name"]
@@ -915,7 +905,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_sources",
-      "description": "Get all available lead sources from Follow Up Boss CRM. Use when the user asks what sources are available, or before updating a source to confirm the exact name.",
+      "description": "List FUB lead sources. Call before updating source if name uncertain.",
       "parameters": {
         "type": "object",
         "properties": {},
