@@ -61,8 +61,9 @@ async function getFubFromNumber() {
 }
 
 /**
- * Scan FUB contacts and collect unique non-empty source values.
+ * Scan FUB contacts and collect unique source name → sourceId mappings.
  * Cached in memory for 1 week — sources rarely change.
+ * Returns { names: string[], map: { [lowerName]: { name, id } } }
  */
 let _sourcesCache = null;
 let _sourcesCacheAt = 0;
@@ -78,7 +79,7 @@ async function getFubSources() {
   const limit = 100;
 
   while (allPeople.length < 1000) {
-    const params = new URLSearchParams({ limit: String(limit), offset: String(offset), fields: "source" });
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset), fields: "source,sourceId" });
     const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
     const data = await r.json();
     if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
@@ -88,17 +89,20 @@ async function getFubSources() {
     offset += limit;
   }
 
-  const seen = new Set();
+  const map = {};
   for (const p of allPeople) {
-    const s = p.source?.trim();
-    if (s) seen.add(s);
+    const name = p.source?.trim();
+    const id = p.sourceId;
+    if (name && id && !map[name.toLowerCase()]) {
+      map[name.toLowerCase()] = { name, id };
+    }
   }
-  const sources = [...seen].sort();
+  const names = Object.values(map).map(s => s.name).sort();
 
-  _sourcesCache = sources;
+  _sourcesCache = { names, map };
   _sourcesCacheAt = Date.now();
-  console.log(`[FUB] sources scanned ${allPeople.length} contacts, found ${sources.length} unique sources`);
-  return sources;
+  console.log(`[FUB] sources scanned ${allPeople.length} contacts, found ${names.length} unique sources`);
+  return _sourcesCache;
 }
 
 /**
@@ -1040,7 +1044,19 @@ export function registerFollowUpBossRoutes(app) {
           console.log(`[FUB] update: lender "${lender}" resolved to id=${resolvedLenderId}`);
         }
       }
-      if (source !== undefined) payload.source = source?.trim() ?? "";
+      if (source !== undefined) {
+        if (!source?.trim()) {
+          payload.sourceId = 1; // 1 = <unspecified> in FUB
+        } else {
+          const { map: sourceMap } = await getFubSources();
+          const match = sourceMap[source.trim().toLowerCase()];
+          if (!match) {
+            return res.status(400).json({ ok: false, error: `Unknown source "${source}" — call fub_get_sources to see available names` });
+          }
+          payload.sourceId = match.id;
+          console.log(`[FUB] update: source "${source}" resolved to id=${match.id}`);
+        }
+      }
       if (assigned_to) {
         const resolvedAgentId = await resolveAgentId(assigned_to.trim());
         if (!resolvedAgentId) {
@@ -1390,8 +1406,8 @@ export function registerFollowUpBossRoutes(app) {
    */
   app.get("/fub/sources", async (req, res) => {
     try {
-      const sources = await getFubSources();
-      res.json({ ok: true, sources, total: sources.length });
+      const { names } = await getFubSources();
+      res.json({ ok: true, sources: names, total: names.length });
     } catch (e) {
       console.error("[FUB] sources error:", e);
       res.status(500).json({ ok: false, error: String(e) });
