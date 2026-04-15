@@ -1324,18 +1324,28 @@ export function registerFollowUpBossRoutes(app) {
       let offset = 0;
       const limit = 100;
 
+      // FUB has no dedicated lenders endpoint — scan contacts and collect unique lender values.
       while (true) {
         const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-        const r = await fetch(`${FUB_BASE}/lenders?${params}`, { headers: fubHeaders() });
+        const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
         const data = await r.json();
         if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
-        const batch = data.lenders || [];
+        const batch = data.people || [];
         allLenders.push(...batch);
-        if (batch.length < limit) break;
+        if (batch.length < limit || allLenders.length >= 500) break;
         offset += limit;
       }
 
-      const lenders = allLenders.map(l => ({ id: l.id, name: l.name }));
+      const seen = new Set();
+      const lenders = [];
+      for (const p of allLenders) {
+        const lender = p.lender?.trim();
+        if (lender && !seen.has(lender.toLowerCase())) {
+          seen.add(lender.toLowerCase());
+          lenders.push(lender);
+        }
+      }
+      lenders.sort();
       res.json({ ok: true, lenders, total: lenders.length });
     } catch (e) {
       console.error("[FUB] lenders error:", e);
