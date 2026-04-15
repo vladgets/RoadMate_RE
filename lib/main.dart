@@ -786,6 +786,29 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       isCompleted: isCompleted,
     );
   },
+  'create_appointment': (args) async {
+    final raw = (args is Map) ? args['agent_name'] as String? : null;
+    final title = (args is Map) ? args['title'] as String? ?? '' : '';
+    final start = (args is Map) ? args['start'] as String? ?? '' : '';
+    final end = (args is Map) ? args['end'] as String? : null;
+    final location = (args is Map) ? args['location'] as String? : null;
+    final description = (args is Map) ? args['description'] as String? : null;
+    final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
+    final clientName = (args is Map) ? args['client_name'] as String? : null;
+    final result = await FubClient().createAppointment(
+      title: title,
+      start: start,
+      end: end,
+      location: location,
+      description: description,
+      agentId: _resolveFubAgentId(raw),
+      agentName: _resolveFubAgent(raw) ?? 'me',
+      personId: personId,
+      clientName: clientName,
+    );
+    _maybeUpdateLastClient(result);
+    return result;
+  },
   'fub_create_task': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
     final description = (args is Map) ? args['description'] as String? ?? '' : '';

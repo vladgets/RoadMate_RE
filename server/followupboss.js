@@ -388,6 +388,117 @@ export function registerFollowUpBossRoutes(app) {
   });
 
   /**
+   * POST /fub/appointment
+   *
+   * Create a FUB appointment linked to a contact.
+   * FUB syncs appointments to the agent's Google Calendar automatically.
+   *
+   * Body:
+   *   title         appointment title (required)
+   *   start         ISO 8601 start datetime (required)
+   *   end?          ISO 8601 end datetime (optional, defaults to start + 30 min)
+   *   location?     location string (optional)
+   *   description?  notes (optional)
+   *   person_id?    FUB contact ID (preferred)
+   *   client_name?  partial contact name (fallback if person_id not provided)
+   *   agent_id?     agent user ID (preferred for identity)
+   *   agent?        agent name (fallback)
+   */
+  app.post("/fub/appointment", async (req, res) => {
+    try {
+      const { title, start, end, location, description, person_id, client_name } = req.body || {};
+
+      if (!title?.trim()) return res.status(400).json({ ok: false, error: "title is required" });
+      if (!start) return res.status(400).json({ ok: false, error: "start is required" });
+
+      const startTime = new Date(start);
+      if (isNaN(startTime.getTime())) return res.status(400).json({ ok: false, error: "start is not a valid date" });
+
+      const endTime = end ? new Date(end) : new Date(startTime.getTime() + 30 * 60_000);
+
+      const agentId = await resolveAgentFromRequest(req);
+      if (!agentId) return res.status(400).json({ ok: false, error: "Could not resolve agent identity" });
+
+      // Resolve person
+      let personId = person_id ? Number(person_id) : null;
+      let resolvedName = null;
+
+      if (!personId) {
+        if (!client_name?.trim()) {
+          return res.status(400).json({ ok: false, error: "Either person_id or client_name is required" });
+        }
+        const match = await resolvePersonByName(client_name.trim(), agentId);
+        if (!match) {
+          return res.json({ ok: false, error: `No contact found matching "${client_name}"` });
+        }
+        personId = match.id;
+        resolvedName = match.name;
+        console.log(`[FUB] appointment: "${client_name}" resolved to ${resolvedName} (id=${personId})`);
+      } else {
+        if (personId === agentId) {
+          return res.status(400).json({ ok: false, error: `person_id ${personId} matches the agent user ID — likely a model error. Search for the contact first.` });
+        }
+        console.log(`[FUB] appointment: using direct person_id=${personId}`);
+      }
+
+      // Fetch agent email from /me
+      const me = await getFubMe();
+      const agentEmail = me.email || null;
+
+      // Fetch person email from their contact record
+      const personRes = await fetch(`${FUB_BASE}/people/${personId}`, { headers: fubHeaders() });
+      const personData = await personRes.json();
+      const personEmails = personData.emails || [];
+      const personEmail = personEmails.length > 0 ? personEmails[0].value : null;
+      if (!resolvedName) resolvedName = personData.name || null;
+
+      // Build guests list from available emails
+      const guests = [];
+      if (personEmail) guests.push(personEmail);
+      if (agentEmail) guests.push(agentEmail);
+
+      const payload = {
+        personId,
+        assignedUserId: agentId,
+        title: title.trim(),
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+      };
+      if (location?.trim()) payload.location = location.trim();
+      if (description?.trim()) payload.description = description.trim();
+      if (guests.length > 0) payload.guests = guests;
+
+      console.log(`[FUB] creating appointment for personId=${personId} agentId=${agentId} guests=${guests.join(",")}`);
+
+      const r = await fetch(`${FUB_BASE}/appointments`, {
+        method: "POST",
+        headers: fubHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        console.error(`[FUB] appointment API error ${r.status}:`, JSON.stringify(data));
+        throw new Error(data?.message || data?.error || `FUB error ${r.status}`);
+      }
+
+      console.log(`[FUB] appointment created id=${data.id} for personId=${personId}`);
+      res.json({
+        ok: true,
+        appointmentId: data.id,
+        personId,
+        personName: resolvedName,
+        title: data.title || title,
+        startTime: data.startTime || startTime.toISOString(),
+        endTime: data.endTime || endTime.toISOString(),
+        guests,
+      });
+    } catch (e) {
+      console.error("[FUB] create appointment error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
    * PUT /fub/task/:id
    *
    * Edit a task or mark it complete/incomplete.

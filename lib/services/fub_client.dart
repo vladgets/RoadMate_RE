@@ -278,6 +278,36 @@ class FubClient {
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> createAppointment({
+    required String title,
+    required String start,
+    String? end,
+    String? location,
+    String? description,
+    String? agentName,
+    int? agentId,
+    int? personId,
+    String? clientName,
+  }) async {
+    final uri = Uri.parse('$baseUrl/fub/appointment');
+    final body = <String, dynamic>{
+      'title': title,
+      'start': start,
+      if (end != null) 'end': end,
+      if (location != null) 'location': location,
+      if (description != null) 'description': description,
+      if (personId != null) 'person_id': personId,
+      if (clientName != null) 'client_name': clientName,
+    };
+    _addAgentToBody(body, agentId: agentId, agentName: agentName);
+    final resp = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> sendText({
     required String message,
     String? agentName,

@@ -19,7 +19,7 @@ Execution: act immediately — do not ask for confirmation before executing. Onl
 
 WebSearch: for up-to-date/verifiable facts only. Use open_url to open any link the user asks to visit.
 
-Calendar: create_calendar_event = new events only. To change existing: get_calendar_data first (get event_id) → update_calendar_event. To remove: delete_calendar_event.
+Calendar: create_appointment = schedule a new meeting with a FUB client (syncs to Google Calendar). Always ask who the appointment is with if not already known. To read events: get_calendar_data. To change existing: get_calendar_data first (get event_id) → update_calendar_event. To remove: delete_calendar_event.
 Calendar attachments: events may include an attachments array. Use read_drive_file with the file_id to read PDFs, Google Docs, or spreadsheets attached to events.
 
 Reminders:
@@ -260,6 +260,49 @@ $trimmedPrefs''';
             "description": "End of the date range (ISO 8601, e.g. '2026-03-25'). Defaults to 7 days from now."
           }
         }
+      }
+    },
+    {
+      "type": "function",
+      "name": "create_appointment",
+      "description": "Create a new appointment in FUB CRM linked to a client. FUB syncs it to Google Calendar. Always use this for scheduling meetings — never create_calendar_event. Requires a client (person_id or client_name). If neither is known, ask the user who the appointment is with before calling.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Appointment title."
+          },
+          "start": {
+            "type": "string",
+            "description": "Start date and time (ISO 8601)."
+          },
+          "location": {
+            "type": "string",
+            "description": "Meeting location."
+          },
+          "end": {
+            "type": "string",
+            "description": "End date and time (ISO 8601). Defaults to 30 minutes after start."
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional notes or agenda."
+          },
+          "person_id": {
+            "type": "integer",
+            "description": "FUB contact ID (preferred, from fub_search_contacts)."
+          },
+          "client_name": {
+            "type": "string",
+            "description": "Client name to resolve (fallback if person_id unavailable)."
+          },
+          "agent_name": {
+            "type": "string",
+            "description": "Agent name or 'me'. Always pass the current agent."
+          }
+        },
+        "required": ["title", "start", "location"]
       }
     },
     // time and date
