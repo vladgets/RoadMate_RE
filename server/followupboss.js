@@ -61,6 +61,47 @@ async function getFubFromNumber() {
 }
 
 /**
+ * Scan FUB contacts and collect unique non-empty source values.
+ * Cached in memory for 1 week — sources rarely change.
+ */
+let _sourcesCache = null;
+let _sourcesCacheAt = 0;
+
+async function getFubSources() {
+  const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+  if (_sourcesCache && Date.now() - _sourcesCacheAt < ONE_WEEK) {
+    return _sourcesCache;
+  }
+
+  const allPeople = [];
+  let offset = 0;
+  const limit = 100;
+
+  while (allPeople.length < 1000) {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset), fields: "source" });
+    const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+    const batch = data.people || [];
+    allPeople.push(...batch);
+    if (batch.length < limit) break;
+    offset += limit;
+  }
+
+  const seen = new Set();
+  for (const p of allPeople) {
+    const s = p.source?.trim();
+    if (s) seen.add(s);
+  }
+  const sources = [...seen].sort();
+
+  _sourcesCache = sources;
+  _sourcesCacheAt = Date.now();
+  console.log(`[FUB] sources scanned ${allPeople.length} contacts, found ${sources.length} unique sources`);
+  return sources;
+}
+
+/**
  * Fetch all FUB users and return a map of lowercase-name → { id, name }.
  * Cached in memory for 5 minutes.
  */
@@ -1349,23 +1390,7 @@ export function registerFollowUpBossRoutes(app) {
    */
   app.get("/fub/sources", async (req, res) => {
     try {
-      const allSources = [];
-      let offset = 0;
-      const limit = 100;
-
-      while (true) {
-        const params = new URLSearchParams({ limit: String(limit), offset: String(offset), sort: "name" });
-        const r = await fetch(`${FUB_BASE}/leadSources?${params}`, { headers: fubHeaders() });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
-        console.log("[FUB] leadSources raw keys:", Object.keys(data), "first item:", JSON.stringify(data.leadSources?.[0]));
-        const batch = data.leadSources || [];
-        allSources.push(...batch);
-        if (batch.length < limit) break;
-        offset += limit;
-      }
-
-      const sources = allSources.map(s => s.name).filter(Boolean);
+      const sources = await getFubSources();
       res.json({ ok: true, sources, total: sources.length });
     } catch (e) {
       console.error("[FUB] sources error:", e);
