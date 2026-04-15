@@ -1325,11 +1325,11 @@ export function registerFollowUpBossRoutes(app) {
       const limit = 100;
 
       while (true) {
-        const params = new URLSearchParams({ type: "lender", limit: String(limit), offset: String(offset) });
-        const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
+        const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+        const r = await fetch(`${FUB_BASE}/lenders?${params}`, { headers: fubHeaders() });
         const data = await r.json();
         if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
-        const batch = data.people || [];
+        const batch = data.lenders || [];
         allLenders.push(...batch);
         if (batch.length < limit) break;
         offset += limit;
