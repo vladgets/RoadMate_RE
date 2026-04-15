@@ -6,6 +6,17 @@ class FubClient {
   final String baseUrl;
   FubClient() : baseUrl = Config.serverUrl;
 
+  /// Returns an error map if no agent is configured, null otherwise.
+  Map<String, dynamic>? _noAgentError() {
+    if (Config.fubAgentId == null) {
+      return {
+        'ok': false,
+        'error': 'No CRM agent selected. Please open Settings → CRM Identity and select your name first.',
+      };
+    }
+    return null;
+  }
+
   /// Adds agent identity params to a query map.
   /// Prefers agent_id (unambiguous) over agent name.
   void _addAgent(Map<String, String> params, {int? agentId, String? agentName}) {
@@ -34,6 +45,7 @@ class FubClient {
     int? personId,
     String? clientName,
   }) async {
+    final err = _noAgentError(); if (err != null) return err;
     final uri = Uri.parse('$baseUrl/fub/task');
     final body = <String, dynamic>{
       'description': description,
@@ -58,6 +70,7 @@ class FubClient {
     String? taskType,
     bool? isCompleted,
   }) async {
+    final err = _noAgentError(); if (err != null) return err;
     final uri = Uri.parse('$baseUrl/fub/task/$taskId');
     final body = <String, dynamic>{
       if (description != null) 'description': description,
@@ -80,6 +93,7 @@ class FubClient {
     String? clientName,
     String status = 'all',
   }) async {
+    final err = _noAgentError(); if (err != null) return err;
     final params = <String, String>{'status': status};
     if (personId != null) params['person_id'] = personId.toString();
     if (clientName != null) params['client_name'] = clientName;
@@ -94,6 +108,7 @@ class FubClient {
     String? agentName,
     int? agentId,
   }) async {
+    final err = _noAgentError(); if (err != null) return err;
     final params = <String, String>{};
     if (dueDate != null) params['dueDate'] = dueDate;
     _addAgent(params, agentId: agentId, agentName: agentName);
@@ -110,6 +125,7 @@ class FubClient {
     int? agentId,
     int limit = 10,
   }) async {
+    final err = _noAgentError(); if (err != null) return err;
     final params = <String, String>{'q': query, 'limit': limit.toString()};
     _addAgent(params, agentId: agentId, agentName: agentName);
     final uri = Uri.parse('$baseUrl/fub/contacts/search').replace(
@@ -125,6 +141,7 @@ class FubClient {
     int limit = 5,
     int? days,
   }) async {
+    final err = _noAgentError(); if (err != null) return err;
     final params = <String, String>{'limit': limit.toString()};
     _addAgent(params, agentId: agentId, agentName: agentName);
     if (days != null) params['days'] = days.toString();
@@ -142,6 +159,7 @@ class FubClient {
     int? personId,
     String? clientName,
   }) async {
+    final err = _noAgentError(); if (err != null) return err;
     final uri = Uri.parse('$baseUrl/fub/note');
     final payload = <String, dynamic>{
       'body': body,
@@ -174,6 +192,7 @@ class FubClient {
     List<Map<String, dynamic>>? emails,
     Map<String, dynamic>? address,
   }) async {
+    final err = _noAgentError(); if (err != null) return err;
     final uri = Uri.parse('$baseUrl/fub/contact/update');
     final body = <String, dynamic>{
       if (personId != null) 'person_id': personId,
@@ -205,6 +224,7 @@ class FubClient {
     int? personId,
     String? clientName,
   }) async {
+    final err = _noAgentError(); if (err != null) return err;
     final params = <String, String>{};
     if (personId != null) params['person_id'] = personId.toString();
     if (clientName != null) params['client_name'] = clientName;
@@ -228,6 +248,7 @@ class FubClient {
     int? personId,
     String? clientName,
   }) async {
+    final err = _noAgentError(); if (err != null) return err;
     final uri = Uri.parse('$baseUrl/fub/contact/tags');
     final body = <String, dynamic>{
       'mode': mode,
@@ -263,6 +284,7 @@ class FubClient {
     int? personId,
     String? clientName,
   }) async {
+    final err = _noAgentError(); if (err != null) return err;
     final uri = Uri.parse('$baseUrl/fub/contact/stage');
     final body = <String, dynamic>{
       'stage': stage,
@@ -289,6 +311,7 @@ class FubClient {
     int? personId,
     String? clientName,
   }) async {
+    final err = _noAgentError(); if (err != null) return err;
     final uri = Uri.parse('$baseUrl/fub/appointment');
     final body = <String, dynamic>{
       'title': title,
@@ -315,6 +338,7 @@ class FubClient {
     int? personId,
     String? clientName,
   }) async {
+    final err = _noAgentError(); if (err != null) return err;
     final uri = Uri.parse('$baseUrl/fub/text');
     final body = <String, dynamic>{
       'message': message,

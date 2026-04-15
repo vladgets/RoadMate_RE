@@ -28,12 +28,54 @@ class _FubIdentityScreenState extends State<FubIdentityScreen> {
   /// Tapped but not yet saved.
   _FubUser? _pendingUser;
 
+  /// Passcode gate state.
+  bool _authenticated = false;
+  bool _checkingPasscode = false;
+  String? _passcodeError;
+  final _passcodeController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     _savedName = Config.fubAgentName;
     _savedId = Config.fubAgentId;
-    _loadUsers();
+    _authenticated = Config.fubAuthenticated;
+    if (_authenticated) {
+      _loadUsers();
+    } else {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _passcodeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitPasscode() async {
+    final passcode = _passcodeController.text.trim();
+    if (passcode.isEmpty) return;
+    setState(() {
+      _checkingPasscode = true;
+      _passcodeError = null;
+    });
+    final ok = await Config.verifyFubPasscode(passcode);
+    if (!mounted) return;
+    if (ok) {
+      await Config.setFubAuthenticated(true);
+      setState(() {
+        _authenticated = true;
+        _checkingPasscode = false;
+        _loading = true;
+      });
+      _loadUsers();
+    } else {
+      setState(() {
+        _checkingPasscode = false;
+        _passcodeError = 'Incorrect passcode. Please try again.';
+      });
+    }
   }
 
   Future<void> _loadUsers() async {
@@ -112,6 +154,10 @@ class _FubIdentityScreenState extends State<FubIdentityScreen> {
   }
 
   Widget _buildContent() {
+    if (!_authenticated) {
+      return _buildPasscodeGate();
+    }
+
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -224,6 +270,52 @@ class _FubIdentityScreenState extends State<FubIdentityScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildPasscodeGate() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.lock_outline, size: 48, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text(
+              'Enter access code to view the agent list',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 15, color: Colors.black87),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _passcodeController,
+              obscureText: true,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Access code',
+                border: const OutlineInputBorder(),
+                errorText: _passcodeError,
+              ),
+              onSubmitted: (_) => _submitPasscode(),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _checkingPasscode ? null : _submitPasscode,
+                child: _checkingPasscode
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Unlock'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

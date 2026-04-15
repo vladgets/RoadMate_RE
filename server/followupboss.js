@@ -271,6 +271,27 @@ async function fetchIncompleteTasks({ assignedUserId } = {}) {
 
 export function registerFollowUpBossRoutes(app) {
   /**
+   * POST /fub/verify-passcode
+   * Checks a submitted passcode against the FUB_ACCESS_CODE env var.
+   * Returns { ok: true } on match, { ok: false, error: "..." } otherwise.
+   * If FUB_ACCESS_CODE is not set, all requests are rejected.
+   */
+  app.post("/fub/verify-passcode", (req, res) => {
+    const expected = process.env.FUB_ACCESS_CODE;
+    if (!expected) {
+      return res.status(503).json({ ok: false, error: "FUB access not configured" });
+    }
+    const { passcode } = req.body || {};
+    if (!passcode || typeof passcode !== "string") {
+      return res.status(400).json({ ok: false, error: "passcode is required" });
+    }
+    if (passcode === expected) {
+      return res.json({ ok: true });
+    }
+    return res.status(401).json({ ok: false, error: "Incorrect passcode" });
+  });
+
+  /**
    * GET /fub/person/:id
    * Fetch a single FUB contact by ID directly.
    */

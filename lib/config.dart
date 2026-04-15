@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/geo_time_tools.dart';
 import 'services/memory_store.dart';
@@ -66,6 +67,10 @@ Date: {{CURRENT_DATE_READABLE}}
   static const prefKeyLastClientId = 'fub_last_client_id';
   static const prefKeyLastClientName = 'fub_last_client_name';
   static const prefKeyLastClientTs = 'fub_last_client_ts';
+  static const prefKeyFubAuthenticated = 'fub_authenticated';
+
+  /// Whether the user has passed the FUB access passcode (in-memory, loaded at startup).
+  static bool fubAuthenticated = false;
 
   /// Currently identified FUB agent name (in-memory, loaded at startup).
   static String? fubAgentName;
@@ -100,6 +105,40 @@ Date: {{CURRENT_DATE_READABLE}}
       await prefs.setString(prefKeyVoice, newVoice);
     } catch (_) {
       // Ignore persistence errors; voice stays updated for this session.
+    }
+  }
+
+  /// Load the FUB authenticated flag from SharedPreferences.
+  static Future<void> loadFubAuthenticated() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      fubAuthenticated = prefs.getBool(prefKeyFubAuthenticated) ?? false;
+    } catch (_) {}
+  }
+
+  /// Persist the FUB authenticated flag.
+  static Future<void> setFubAuthenticated(bool value) async {
+    fubAuthenticated = value;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(prefKeyFubAuthenticated, value);
+    } catch (_) {}
+  }
+
+  /// Send the passcode to the server for validation.
+  /// Returns true if accepted, false otherwise.
+  static Future<bool> verifyFubPasscode(String passcode) async {
+    try {
+      final uri = Uri.parse('$serverUrl/fub/verify-passcode');
+      final resp = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'passcode': passcode}),
+      );
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      return body['ok'] == true;
+    } catch (_) {
+      return false;
     }
   }
 
