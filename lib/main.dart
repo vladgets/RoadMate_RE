@@ -918,6 +918,22 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     _maybeUpdateLastClient(result);
     return result;
   },
+  'fub_open_contact': (args) async {
+    final personId = (args is Map && args['person_id'] != null)
+        ? (args['person_id'] as num).toInt()
+        : null;
+    final contactName = (args is Map) ? args['contact_name'] as String? ?? '' : '';
+    if (personId == null) {
+      return {'ok': false, 'error': 'person_id is required'};
+    }
+    final uri = Uri.parse(
+      'https://${Config.fubSubdomain}.followupboss.com/2/people/view/$personId',
+    );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+    return {'ok': true, 'person_id': personId, 'contact_name': contactName};
+  },
   'fub_send_text': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
     final message = (args is Map) ? args['message'] as String? ?? '' : '';

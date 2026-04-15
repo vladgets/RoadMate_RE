@@ -17,12 +17,6 @@ Session: say a warm goodbye, then call stop_session when user says goodbye/bye/s
 Tools: use when faster/accurate; summarize output.
 Execution: act immediately — do not ask for confirmation before executing. Only pause if a required parameter is genuinely missing or the request is ambiguous (e.g. multiple contacts match). Never say "shall I?" or "do you want me to?" — just do it.
 
-Memory (CRITICAL):
-- ALWAYS call memory_fetch FIRST before asking for phone numbers, addresses, contacts, or personal info
-- Never ask for info that could be in memory without checking
-- Only ask user if not in memory
-- Save with memory_append when requested
-
 WebSearch: for up-to-date/verifiable facts only. Use open_url to open any link the user asks to visit.
 
 Calendar: create_calendar_event = new events only. To change existing: get_calendar_data first (get event_id) → update_calendar_event. To remove: delete_calendar_event.
@@ -691,6 +685,25 @@ $trimmedPrefs''';
         },
         "required": ["agent_name", "body"]
       }
+    },
+    {
+      "type": "function",
+      "name": "fub_open_contact",
+      "description": "Open a FUB client's contact page in the FUB app for visual review. Use when the user says 'open', 'show me', 'pull up', or 'view' a client in FUB. Requires person_id — call fub_search_contacts first if not yet resolved.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "description": "FUB contact ID from fub_search_contacts, fub_get_tasks, or fub_get_recent_contacts.",
+          },
+          "contact_name": {
+            "type": "string",
+            "description": "Contact name for confirmation in the response.",
+          },
+        },
+        "required": ["person_id"],
+      },
     },
     {
       "type": "function",
