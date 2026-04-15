@@ -987,7 +987,18 @@ export function registerFollowUpBossRoutes(app) {
       if (stage) payload.stage = stage.trim();
       if (name) payload.name = name.trim();
       if (background_info !== undefined) payload.backgroundInformation = background_info?.trim() ?? "";
-      if (lender !== undefined) payload.lender = lender?.trim() ?? "";
+      if (lender !== undefined) {
+        if (!lender?.trim()) {
+          payload.assignedLenderId = null;
+        } else {
+          const resolvedLenderId = await resolveAgentId(lender.trim());
+          if (!resolvedLenderId) {
+            return res.status(400).json({ ok: false, error: `Could not resolve lender "${lender}" — call fub_get_lenders to see available names` });
+          }
+          payload.assignedLenderId = resolvedLenderId;
+          console.log(`[FUB] update: lender "${lender}" resolved to id=${resolvedLenderId}`);
+        }
+      }
       if (source !== undefined) payload.source = source?.trim() ?? "";
       if (assigned_to) {
         const resolvedAgentId = await resolveAgentId(assigned_to.trim());
@@ -1182,7 +1193,7 @@ export function registerFollowUpBossRoutes(app) {
         background: data.backgroundInformation || null,
         source: data.source || null,
         stage: data.stage || null,
-        lender: data.lender || null,
+        lender: data.assignedLenderName || null,
         collaborators,
       });
     } catch (e) {
@@ -1316,36 +1327,14 @@ export function registerFollowUpBossRoutes(app) {
   /**
    * GET /fub/lenders
    *
-   * Returns all lender contacts from FUB (people with type=lender).
+   * Returns all users with role=Lender from FUB.
    */
   app.get("/fub/lenders", async (req, res) => {
     try {
-      const allLenders = [];
-      let offset = 0;
-      const limit = 100;
-
-      // FUB has no dedicated lenders endpoint — scan contacts and collect unique lender values.
-      while (true) {
-        const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-        const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
-        const batch = data.people || [];
-        allLenders.push(...batch);
-        if (batch.length < limit || allLenders.length >= 500) break;
-        offset += limit;
-      }
-
-      const seen = new Set();
-      const lenders = [];
-      for (const p of allLenders) {
-        const lender = p.lender?.trim();
-        if (lender && !seen.has(lender.toLowerCase())) {
-          seen.add(lender.toLowerCase());
-          lenders.push(lender);
-        }
-      }
-      lenders.sort();
+      const r = await fetch(`${FUB_BASE}/users?role=Lender&limit=200`, { headers: fubHeaders() });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+      const lenders = (data.users || []).map(u => ({ id: u.id, name: u.name }));
       res.json({ ok: true, lenders, total: lenders.length });
     } catch (e) {
       console.error("[FUB] lenders error:", e);
