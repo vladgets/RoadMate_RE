@@ -1349,10 +1349,22 @@ export function registerFollowUpBossRoutes(app) {
    */
   app.get("/fub/sources", async (req, res) => {
     try {
-      const r = await fetch(`${FUB_BASE}/sources?limit=200`, { headers: fubHeaders() });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
-      const sources = (data.sources || []).map(s => s.name || s).filter(Boolean);
+      const allSources = [];
+      let offset = 0;
+      const limit = 100;
+
+      while (true) {
+        const params = new URLSearchParams({ limit: String(limit), offset: String(offset), sort: "name" });
+        const r = await fetch(`${FUB_BASE}/leadSources?${params}`, { headers: fubHeaders() });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+        const batch = data.leadSources || [];
+        allSources.push(...batch);
+        if (batch.length < limit) break;
+        offset += limit;
+      }
+
+      const sources = allSources.map(s => s.name).filter(Boolean);
       res.json({ ok: true, sources, total: sources.length });
     } catch (e) {
       console.error("[FUB] sources error:", e);
