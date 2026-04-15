@@ -944,7 +944,7 @@ export function registerFollowUpBossRoutes(app) {
    */
   app.post("/fub/contact/update", async (req, res) => {
     try {
-      const { person_id, client_name, stage, name, background_info, source, assigned_to, collaborators, tags, phones, emails, address } = req.body || {};
+      const { person_id, client_name, stage, name, background_info, source, assigned_to, lender, collaborators, tags, phones, emails, address } = req.body || {};
 
       let personId = person_id ? Number(person_id) : null;
       let resolvedName = null;
@@ -987,6 +987,7 @@ export function registerFollowUpBossRoutes(app) {
       if (stage) payload.stage = stage.trim();
       if (name) payload.name = name.trim();
       if (background_info !== undefined) payload.backgroundInformation = background_info?.trim() ?? "";
+      if (lender !== undefined) payload.lender = lender?.trim() ?? "";
       if (source !== undefined) payload.source = source?.trim() ?? "";
       if (assigned_to) {
         const resolvedAgentId = await resolveAgentId(assigned_to.trim());
@@ -1181,6 +1182,7 @@ export function registerFollowUpBossRoutes(app) {
         background: data.backgroundInformation || null,
         source: data.source || null,
         stage: data.stage || null,
+        lender: data.lender || null,
         collaborators,
       });
     } catch (e) {
@@ -1307,6 +1309,36 @@ export function registerFollowUpBossRoutes(app) {
       res.json({ ok: true, stages, total: stages.length });
     } catch (e) {
       console.error("[FUB] stages error:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
+   * GET /fub/lenders
+   *
+   * Returns all lender contacts from FUB (people with type=lender).
+   */
+  app.get("/fub/lenders", async (req, res) => {
+    try {
+      const allLenders = [];
+      let offset = 0;
+      const limit = 100;
+
+      while (true) {
+        const params = new URLSearchParams({ type: "lender", limit: String(limit), offset: String(offset) });
+        const r = await fetch(`${FUB_BASE}/people?${params}`, { headers: fubHeaders() });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+        const batch = data.people || [];
+        allLenders.push(...batch);
+        if (batch.length < limit) break;
+        offset += limit;
+      }
+
+      const lenders = allLenders.map(l => ({ id: l.id, name: l.name }));
+      res.json({ ok: true, lenders, total: lenders.length });
+    } catch (e) {
+      console.error("[FUB] lenders error:", e);
       res.status(500).json({ ok: false, error: String(e) });
     }
   });

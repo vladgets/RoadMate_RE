@@ -865,6 +865,9 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   'fub_get_sources': (_) async {
     return await FubClient().getSources();
   },
+  'fub_get_lenders': (_) async {
+    return await FubClient().getLenders();
+  },
   'fub_update_person': (args) async {
     final raw = (args is Map) ? args['agent_name'] as String? : null;
     final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
@@ -873,6 +876,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     final name = (args is Map) ? args['name'] as String? : null;
     final backgroundInfo = (args is Map) ? args['background_info'] as String? : null;
     final source = (args is Map) ? args['source'] as String? : null;
+    final lender = (args is Map) ? args['lender'] as String? : null;
     final assignedTo = (args is Map) ? args['assigned_to'] as String? : null;
     final collaborators = (args is Map && args['collaborators'] is Map) ? Map<String, dynamic>.from(args['collaborators'] as Map) : null;
     final tags = (args is Map && args['tags'] is Map) ? Map<String, dynamic>.from(args['tags'] as Map) : null;
@@ -890,6 +894,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       name: name,
       backgroundInfo: backgroundInfo,
       source: source,
+      lender: lender,
       assignedTo: assignedTo,
       collaborators: collaborators,
       tags: tags,

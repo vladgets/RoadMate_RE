@@ -166,6 +166,7 @@ class FubClient {
     String? name,
     String? backgroundInfo,
     String? source,
+    String? lender,
     String? assignedTo,
     Map<String, dynamic>? collaborators,
     Map<String, dynamic>? tags,
@@ -181,6 +182,7 @@ class FubClient {
       if (name != null) 'name': name,
       if (backgroundInfo != null) 'background_info': backgroundInfo,
       if (source != null) 'source': source,
+      if (lender != null) 'lender': lender,
       if (assignedTo != null) 'assigned_to': assignedTo,
       if (collaborators != null) 'collaborators': collaborators,
       if (tags != null) 'tags': tags,
@@ -239,6 +241,12 @@ class FubClient {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(body),
     );
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getLenders() async {
+    final uri = Uri.parse('$baseUrl/fub/lenders');
+    final resp = await http.get(uri);
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 

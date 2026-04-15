@@ -744,8 +744,18 @@ $trimmedPrefs''';
     },
     {
       "type": "function",
+      "name": "fub_get_lenders",
+      "description": "Get all lenders configured in Follow Up Boss CRM. Use when the user asks 'what lenders do we have', 'list our lenders', or before assigning a lender to a contact to confirm the exact name.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "type": "function",
       "name": "fub_update_person",
-      "description": "Update one or more fields on a FUB contact in a single call. Use for any combination of: stage, tags, phone numbers, email addresses, mailing address, name, or background info. ALWAYS pass person_id when the client was already resolved in this conversation. If updating stage and you are unsure of the exact name, call fub_get_stages first.",
+      "description": "Update one or more fields on a FUB contact in a single call. Use for any combination of: stage, tags, phone numbers, email addresses, mailing address, name, background info, or lender. ALWAYS pass person_id when the client was already resolved in this conversation. If updating stage and you are unsure of the exact name, call fub_get_stages first. If assigning a lender and you are unsure of the exact name, call fub_get_lenders first.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -776,6 +786,10 @@ $trimmedPrefs''';
           "source": {
             "type": "string",
             "description": "Lead source to set (e.g. 'Zillow', 'Referral', 'Website'). Must match a valid FUB source name — call fub_get_sources first if unsure. Omit if not changing."
+          },
+          "lender": {
+            "type": "string",
+            "description": "Lender to assign to this contact. Must match a lender name exactly — call fub_get_lenders first if unsure. Pass empty string to remove. Omit if not changing."
           },
           "assigned_to": {
             "type": "string",
@@ -878,7 +892,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "fub_get_person_details",
-      "description": "Read key fields of a FUB contact: tags, background info, source, stage, and collaborators. Use when the user asks about any of these fields (e.g. 'what tags does John have', 'what's Sarah's background', 'who are the collaborators on this contact', 'show me RoadMate's details'). ALWAYS pass person_id when the client was already resolved in this conversation.",
+      "description": "Read key fields of a FUB contact: tags, background info, source, stage, lender, and collaborators. Use when the user asks about any of these fields (e.g. 'what tags does John have', 'what's Sarah's background', 'who is the lender on this contact', 'show me RoadMate's details'). ALWAYS pass person_id when the client was already resolved in this conversation.",
       "parameters": {
         "type": "object",
         "properties": {
