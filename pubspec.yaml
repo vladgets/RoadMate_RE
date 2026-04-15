@@ -1,7 +1,7 @@
 name: road_mate_flutter
 description: "A driver voice assistant app in Flutter"
 publish_to: 'none'
-version: 1.0.0+5
+version: 1.0.0+8
 
 environment:
   sdk: ^3.10.4
