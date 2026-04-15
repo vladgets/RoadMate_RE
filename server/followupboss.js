@@ -1358,6 +1358,7 @@ export function registerFollowUpBossRoutes(app) {
         const r = await fetch(`${FUB_BASE}/leadSources?${params}`, { headers: fubHeaders() });
         const data = await r.json();
         if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
+        console.log("[FUB] leadSources raw keys:", Object.keys(data), "first item:", JSON.stringify(data.leadSources?.[0]));
         const batch = data.leadSources || [];
         allSources.push(...batch);
         if (batch.length < limit) break;
