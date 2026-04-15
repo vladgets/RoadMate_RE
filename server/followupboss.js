@@ -25,6 +25,42 @@ function fubHeaders() {
 }
 
 /**
+ * Fetch the account's default outbound SMS number dynamically.
+ * Looks at the most recent outbound text message's fromNumber.
+ * Cached in memory for 1 hour. Falls back to FUB_FROM_NUMBER env var.
+ */
+let _fromNumberCache = null;
+let _fromNumberCacheTs = 0;
+
+async function getFubFromNumber() {
+  const now = Date.now();
+  if (_fromNumberCache && now - _fromNumberCacheTs < 60 * 60 * 1000) {
+    return _fromNumberCache;
+  }
+  // Env var override (useful for new accounts with no sent texts yet)
+  if (process.env.FUB_FROM_NUMBER) {
+    _fromNumberCache = process.env.FUB_FROM_NUMBER.replace(/\D/g, '');
+    _fromNumberCacheTs = now;
+    return _fromNumberCache;
+  }
+  try {
+    const r = await fetch(`${FUB_BASE}/textMessages?limit=25&isIncoming=false`, { headers: fubHeaders() });
+    const data = await r.json();
+    const messages = data.textMessages || [];
+    const outbound = messages.find(m => !m.isIncoming && m.fromNumber);
+    if (outbound) {
+      _fromNumberCache = outbound.fromNumber.replace(/\D/g, '');
+      _fromNumberCacheTs = now;
+      console.log(`[FUB] from number auto-detected: ${_fromNumberCache}`);
+      return _fromNumberCache;
+    }
+  } catch (e) {
+    console.warn('[FUB] could not auto-detect fromNumber:', e.message);
+  }
+  return null;
+}
+
+/**
  * Fetch all FUB users and return a map of lowercase-name → { id, name }.
  * Cached in memory for 5 minutes.
  */
@@ -795,7 +831,10 @@ export function registerFollowUpBossRoutes(app) {
 
       // Log as a native FUB text message entry using registered system credentials
       const toNumber = phoneNumber.replace(/\D/g, '');
-      const fromNumber = process.env.FUB_FROM_NUMBER || '7326381281'; // company number
+      const fromNumber = await getFubFromNumber();
+      if (!fromNumber) {
+        return res.json({ ok: false, error: 'Could not determine outbound SMS number. Set FUB_FROM_NUMBER env var.' });
+      }
       const textPayload = { personId, message: message.trim(), toNumber, fromNumber };
       const textResp = await fetch(`${FUB_BASE}/textMessages`, {
         method: "POST",
