@@ -38,7 +38,11 @@ fub_create_note: only for free-text observations the user explicitly wants logge
 Confirmations: when the user says "yes", "go ahead", "do it", or similar — execute ONLY the single action proposed in your immediately preceding response. Never infer or execute additional unrelated actions from prior context.
 
 Date: {{CURRENT_DATE_READABLE}}
-''';
+{{USER_EMAIL_LINE}}''';
+
+  /// The authenticated user's own email address, populated after Google OAuth.
+  /// Used to pre-fill the 'to' field when sending email to self.
+  static String? userEmail;
 
   static const String model = "gpt-realtime-mini-2025-12-15";
 
@@ -223,6 +227,10 @@ Date: {{CURRENT_DATE_READABLE}}
         .replaceAll(
           '{{LAST_CLIENT_LINE}}',
           lastClientLine.isNotEmpty ? '$lastClientLine\n' : '',
+        )
+        .replaceAll(
+          '{{USER_EMAIL_LINE}}',
+          userEmail != null && userEmail!.isNotEmpty ? 'Your email: $userEmail\n' : '',
         );
   }
 
@@ -406,6 +414,22 @@ $trimmedPrefs''';
           "message_id": { "type": "string", "description": "Unique message id." }
         },
         "required": ["message_id"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "gmail_send_email",
+      "description": "Send an email via Gmail. Defaults to sending to the user's own address if 'to' is omitted — useful for reminders or notes to self. Supports optional text attachment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "subject": { "type": "string", "description": "Email subject line." },
+          "body": { "type": "string", "description": "Email body text." },
+          "to": { "type": "string", "description": "Recipient email address. Omit or leave empty to send to the user's own email." },
+          "attachment_text": { "type": "string", "description": "Text content to attach as a file (optional)." },
+          "attachment_filename": { "type": "string", "description": "Filename for the attachment, e.g. 'summary.txt' (required if attachment_text is provided)." }
+        },
+        "required": ["subject", "body"]
       }
     },
     {

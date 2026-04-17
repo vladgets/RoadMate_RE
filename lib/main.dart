@@ -229,6 +229,25 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       gDriveClient = GDriveClient(baseUrl: Config.serverUrl, clientId: cid);
       debugPrint('[ClientId] $cid');
 
+      // Fetch and cache the user's own email address (used by gmail_send_email tool).
+      final prefs = await SharedPreferences.getInstance();
+      var cachedEmail = prefs.getString('user_gmail_email');
+      if (cachedEmail != null && cachedEmail.isNotEmpty) {
+        Config.userEmail = cachedEmail;
+        debugPrint('[Gmail] User email (cached): $cachedEmail');
+      } else {
+        try {
+          final email = await gmailClient.fetchUserEmail();
+          if (email != null && email.isNotEmpty) {
+            Config.userEmail = email;
+            await prefs.setString('user_gmail_email', email);
+            debugPrint('[Gmail] User email (fetched): $email');
+          }
+        } catch (e) {
+          debugPrint('[Gmail] Could not fetch user email: $e');
+        }
+      }
+
       if (mounted) setState(() {});
     });
 
@@ -714,6 +733,12 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     }
     return await GmailReadEmailTool(client: gmailClient).call(args);
   },
+  'gmail_send_email': (args) async {
+    if (_clientId == null) {
+      throw Exception('Gmail is not initialized yet (client id missing). Try again in a second.');
+    }
+    return await GmailSendEmailTool(client: gmailClient).call(args);
+  },
   'read_drive_file': (args) async {
     if (_clientId == null) {
       return {'ok': false, 'error': 'Not initialized yet. Try again in a second.'};
@@ -1018,6 +1043,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       'web_search',
       'gmail_search',
       'gmail_read_email',
+      'gmail_send_email',
       'read_drive_file',
       'traffic_eta',
     };

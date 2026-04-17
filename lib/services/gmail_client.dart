@@ -199,6 +199,48 @@ class GmailClient {
     return GmailSearchResponse.fromJson(data);
   }
 
+  /// Calls GET /gmail/profile — returns the authenticated user's email address.
+  Future<String?> fetchUserEmail() async {
+    final uri = _u('/gmail/profile');
+    final r = await http.get(uri, headers: await _headers());
+    if (r.statusCode < 200 || r.statusCode >= 300) return null;
+    final data = jsonDecode(r.body) as Map<String, dynamic>;
+    return data['email_address'] as String?;
+  }
+
+  /// Calls POST /gmail/send
+  Future<Map<String, dynamic>> sendEmail({
+    String? to,
+    required String subject,
+    required String body,
+    String? attachmentText,
+    String? attachmentFilename,
+  }) async {
+    final payload = <String, dynamic>{
+      'subject': subject,
+      'body': body,
+      if (to != null && to.isNotEmpty) 'to': to,
+      if (attachmentText != null && attachmentText.isNotEmpty) 'attachment_text': attachmentText,
+      if (attachmentFilename != null && attachmentFilename.isNotEmpty) 'attachment_filename': attachmentFilename,
+    };
+
+    debugPrint('[GmailClient] sendEmail request: ${jsonEncode(payload)}');
+    final r = await http.post(
+      _u('/gmail/send'),
+      headers: await _headers(),
+      body: jsonEncode(payload),
+    );
+
+    final data = jsonDecode(r.body) as Map<String, dynamic>;
+    debugPrint('[GmailClient] sendEmail response (${r.statusCode}): ${r.body}');
+
+    if (r.statusCode < 200 || r.statusCode >= 300) {
+      throw Exception('Gmail send failed (${r.statusCode}): ${data['error'] ?? r.body}');
+    }
+
+    return data;
+  }
+
   /// Calls GET /gmail/read?id=...
   Future<GmailReadResponse> readEmailMetadata({required String id}) async {
     final uri = _u('/gmail/read').replace(queryParameters: {'id': id});
@@ -287,6 +329,34 @@ class GmailReadEmailTool {
   }
 }
 
+
+class GmailSendEmailTool {
+  final GmailClient client;
+
+  GmailSendEmailTool({required this.client});
+
+  Future<Map<String, dynamic>> call(Map<String, dynamic> args) async {
+    final subject = args['subject'] as String?;
+    final body = args['body'] as String?;
+
+    if (subject == null || subject.isEmpty) {
+      return {'ok': false, 'error': 'Missing required field: subject'};
+    }
+    if (body == null || body.isEmpty) {
+      return {'ok': false, 'error': 'Missing required field: body'};
+    }
+
+    final result = await client.sendEmail(
+      to: args['to'] as String?,
+      subject: subject,
+      body: body,
+      attachmentText: args['attachment_text'] as String?,
+      attachmentFilename: args['attachment_filename'] as String?,
+    );
+
+    return result;
+  }
+}
 
 /// Quick manual test you can call from your Settings menu.
 ///

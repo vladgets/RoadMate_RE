@@ -3,6 +3,7 @@ import { google } from "googleapis";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/calendar",
   "https://www.googleapis.com/auth/drive",
 ];
@@ -220,6 +221,48 @@ function extractBodyTextFromMessage(msg, maxChars = 12000) {
 }
 
 
+function buildRawEmail({ to, subject, bodyText, attachmentText, attachmentFilename }) {
+  const hasAttachment = attachmentText && attachmentFilename;
+  const boundary = `rm_boundary_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+  let mime;
+  if (!hasAttachment) {
+    mime = [
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      "MIME-Version: 1.0",
+      "Content-Type: text/plain; charset=utf-8",
+      "",
+      bodyText,
+    ].join("\r\n");
+  } else {
+    const attachB64 = Buffer.from(attachmentText, "utf-8").toString("base64");
+    mime = [
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      "MIME-Version: 1.0",
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      "",
+      `--${boundary}`,
+      "Content-Type: text/plain; charset=utf-8",
+      "",
+      bodyText,
+      "",
+      `--${boundary}`,
+      `Content-Type: text/plain; charset=utf-8; name="${attachmentFilename}"`,
+      `Content-Disposition: attachment; filename="${attachmentFilename}"`,
+      "Content-Transfer-Encoding: base64",
+      "",
+      attachB64,
+      "",
+      `--${boundary}--`,
+    ].join("\r\n");
+  }
+
+  // Gmail API requires base64url encoding (no padding).
+  return Buffer.from(mime).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
 // Shared helpers exported for use by other Google service modules.
 export { loadToken, getAuthorizedClient, sanitizeClientId, getClientIdFromReq, TOKEN_DIR };
 
@@ -275,6 +318,21 @@ export function registerGmailRoutes(app) {
       // Save tokens (covers Gmail + Calendar — both scopes requested)
       saveToken(clientId, tokens);
       console.log(`[google] OAuth token saved for client_id=${clientId}, scopes=${tokens.scope}`);
+
+      // Cache the user's email address in the token file so we don't need to fetch it later.
+      try {
+        oauth2.setCredentials(tokens);
+        const gmail = google.gmail({ version: "v1", auth: oauth2 });
+        const profile = await gmail.users.getProfile({ userId: "me" });
+        const emailAddress = profile.data.emailAddress;
+        if (emailAddress) {
+          const updated = { ...tokens, email_address: emailAddress };
+          saveToken(clientId, updated);
+          console.log(`[google] Cached email for client_id=${clientId}: ${emailAddress}`);
+        }
+      } catch (profileErr) {
+        console.warn(`[google] Could not fetch profile email: ${profileErr.message}`);
+      }
 
       return res.send("<p>Google account connected successfully. You can close this tab and return to RoadMate.</p>");
     } catch (e) {
@@ -506,6 +564,101 @@ export function registerGmailRoutes(app) {
         snippet: msg.snippet || "",
         body_text,
       });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  // Get the authenticated user's Gmail profile (primarily to retrieve their email address).
+  app.get("/gmail/profile", async (req, res) => {
+    try {
+      const clientId = getClientIdFromReq(req);
+      if (!clientId) {
+        return res.status(400).json({ ok: false, error: "Missing or invalid client_id." });
+      }
+
+      const token = loadToken(clientId);
+      if (!token) {
+        return res.status(401).json({ ok: false, error: "Not authorized. Complete Google OAuth first." });
+      }
+
+      // Return cached email if available.
+      if (token.email_address) {
+        return res.json({ ok: true, email_address: token.email_address });
+      }
+
+      // Fetch from Gmail API and cache it.
+      const auth = await getAuthorizedClient(clientId);
+      const gmail = google.gmail({ version: "v1", auth });
+      const profile = await gmail.users.getProfile({ userId: "me" });
+      const emailAddress = profile.data.emailAddress || null;
+
+      if (emailAddress) {
+        const updated = { ...token, email_address: emailAddress };
+        saveToken(clientId, updated);
+      }
+
+      return res.json({ ok: true, email_address: emailAddress });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  // Send an email via the authenticated Gmail account.
+  app.post("/gmail/send", async (req, res) => {
+    try {
+      const clientId = getClientIdFromReq(req);
+      if (!clientId) {
+        return res.status(400).json({ ok: false, error: "Missing or invalid client_id." });
+      }
+
+      const body = req.body || {};
+      const subject = cleanText(body.subject);
+      const emailBody = typeof body.body === "string" ? body.body.trim() : "";
+      const attachmentText = typeof body.attachment_text === "string" ? body.attachment_text.trim() : null;
+      const attachmentFilename = typeof body.attachment_filename === "string" ? body.attachment_filename.trim() : null;
+
+      if (!subject) {
+        return res.status(400).json({ ok: false, error: "Missing required field: subject" });
+      }
+      if (!emailBody) {
+        return res.status(400).json({ ok: false, error: "Missing required field: body" });
+      }
+
+      // Resolve recipient — default to the authenticated user's own email.
+      let to = typeof body.to === "string" ? body.to.trim() : "";
+      if (!to || to.toLowerCase() === "self" || to.toLowerCase() === "me") {
+        const token = loadToken(clientId);
+        to = token?.email_address || "";
+
+        if (!to) {
+          // Fetch from API as fallback.
+          const authTemp = await getAuthorizedClient(clientId);
+          const gmailTemp = google.gmail({ version: "v1", auth: authTemp });
+          const profile = await gmailTemp.users.getProfile({ userId: "me" });
+          to = profile.data.emailAddress || "";
+          if (to) {
+            const updated = { ...token, email_address: to };
+            saveToken(clientId, updated);
+          }
+        }
+
+        if (!to) {
+          return res.status(400).json({ ok: false, error: "Could not determine recipient email. Please provide 'to' field." });
+        }
+      }
+
+      const auth = await getAuthorizedClient(clientId);
+      const gmail = google.gmail({ version: "v1", auth });
+
+      const raw = buildRawEmail({ to, subject, bodyText: emailBody, attachmentText, attachmentFilename });
+
+      const result = await gmail.users.messages.send({
+        userId: "me",
+        requestBody: { raw },
+      });
+
+      return res.json({ ok: true, message_id: result.data.id, to, subject });
     } catch (e) {
       return res.status(500).json({ ok: false, error: String(e) });
     }
