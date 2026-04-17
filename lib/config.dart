@@ -230,7 +230,9 @@ Date: {{CURRENT_DATE_READABLE}}
         )
         .replaceAll(
           '{{USER_EMAIL_LINE}}',
-          userEmail != null && userEmail!.isNotEmpty ? 'Your email: $userEmail\n' : '',
+          userEmail != null && userEmail!.isNotEmpty
+              ? "User's own email address (tell them if asked): $userEmail\n"
+              : '',
         );
   }
 

@@ -30575,7 +30575,7 @@ k=A.cv(k,"{{FUB_AGENT_LINE}}",p)
 p=l.length!==0?l+"\n":""
 k=A.cv(k,"{{LAST_CLIENT_LINE}}",p)
 p=$.aJz
-p=p!=null&&p.length!==0?"Your email: "+p+"\n":""
+p=p!=null&&p.length!==0?"User's own email address (tell them if asked): "+p+"\n":""
 o=A.cv(k,"{{USER_EMAIL_LINE}}",p)
 s=3
 return A.e(A.Ry(),$async$a7E)
