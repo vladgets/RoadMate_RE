@@ -467,6 +467,13 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     // IMPORTANT: use the ephemeral key here (NOT your real API key).
     req.headers['Authorization'] = "Bearer $ephemeralKey";
 
+    // Ensure user email is loaded before building system prompt (guards against timing race).
+    if (Config.userEmail == null) {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString('user_gmail_email');
+      if (cached != null && cached.isNotEmpty) Config.userEmail = cached;
+    }
+
     final instructions = await Config.buildSystemPromptWithPreferences();
 
     // Optional session override; can be minimal if you already set it in /token.
