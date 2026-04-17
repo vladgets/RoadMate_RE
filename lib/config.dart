@@ -38,7 +38,7 @@ fub_create_note: only for free-text observations the user explicitly wants logge
 Confirmations: when the user says "yes", "go ahead", "do it", or similar — execute ONLY the single action proposed in your immediately preceding response. Never infer or execute additional unrelated actions from prior context.
 
 Date: {{CURRENT_DATE_READABLE}}
-{{USER_EMAIL_LINE}}''';
+{{USER_IDENTITY_LINE}}''';
 
   /// The authenticated user's own email address, populated after Google OAuth.
   /// Used to pre-fill the 'to' field when sending email to self.
@@ -219,6 +219,17 @@ Date: {{CURRENT_DATE_READABLE}}
         "Use this person_id directly if the user refers to this client without asking to search.";
   }
 
+  /// Builds a single line identifying the user's name and/or email for the system prompt.
+  static String _userIdentityLine() {
+    final name = fubAgentName?.isNotEmpty == true ? fubAgentName : null;
+    final email = userEmail?.isNotEmpty == true ? userEmail : null;
+    if (name == null && email == null) return '';
+    final parts = <String>[];
+    if (name != null) parts.add('name: $name');
+    if (email != null) parts.add('email: $email (share freely when asked)');
+    return 'You are speaking with ${parts.join(', ')}.\n';
+  }
+
   static String _applyPlaceholders(String template) {
     final lastClientLine = _lastClientLine();
     return template
@@ -229,10 +240,8 @@ Date: {{CURRENT_DATE_READABLE}}
           lastClientLine.isNotEmpty ? '$lastClientLine\n' : '',
         )
         .replaceAll(
-          '{{USER_EMAIL_LINE}}',
-          userEmail != null && userEmail!.isNotEmpty
-              ? "User's own email address (tell them if asked): $userEmail\n"
-              : '',
+          '{{USER_IDENTITY_LINE}}',
+          _userIdentityLine(),
         );
   }
 

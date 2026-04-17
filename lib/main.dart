@@ -471,7 +471,18 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     if (Config.userEmail == null) {
       final prefs = await SharedPreferences.getInstance();
       final cached = prefs.getString('user_gmail_email');
-      if (cached != null && cached.isNotEmpty) Config.userEmail = cached;
+      if (cached != null && cached.isNotEmpty) {
+        Config.userEmail = cached;
+      } else if (_clientId != null) {
+        // Not in local cache — fetch from server (e.g. web after rebuild, or first launch).
+        try {
+          final email = await gmailClient.fetchUserEmail();
+          if (email != null && email.isNotEmpty) {
+            Config.userEmail = email;
+            await prefs.setString('user_gmail_email', email);
+          }
+        } catch (_) {}
+      }
     }
 
     final instructions = await Config.buildSystemPromptWithPreferences();
