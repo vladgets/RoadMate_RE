@@ -486,6 +486,8 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     }
 
     final instructions = await Config.buildSystemPromptWithPreferences();
+    debugPrint('[SystemPrompt] fubAgentName=${Config.fubAgentName} userEmail=${Config.userEmail}');
+    debugPrint('[SystemPrompt] first 300 chars: ${instructions.substring(0, instructions.length.clamp(0, 300))}');
 
     // Optional session override; can be minimal if you already set it in /token.
     req.fields['session'] = jsonEncode({
