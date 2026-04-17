@@ -28,8 +28,7 @@ class OpenAIChatClient {
     final messages = [
       {
         'role': 'system',
-        'content': Config.systemPromptTemplate
-            .replaceAll('{{CURRENT_DATE_READABLE}}', _getCurrentDate()),
+        'content': Config.buildSystemPrompt(),
       },
       // Add conversation history (limit to last 20 messages for context)
       ...conversationHistory
