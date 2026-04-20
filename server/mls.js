@@ -20,28 +20,25 @@ import { chromium } from "playwright";
 import fs from "fs";
 import { execFileSync } from "child_process";
 
-// On Render the persistent disk is mounted at /data at runtime (not during build).
-// We store Chromium there so it survives redeploys and is only downloaded once.
-const BROWSERS_PATH = "/data/playwright";
-process.env.PLAYWRIGHT_BROWSERS_PATH = BROWSERS_PATH;
+// PLAYWRIGHT_BROWSERS_PATH is set to /data/playwright in the start script
+// (package.json) so Playwright picks it up before any imports run.
+// ensureChromium() installs the binary on first startup if not present.
+const BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH ?? "/data/playwright";
 
 function ensureChromium() {
   try {
     const exe = chromium.executablePath();
-    if (!fs.existsSync(exe)) throw new Error("not found");
-    // Already installed
+    if (!fs.existsSync(exe)) throw new Error("binary missing");
   } catch {
-    console.log("[MLS] Chromium not found, installing to", BROWSERS_PATH, "...");
+    console.log("[MLS] Installing Chromium to", BROWSERS_PATH, "...");
     fs.mkdirSync(BROWSERS_PATH, { recursive: true });
     execFileSync("npx", ["playwright", "install", "chromium"], {
-      env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: BROWSERS_PATH },
       stdio: "inherit",
     });
-    console.log("[MLS] Chromium installed.");
+    console.log("[MLS] Chromium ready.");
   }
 }
 
-// Run once at module load (server startup) — /data is mounted by then.
 ensureChromium();
 import path from "path";
 

@@ -5,8 +5,7 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js",
-    "postinstall": "echo 'Playwright browser will be installed at runtime'"
+    "start": "PLAYWRIGHT_BROWSERS_PATH=/data/playwright node server.js"
   },
   "keywords": [],
   "author": "",
