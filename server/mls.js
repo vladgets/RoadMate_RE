@@ -418,12 +418,14 @@ async function searchAddress(page, address) {
   // Wait for autocomplete dropdown — resolves immediately when it appears
   let clicked = false;
   try {
-    const dropdown = await topFrame.waitForSelector(
+    await topFrame.waitForSelector(
       'ul[class*="auto"], .autocomplete, [class*="suggest"], ul li[class*="result"]',
       { timeout: 3000 }
     );
-    console.log("[MLS] Autocomplete appeared, clicking first result");
-    await dropdown.click({ noWaitAfter: true });
+    console.log("[MLS] Autocomplete appeared, selecting first result via keyboard");
+    // Use ArrowDown + Enter instead of clicking — more reliable in headless Linux
+    await searchInput.press("ArrowDown");
+    await searchInput.press("Enter");
     clicked = true;
   } catch {
     console.log("[MLS] No autocomplete, pressing Enter");
