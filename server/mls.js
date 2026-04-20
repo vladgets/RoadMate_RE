@@ -18,6 +18,12 @@
 
 import { chromium } from "playwright";
 import fs from "fs";
+
+// Point Playwright to the persistent disk on Render so the browser binary
+// survives redeploys and is only downloaded once.
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
+  process.env.PLAYWRIGHT_BROWSERS_PATH = "/data/playwright";
+}
 import path from "path";
 
 const BASE_URL = "https://mo.flexmls.com";
