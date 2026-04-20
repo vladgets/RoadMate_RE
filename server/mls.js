@@ -823,79 +823,6 @@ export function registerMlsRoutes(app) {
   });
 
   /**
-   * GET /mls/debug
-   * Loads mo.flexmls.com with the saved session, waits 15s, then snapshots every frame:
-   *   - URL, whether evaluate() blocked (timeout), input elements found, first 300 chars of text
-   * Returns JSON — use this to understand the real frame structure before guessing at selectors.
-   */
-  app.get("/mls/debug", async (req, res) => {
-    const browser = await getBrowser();
-    const context = await browser.newContext({
-      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-      viewport: { width: 1280, height: 900 },
-    });
-    const page = await context.newPage();
-
-    // Helper: run an evaluate with a hard timeout so hung frames show {timedOut:true}
-    const safeEval = (frame, fn, ms = 3000) =>
-      Promise.race([
-        frame.evaluate(fn).catch(e => ({ evalError: e.message })),
-        new Promise(r => setTimeout(() => r({ timedOut: true }), ms)),
-      ]);
-
-    try {
-      // Load saved session
-      if (fs.existsSync(SESSION_FILE)) {
-        const state = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
-        await context.addCookies(state.cookies ?? []);
-      }
-
-      const snapshots = [];
-      const navigated = [];
-      page.on("framenavigated", f => navigated.push({ url: f.url(), name: f.name() }));
-
-      await page.goto("https://mo.flexmls.com/", { waitUntil: "domcontentloaded", timeout: 20000 });
-
-      // Snapshot at t=0, t=5, t=10, t=15 seconds
-      for (const delay of [0, 5000, 10000, 15000]) {
-        if (delay > 0) await page.waitForTimeout(5000);
-        const t = delay / 1000;
-
-        const frameInfos = await Promise.all(
-          page.frames().map(async (frame) => {
-            const url = frame.url();
-            if (!url || url === "about:blank") return null;
-
-            const info = await safeEval(frame, () => {
-              const inputs = Array.from(document.querySelectorAll("input")).map(el => ({
-                type: el.type, name: el.name, id: el.id,
-                placeholder: el.placeholder,
-                visible: el.offsetParent !== null,
-              }));
-              return {
-                title: document.title,
-                bodyLen: document.body?.innerText?.length ?? 0,
-                bodySnippet: document.body?.innerText?.slice(0, 300) ?? "",
-                inputs,
-              };
-            });
-
-            return { t, url: url.slice(0, 150), name: frame.name(), ...info };
-          })
-        );
-
-        snapshots.push(...frameInfos.filter(Boolean));
-      }
-
-      res.json({ ok: true, navigated, snapshots });
-    } catch (e) {
-      res.status(500).json({ ok: false, error: e.message });
-    } finally {
-      await context.close();
-    }
-  });
-
-  /**
    * DELETE /mls/session
    * Clears the saved browser session (forces re-login on next call)
    */
@@ -909,4 +836,5 @@ export function registerMlsRoutes(app) {
   });
 
   console.log("[MLS] Routes registered: POST /mls/search, GET /mls/document, DELETE /mls/session");
+
 }
