@@ -313,79 +313,102 @@ async function ensureAuthenticated(page, context) {
 
 // ─── Address search ───────────────────────────────────────────────────────────
 
-async function getFlexmlsTopFrame(page) {
-  // Flexmls is a multi-frame app. The search bar lives in the top frame.
-  await page.waitForTimeout(3000); // Let all frames load
-  for (const frame of page.frames()) {
-    if (frame.url().includes("top_frame")) {
-      return frame;
+async function waitForTopFrame(page, timeout = 15000) {
+  // Wait for the top_frame to appear rather than sleeping a fixed duration
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const frame = page.frames().find(f => f.url().includes("top_frame"));
+    if (frame) return frame;
+    await page.waitForTimeout(200);
+  }
+  return null;
+}
+
+async function waitForDetailFrame(page, timeout = 10000) {
+  // The display_custom_report frame has the full property details
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    for (const frame of page.frames()) {
+      if (frame.url().includes("display_custom_report")) {
+        const text = await frame.evaluate(() => document.body?.innerText ?? "").catch(() => "");
+        if (text.length > 200) return frame;
+      }
     }
+    await page.waitForTimeout(200);
+  }
+  return null; // Not fatal — listnum frame still has usable data
+}
+
+async function waitForResultsFrame(page, timeout = 20000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    for (const frame of page.frames()) {
+      const url = frame.url();
+      if (url.includes("listnum/step2") || url.includes("display_custom_report") || url.includes("listnum")) {
+        const text = await frame.evaluate(() => document.body?.innerText ?? "").catch(() => "");
+        if (text.length > 100) return frame;
+      }
+    }
+    await page.waitForTimeout(300);
   }
   return null;
 }
 
 async function searchAddress(page, address) {
-  console.log("[MLS] Navigating to Flexmls (SSO redirect)...");
+  // For cached sessions try navigating directly to mo.flexmls.com — faster than
+  // going through the SSO redirect chain.
+  console.log("[MLS] Loading Flexmls app...");
+  await page.goto("https://mo.flexmls.com/", { waitUntil: "domcontentloaded", timeout: 20000 });
 
-  // SSO: navigate via the redirect link used by the broker dashboard
-  await page.goto("https://members.flexmls.com/ticket/redirect", {
-    waitUntil: "domcontentloaded",
-    timeout: 20000,
-  });
-  console.log("[MLS] After SSO redirect, URL:", page.url());
-
-  // Wait for the multi-frame app to initialize
-  await page.waitForTimeout(4000);
-  await page.screenshot({ path: "/tmp/mls_app_loaded.png" });
-
-  // Find the top frame that contains the global search bar
-  const topFrame = await getFlexmlsTopFrame(page);
-  if (!topFrame) {
-    const frameUrls = page.frames().map(f => f.url());
-    console.log("[MLS] Available frames:", frameUrls);
-    throw new Error("Could not find Flexmls top frame");
+  // If we landed on the ticket/login page, fall back to the SSO redirect
+  if (page.url().includes("/ticket")) {
+    console.log("[MLS] Direct nav failed, using SSO redirect...");
+    await page.goto("https://members.flexmls.com/ticket/redirect", {
+      waitUntil: "domcontentloaded",
+      timeout: 20000,
+    });
   }
-  console.log("[MLS] Found top frame:", topFrame.url());
+  console.log("[MLS] App URL:", page.url());
 
-  // The search bar in the top frame
-  const searchInput = await topFrame.$('input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]:first-of-type');
-  if (!searchInput) {
-    const inputs = await topFrame.$$eval("input", els => els.map(e => ({ type: e.type, placeholder: e.placeholder })));
-    console.log("[MLS] Top frame inputs:", JSON.stringify(inputs));
-    throw new Error("Could not find search input in Flexmls top frame");
-  }
+  // Wait for the top frame (search bar) to appear — no fixed sleep
+  const topFrame = await waitForTopFrame(page);
+  if (!topFrame) throw new Error("Flexmls top frame did not load");
+  console.log("[MLS] Top frame ready");
+
+  // Wait for the search input to be visible inside the top frame
+  const searchInput = await topFrame.waitForSelector(
+    'input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]:first-of-type',
+    { state: "visible", timeout: 10000 }
+  );
 
   console.log("[MLS] Typing address:", address);
   await searchInput.click();
   await searchInput.fill("");
-  await searchInput.type(address, { delay: 60 });
+  // type() with a short delay triggers keyboard events needed for autocomplete
+  await searchInput.type(address, { delay: 20 });
 
-  await page.screenshot({ path: "/tmp/mls_search_typing.png" });
-
-  // Wait for autocomplete dropdown in the top frame
-  let navigated = false;
+  // Wait for autocomplete dropdown — resolves immediately when it appears
+  let clicked = false;
   try {
     const dropdown = await topFrame.waitForSelector(
-      'ul[class*="auto"], .autocomplete, [class*="suggest"], [class*="dropdown"] li, ul li[class*="result"]',
-      { timeout: 4000 }
+      'ul[class*="auto"], .autocomplete, [class*="suggest"], ul li[class*="result"]',
+      { timeout: 3000 }
     );
     console.log("[MLS] Autocomplete appeared, clicking first result");
-    await page.screenshot({ path: "/tmp/mls_autocomplete.png" });
     await dropdown.click();
-    navigated = true;
+    clicked = true;
   } catch {
-    // No dropdown — press Enter
     console.log("[MLS] No autocomplete, pressing Enter");
-  }
-
-  if (!navigated) {
     await searchInput.press("Enter");
   }
 
-  // Wait for main content to update (new frame or page navigation)
-  await page.waitForTimeout(4000);
-  console.log("[MLS] After search, URL:", page.url());
-  await page.screenshot({ path: "/tmp/mls_search_results.png" });
+  // Wait for the main results frame to have content
+  const resultsFrame = await waitForResultsFrame(page, 20000);
+  if (!resultsFrame) throw new Error("Search results did not load");
+  console.log("[MLS] Results loaded in frame:", resultsFrame.url().slice(0, 80));
+
+  // Wait for the detail report frame to load (has full property data + Documents tab)
+  await waitForDetailFrame(page, 10000);
 }
 
 // ─── Extract listing data ─────────────────────────────────────────────────────
@@ -403,19 +426,17 @@ async function fetchDocuments(page, resultsFrame) {
 
   await docsLink.click();
 
-  // Wait for the documents frame to appear (URL contains documentviewer.html)
-  // and for its source to contain document data
+  // Wait for the documents frame to appear and its JS data to be injected
   let docsFrame = null;
   let frameSource = "";
-  const deadline = Date.now() + 12000;
+  const deadline = Date.now() + 10000;
   while (Date.now() < deadline) {
-    await page.waitForTimeout(400);
     docsFrame = page.frames().find((f) => f.url().includes("documentviewer"));
     if (docsFrame) {
       frameSource = await docsFrame.content().catch(() => "");
-      // The JS source contains `documents.push(new Document(` when data is loaded
       if (frameSource.includes("documents.push")) break;
     }
+    await page.waitForTimeout(200);
   }
 
   if (!docsFrame) {
@@ -505,9 +526,7 @@ async function downloadDocument(context, pdfUrl, destPath) {
 // ─── Extract listing data ─────────────────────────────────────────────────────
 
 async function extractListingData(page, context) {
-  await page.screenshot({ path: "/tmp/mls_listing_page.png" });
-
-  // Flexmls is multi-frame — collect text from all frames
+  // Find the results frame (already loaded by searchAddress)
   let bestFrame = null;
   let bestFrameText = "";
   let resultsFrame = null;
