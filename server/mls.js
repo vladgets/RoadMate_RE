@@ -18,15 +18,15 @@
 
 import { chromium } from "playwright";
 import fs from "fs";
+import path from "path";
 import { execFileSync } from "child_process";
 
-// PLAYWRIGHT_BROWSERS_PATH is set to /data/playwright in the start script
-// (package.json) so Playwright picks it up before any imports run.
-// ensureChromium() installs the binary on first startup if not present.
-const BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH ?? "/data/playwright";
+// Where we store the Chromium binary on the Render persistent disk.
+// We pass executablePath directly to chromium.launch() so Playwright
+// doesn't need to read any env var — it always finds the right binary.
+const BROWSERS_PATH = "/data/playwright";
 
 function ensureChromium() {
-  // Check if any chromium* directory exists under BROWSERS_PATH
   const alreadyInstalled =
     fs.existsSync(BROWSERS_PATH) &&
     fs.readdirSync(BROWSERS_PATH).some((d) => d.startsWith("chromium"));
@@ -38,12 +38,35 @@ function ensureChromium() {
 
   console.log("[MLS] Installing Chromium to", BROWSERS_PATH, "...");
   fs.mkdirSync(BROWSERS_PATH, { recursive: true });
-  execFileSync("npx", ["playwright", "install", "chromium"], { stdio: "inherit" });
+  execFileSync("npx", ["playwright", "install", "chromium"], {
+    stdio: "inherit",
+    env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: BROWSERS_PATH },
+  });
   console.log("[MLS] Chromium ready.");
 }
 
+function findChromiumExecutable() {
+  if (!fs.existsSync(BROWSERS_PATH)) return null;
+  for (const dir of fs.readdirSync(BROWSERS_PATH)) {
+    if (!dir.startsWith("chromium")) continue;
+    // Playwright installs headless shell or full chrome under versioned dirs
+    const candidates = [
+      path.join(BROWSERS_PATH, dir, "chrome-headless-shell-linux64", "chrome-headless-shell"),
+      path.join(BROWSERS_PATH, dir, "chrome-linux64", "chrome"),
+      path.join(BROWSERS_PATH, dir, "chrome-headless-shell-linux", "chrome-headless-shell"),
+      path.join(BROWSERS_PATH, dir, "chrome-linux", "chrome"),
+    ];
+    for (const exe of candidates) {
+      if (fs.existsSync(exe)) {
+        console.log("[MLS] Chromium executable:", exe);
+        return exe;
+      }
+    }
+  }
+  return null;
+}
+
 ensureChromium();
-import path from "path";
 
 const BASE_URL = "https://mo.flexmls.com";
 const SESSION_FILE = process.env.MLS_SESSION_FILE ?? "/data/mls_session.json";
@@ -54,8 +77,10 @@ let _browser = null;
 
 async function getBrowser() {
   if (!_browser || !_browser.isConnected()) {
+    const executablePath = findChromiumExecutable() ?? undefined;
     _browser = await chromium.launch({
       headless: true,
+      executablePath,
       args: ["--no-sandbox", "--disable-dev-shm-usage"],
     });
   }
