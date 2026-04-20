@@ -480,11 +480,12 @@ async function searchAddress(page, address) {
   await searchLocator.click({ timeout: 8000, force: true, noWaitAfter: true });
   await searchLocator.clear({ timeout: 3000, noWaitAfter: true }).catch(() => {});
   console.log("[MLS] Searching:", address);
-  await searchLocator.pressSequentially(address, { delay: 40, timeout: 60000 });
+  await searchLocator.pressSequentially(address, { delay: 20, timeout: 60000 });
 
-  // Step 2: Wait for autocomplete XHR to fire and populate results (3s)
-  console.log("[MLS] Waiting 3s for autocomplete...");
-  await page.waitForTimeout(3000);
+  // Step 2: Poll for autocomplete results instead of fixed sleep (max 4s)
+  console.log("[MLS] Waiting for autocomplete...");
+  const autocompleteReady = topFrame.locator('li.result.selectable').first();
+  await autocompleteReady.waitFor({ state: 'visible', timeout: 4000 }).catch(() => {});
 
   // Step 3: Try clicking the first autocomplete result, fall back to Enter.
   // Both actions may timeout because child frames are still navigating (Playwright
