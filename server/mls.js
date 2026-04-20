@@ -403,6 +403,13 @@ async function searchAddress(page, address) {
   if (!topFrame) throw new Error("Flexmls top frame did not load");
   console.log("[MLS] Top frame ready");
 
+  // Wait for the frame to finish any SPA initialization navigations before we interact.
+  // Without this, evaluate() on the frame can block for 60-90s waiting for a pending navigation.
+  console.log("[MLS] Waiting for top frame network idle...");
+  await topFrame.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {
+    console.log("[MLS] Top frame not fully idle, proceeding anyway");
+  });
+
   // Wait for the search input to be visible inside the top frame
   const searchInput = await topFrame.waitForSelector(
     'input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]:first-of-type',
@@ -410,18 +417,11 @@ async function searchAddress(page, address) {
   );
 
   console.log("[MLS] Typing address:", address);
-  // Use evaluate to focus+clear (no Playwright nav-wait), then page.keyboard.type which
-  // dispatches raw input events and never waits for navigation — unlike ElementHandle methods.
-  await topFrame.evaluate(() => {
-    const sel = 'input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]';
-    const input = document.querySelector(sel);
-    if (input) {
-      input.focus();
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
-      setter.call(input, "");
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-  });
+  // focus() is a simple DOM op that doesn't trigger navigation.
+  // page.keyboard bypasses Playwright's navigation-wait entirely.
+  await searchInput.focus();
+  await page.keyboard.press("Control+a");
+  await page.keyboard.press("Delete");
   await page.keyboard.type(address, { delay: 20 });
 
   // Wait for autocomplete dropdown — resolves immediately when it appears
