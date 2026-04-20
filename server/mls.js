@@ -410,15 +410,19 @@ async function searchAddress(page, address) {
   );
 
   console.log("[MLS] Typing address:", address);
-  // noWaitAfter prevents Playwright from blocking on any SPA navigation triggered by click/type
-  await searchInput.click({ noWaitAfter: true });
+  // Use evaluate to focus+clear (no Playwright nav-wait), then page.keyboard.type which
+  // dispatches raw input events and never waits for navigation — unlike ElementHandle methods.
   await topFrame.evaluate(() => {
-    const input = document.querySelector(
-      'input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]'
-    );
-    if (input) { input.value = ""; input.dispatchEvent(new Event("input", { bubbles: true })); }
+    const sel = 'input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]';
+    const input = document.querySelector(sel);
+    if (input) {
+      input.focus();
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+      setter.call(input, "");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
   });
-  await searchInput.type(address, { delay: 20, noWaitAfter: true });
+  await page.keyboard.type(address, { delay: 20 });
 
   // Wait for autocomplete dropdown — resolves immediately when it appears
   let clicked = false;
@@ -427,39 +431,15 @@ async function searchAddress(page, address) {
       'ul[class*="auto"], .autocomplete, [class*="suggest"], ul li[class*="result"]',
       { timeout: 3000 }
     );
-    console.log("[MLS] Autocomplete appeared, selecting first result via keyboard");
-    // Dispatch ArrowDown + Enter via evaluate to avoid Playwright waiting for navigation
-    await topFrame.evaluate(() => {
-      const input = document.querySelector(
-        'input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]'
-      );
-      if (input) {
-        input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", keyCode: 40, bubbles: true }));
-        input.dispatchEvent(new KeyboardEvent("keyup",   { key: "ArrowDown", keyCode: 40, bubbles: true }));
-      }
-    });
+    console.log("[MLS] Autocomplete appeared, selecting first result via page.keyboard");
+    // page.keyboard dispatches raw input events — no navigation waiting like ElementHandle.press()
+    await page.keyboard.press("ArrowDown");
     await new Promise(r => setTimeout(r, 200));
-    await topFrame.evaluate(() => {
-      const input = document.querySelector(
-        'input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]'
-      );
-      if (input) {
-        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));
-        input.dispatchEvent(new KeyboardEvent("keyup",   { key: "Enter", keyCode: 13, bubbles: true }));
-      }
-    });
+    await page.keyboard.press("Enter");
     clicked = true;
   } catch {
-    console.log("[MLS] No autocomplete, pressing Enter via evaluate");
-    await topFrame.evaluate(() => {
-      const input = document.querySelector(
-        'input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]'
-      );
-      if (input) {
-        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));
-        input.dispatchEvent(new KeyboardEvent("keyup",   { key: "Enter", keyCode: 13, bubbles: true }));
-      }
-    });
+    console.log("[MLS] No autocomplete, pressing Enter via page.keyboard");
+    await page.keyboard.press("Enter");
   }
 
   // Wait for the main results frame to have content
