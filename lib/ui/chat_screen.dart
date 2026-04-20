@@ -113,7 +113,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final session = widget.conversationStore.activeSession;
       ConversationLogger.upload(
         clientId: widget.clientId,
-        sessionStart: session.createdAt.toIso8601String(),
+        sessionStart: session.createdAt.toUtc().toIso8601String(),
         messages: session.messages,
         agentName: widget.agentName,
       );

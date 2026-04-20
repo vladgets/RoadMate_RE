@@ -122,6 +122,53 @@ export function registerConversationRoutes(app) {
   });
 
   /**
+   * GET /admin/conversations/export
+   * Downloads all conversations as a single plain-text log file.
+   */
+  app.get("/admin/conversations/export", (req, res) => {
+    try {
+      ensureDir();
+      const files = fs.readdirSync(CONV_DIR)
+        .filter(f => f.endsWith(".json"))
+        .map(f => {
+          try { return JSON.parse(fs.readFileSync(path.join(CONV_DIR, f), "utf8")); }
+          catch { return null; }
+        })
+        .filter(Boolean)
+        .sort((a, b) => (a.session_start || "").localeCompare(b.session_start || ""));
+
+      const sections = files.map(d => {
+        const sep = "=".repeat(80);
+        const header = [
+          sep,
+          `Agent:     ${d.agent_name || "—"}`,
+          `Platform:  ${d.platform || "—"}`,
+          `Location:  ${d.location || "—"}`,
+          `Client ID: ${d.client_id || "—"}`,
+          `Started:   ${d.session_start || "—"}`,
+          `Messages:  ${d.message_count || d.messages?.length || 0}`,
+          sep,
+          "",
+        ].join("\n");
+
+        const lines = (d.messages || []).map(m => {
+          const prefix = m.role === "user" ? "User" : "Agent";
+          return `${prefix}: ${(m.content || "").replace(/\r?\n/g, " ")}`;
+        });
+
+        return header + lines.join("\n");
+      });
+
+      const output = sections.join("\n\n\n");
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.setHeader("Content-Disposition", 'attachment; filename="roadmate-conversations.txt"');
+      res.send(output || "No conversations found.");
+    } catch (e) {
+      res.status(500).send("Error: " + String(e));
+    }
+  });
+
+  /**
    * GET /admin/conversations
    * Lists all saved conversation files, newest first.
    */
@@ -185,11 +232,14 @@ export function registerConversationRoutes(app) {
   .empty { text-align: center; padding: 48px; color: #6e6e73; }
   .del-btn { background: none; border: none; cursor: pointer; font-size: 1rem; opacity: 0.4; padding: 4px 8px; border-radius: 6px; }
   .del-btn:hover { opacity: 1; background: #fee2e2; }
+  .export-btn { display: inline-block; margin: 0 32px 20px; padding: 8px 18px; background: #007aff; color: #fff; border-radius: 8px; text-decoration: none; font-size: 0.88rem; font-weight: 600; }
+  .export-btn:hover { background: #0062cc; }
 </style>
 </head>
 <body>
 <h1>RoadMate Conversations</h1>
 <p class="subtitle">${files.length} session${files.length !== 1 ? "s" : ""} — click any row to view transcript</p>
+<a class="export-btn" href="/admin/conversations/export">⬇ Download All</a>
 <div class="container">
 <table>
   <thead><tr>

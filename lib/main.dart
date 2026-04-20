@@ -523,7 +523,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
         final session = _conversationStore!.activeSession;
         ConversationLogger.upload(
           clientId: _clientId,
-          sessionStart: session.createdAt.toIso8601String(),
+          sessionStart: session.createdAt.toUtc().toIso8601String(),
           messages: session.messages,
           agentName: Config.fubAgentName,
         );
