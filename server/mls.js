@@ -423,13 +423,38 @@ async function searchAddress(page, address) {
       { timeout: 3000 }
     );
     console.log("[MLS] Autocomplete appeared, selecting first result via keyboard");
-    // Use ArrowDown + Enter instead of clicking — more reliable in headless Linux
-    await searchInput.press("ArrowDown");
-    await searchInput.press("Enter");
+    // Dispatch ArrowDown + Enter via evaluate to avoid Playwright waiting for navigation
+    await topFrame.evaluate(() => {
+      const input = document.querySelector(
+        'input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]'
+      );
+      if (input) {
+        input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", keyCode: 40, bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent("keyup",   { key: "ArrowDown", keyCode: 40, bubbles: true }));
+      }
+    });
+    await new Promise(r => setTimeout(r, 200));
+    await topFrame.evaluate(() => {
+      const input = document.querySelector(
+        'input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]'
+      );
+      if (input) {
+        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent("keyup",   { key: "Enter", keyCode: 13, bubbles: true }));
+      }
+    });
     clicked = true;
   } catch {
-    console.log("[MLS] No autocomplete, pressing Enter");
-    await searchInput.press("Enter");
+    console.log("[MLS] No autocomplete, pressing Enter via evaluate");
+    await topFrame.evaluate(() => {
+      const input = document.querySelector(
+        'input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]'
+      );
+      if (input) {
+        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent("keyup",   { key: "Enter", keyCode: 13, bubbles: true }));
+      }
+    });
   }
 
   // Wait for the main results frame to have content
