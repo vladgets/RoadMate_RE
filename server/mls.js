@@ -367,18 +367,38 @@ async function waitForDetailFrame(page, timeout = 10000) {
   return null; // Not fatal — listnum frame still has usable data
 }
 
-async function waitForResultsFrame(page, timeout = 20000) {
+async function waitForResultsFrame(page, timeout = 40000) {
   const deadline = Date.now() + timeout;
+  let lastLogAt = 0;
   while (Date.now() < deadline) {
-    for (const frame of page.frames()) {
+    const frames = page.frames();
+
+    // Log all frame URLs every 5 seconds to diagnose what's loading
+    if (Date.now() - lastLogAt > 5000) {
+      console.log("[MLS] Frames:", frames.map(f => f.url().slice(0, 80)).join(" | "));
+      lastLogAt = Date.now();
+    }
+
+    for (const frame of frames) {
       const url = frame.url();
-      if (url.includes("listnum/step2") || url.includes("display_custom_report") || url.includes("listnum")) {
+      if (
+        url.includes("listnum/step2") ||
+        url.includes("display_custom_report") ||
+        url.includes("listnum") ||
+        url.includes("flexmls.com/cgi-bin") ||
+        url.includes("idx") ||
+        url.includes("search") ||
+        url.includes("listing")
+      ) {
         const text = await frame.evaluate(() => document.body?.innerText ?? "").catch(() => "");
         if (text.length > 100) return frame;
       }
     }
     await page.waitForTimeout(300);
   }
+
+  // Final frame dump on timeout
+  console.log("[MLS] Timed out. All frames:", page.frames().map(f => f.url()).join("\n"));
   return null;
 }
 
@@ -443,9 +463,12 @@ async function searchAddress(page, address) {
   }
 
   // Wait for the main results frame to have content
-  const resultsFrame = await waitForResultsFrame(page, 20000);
-  if (!resultsFrame) throw new Error("Search results did not load");
-  console.log("[MLS] Results loaded in frame:", resultsFrame.url().slice(0, 80));
+  const resultsFrame = await waitForResultsFrame(page, 40000);
+  if (!resultsFrame) {
+    console.log("[MLS] Results frame not found — page title:", await page.title());
+  } else {
+    console.log("[MLS] Results loaded in frame:", resultsFrame.url().slice(0, 80));
+  }
 
   // Wait for the detail report frame to load (has full property data + Documents tab)
   await waitForDetailFrame(page, 10000);
