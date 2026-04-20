@@ -26,17 +26,20 @@ import { execFileSync } from "child_process";
 const BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH ?? "/data/playwright";
 
 function ensureChromium() {
-  try {
-    const exe = chromium.executablePath();
-    if (!fs.existsSync(exe)) throw new Error("binary missing");
-  } catch {
-    console.log("[MLS] Installing Chromium to", BROWSERS_PATH, "...");
-    fs.mkdirSync(BROWSERS_PATH, { recursive: true });
-    execFileSync("npx", ["playwright", "install", "chromium"], {
-      stdio: "inherit",
-    });
-    console.log("[MLS] Chromium ready.");
+  // Check if any chromium* directory exists under BROWSERS_PATH
+  const alreadyInstalled =
+    fs.existsSync(BROWSERS_PATH) &&
+    fs.readdirSync(BROWSERS_PATH).some((d) => d.startsWith("chromium"));
+
+  if (alreadyInstalled) {
+    console.log("[MLS] Chromium found in", BROWSERS_PATH);
+    return;
   }
+
+  console.log("[MLS] Installing Chromium to", BROWSERS_PATH, "...");
+  fs.mkdirSync(BROWSERS_PATH, { recursive: true });
+  execFileSync("npx", ["playwright", "install", "chromium"], { stdio: "inherit" });
+  console.log("[MLS] Chromium ready.");
 }
 
 ensureChromium();
