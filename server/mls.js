@@ -368,13 +368,127 @@ async function searchAddress(page, address) {
 
 // ─── Extract listing data ─────────────────────────────────────────────────────
 
-async function extractListingData(page) {
+// ─── Documents tab ────────────────────────────────────────────────────────────
+
+async function fetchDocuments(page, resultsFrame) {
+  console.log("[MLS] Opening Documents tab...");
+
+  const docsLink = await resultsFrame.$("#detail_documents_link");
+  if (!docsLink) {
+    console.log("[MLS] No Documents tab found on this listing");
+    return [];
+  }
+
+  await docsLink.click();
+
+  // Wait for the documents frame to appear (URL contains documentviewer.html)
+  // and for its source to contain document data
+  let docsFrame = null;
+  let frameSource = "";
+  const deadline = Date.now() + 12000;
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(400);
+    docsFrame = page.frames().find((f) => f.url().includes("documentviewer"));
+    if (docsFrame) {
+      frameSource = await docsFrame.content().catch(() => "");
+      // The JS source contains `documents.push(new Document(` when data is loaded
+      if (frameSource.includes("documents.push")) break;
+    }
+  }
+
+  if (!docsFrame) {
+    console.log("[MLS] Documents frame did not load");
+    return [];
+  }
+
+  console.log("[MLS] Documents frame loaded:", docsFrame.url());
+  await page.screenshot({ path: "/tmp/mls_documents.png" });
+
+  // Parse document metadata from the embedded JavaScript:
+  // documents.push(new Document("picture_id","table","tech_id","description","caption","ext","order","confdnt_code","date","time","confidentiality","url"))
+  const docs = [];
+  const docRegex = /documents\.push\(new Document\(([^)]+)\)\)/g;
+  let match;
+  while ((match = docRegex.exec(frameSource)) !== null) {
+    // Split carefully — values are comma-separated quoted strings
+    const raw = match[1];
+    const parts = [];
+    let current = "";
+    let inQuote = false;
+    for (const ch of raw) {
+      if (ch === '"') {
+        inQuote = !inQuote;
+      } else if (ch === "," && !inQuote) {
+        parts.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    parts.push(current.trim());
+
+    const [pictureId, , , description, , extension, , , modDate, modTime, confidentiality, customUrl] = parts;
+
+    // Build the PDF URL: use custom URL if provided, otherwise construct from picture_id
+    const ext = (extension || "pdf").replace(/^['"]|['"]$/g, "");
+    const id = pictureId.replace(/^['"]|['"]$/g, "");
+    const pdfUrl = customUrl?.replace(/^['"]|['"]$/g, "") ||
+      `https://documents.flexmls.com/documents/mo/${id}.${ext}`;
+
+    docs.push({
+      name: description?.replace(/^['"]|['"]$/g, "") || "Unnamed",
+      extension: ext,
+      confidentiality: confidentiality?.replace(/^['"]|['"]$/g, "") || "unknown",
+      modifiedDate: modDate?.replace(/^['"]|['"]$/g, "") || "",
+      modifiedTime: modTime?.replace(/^['"]|['"]$/g, "") || "",
+      url: pdfUrl,
+      downloadable: true,
+    });
+  }
+
+  if (docs.length === 0) {
+    // Fallback: no JS data found — check if the page just says "no documents"
+    const bodyText = await docsFrame.evaluate(() => document.body?.innerText ?? "").catch(() => "");
+    console.log("[MLS] No document JS data found. Body text:", bodyText.slice(0, 200));
+    if (bodyText.toLowerCase().includes("no document")) {
+      return [];
+    }
+  }
+
+  console.log(`[MLS] Found ${docs.length} document(s)`);
+  return docs;
+}
+
+// ─── Download a document PDF (using session cookies) ─────────────────────────
+
+async function downloadDocument(context, pdfUrl, destPath) {
+  // Use Playwright's request API which carries the browser's cookies
+  const response = await context.request.get(pdfUrl, {
+    headers: {
+      "Accept": "application/pdf,*/*",
+      "Referer": "https://mo.flexmls.com/",
+    },
+  });
+
+  if (!response.ok()) {
+    throw new Error(`HTTP ${response.status()} downloading ${pdfUrl}`);
+  }
+
+  const buffer = await response.body();
+  fs.writeFileSync(destPath, buffer);
+  console.log(`[MLS] Downloaded ${buffer.length} bytes → ${destPath}`);
+  return buffer.length;
+}
+
+// ─── Extract listing data ─────────────────────────────────────────────────────
+
+async function extractListingData(page, context) {
   await page.screenshot({ path: "/tmp/mls_listing_page.png" });
 
   // Flexmls is multi-frame — collect text from all frames
-  let allText = "";
   let bestFrame = null;
   let bestFrameText = "";
+  let resultsFrame = null;
 
   for (const frame of page.frames()) {
     try {
@@ -383,7 +497,9 @@ async function extractListingData(page) {
         bestFrameText = text;
         bestFrame = frame;
       }
-      allText += `\n--- Frame: ${frame.url()} ---\n${text.slice(0, 2000)}`;
+      if (frame.url().includes("listnum/step2")) {
+        resultsFrame = frame;
+      }
     } catch {}
   }
 
@@ -406,12 +522,17 @@ async function extractListingData(page) {
     }).catch(() => ({}));
   }
 
+  // Fetch documents
+  const documents = resultsFrame
+    ? await fetchDocuments(page, resultsFrame)
+    : [];
+
   return {
     url: page.url(),
     title: await page.title(),
     structured,
     rawText: bestFrameText.slice(0, 5000),
-    allFramesText: allText.slice(0, 8000),
+    documents,
   };
 }
 
@@ -430,7 +551,7 @@ export async function mlsSearchProperty(address) {
   try {
     await ensureAuthenticated(page, context);
     await searchAddress(page, address);
-    const result = await extractListingData(page);
+    const result = await extractListingData(page, context);
     // Refresh session on success
     await saveSession(context);
     return { ok: true, ...result };
@@ -461,6 +582,59 @@ export function registerMlsRoutes(app) {
   });
 
   /**
+   * GET /mls/document?url=<encoded_pdf_url>
+   * Downloads a Flexmls document PDF using the saved session and streams it to the client.
+   * The URL comes from the `documents[].url` field returned by /mls/search.
+   */
+  app.get("/mls/document", async (req, res) => {
+    const pdfUrl = req.query.url;
+    if (!pdfUrl || !pdfUrl.startsWith("https://documents.flexmls.com/")) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid url parameter" });
+    }
+
+    // We need a browser context with session cookies to fetch the authenticated PDF
+    const browser = await getBrowser();
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    });
+
+    try {
+      // Load saved session cookies
+      if (fs.existsSync(SESSION_FILE)) {
+        const state = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+        await context.addCookies(state.cookies ?? []);
+      }
+
+      const response = await context.request.get(pdfUrl, {
+        headers: { Accept: "application/pdf,*/*", Referer: "https://mo.flexmls.com/" },
+      });
+
+      if (!response.ok()) {
+        return res.status(response.status()).json({ ok: false, error: `Upstream returned ${response.status()}` });
+      }
+
+      const buffer = await response.body();
+      const contentType = response.headers()["content-type"] || "application/pdf";
+
+      // Try to derive a filename from the URL
+      const urlPath = new URL(pdfUrl).pathname;
+      const filename = urlPath.split("/").pop() || "document.pdf";
+
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", buffer.length);
+      res.send(buffer);
+
+      console.log(`[MLS] Served document: ${filename} (${buffer.length} bytes)`);
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e.message });
+    } finally {
+      await context.close();
+    }
+  });
+
+  /**
    * DELETE /mls/session
    * Clears the saved browser session (forces re-login on next call)
    */
@@ -473,5 +647,5 @@ export function registerMlsRoutes(app) {
     }
   });
 
-  console.log("[MLS] Routes registered: POST /mls/search, DELETE /mls/session");
+  console.log("[MLS] Routes registered: POST /mls/search, GET /mls/document, DELETE /mls/session");
 }
