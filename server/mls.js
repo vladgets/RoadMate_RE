@@ -439,10 +439,11 @@ async function searchAddress(page, address) {
   // between-keystroke settle-waits to block indefinitely (especially in headless mode).
   // WalkMe, Beamer, and HubSpot iframes serve no automation purpose.
   await page.route(url => {
-    return url.includes("walkme.com") ||
-           url.includes("getbeamer.com") ||
-           url.includes("hs-sites.com") ||
-           url.includes("collect.flexmls.com");
+    const u = url.toString();
+    return u.includes("walkme.com") ||
+           u.includes("getbeamer.com") ||
+           u.includes("hs-sites.com") ||
+           u.includes("collect.flexmls.com");
   }, route => route.abort());
   console.log("[MLS] Third-party frame requests blocked");
 
