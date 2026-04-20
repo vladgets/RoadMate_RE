@@ -494,7 +494,10 @@ async function searchAddress(page, address) {
   });
 
   console.log("[MLS] Typing address:", address);
-  await searchInput.focus();
+  // noWaitAfter prevents Playwright from waiting for any navigation triggered by the click.
+  // focus() has no such option and was hanging because child frames (hs-sites.com widgets)
+  // keep top_frame in a "navigating" state in Playwright's tracker.
+  await searchInput.click({ noWaitAfter: true });
   await page.keyboard.press("Control+a");
   await page.keyboard.press("Delete");
   await page.keyboard.type(address, { delay: 20 });
@@ -736,13 +739,23 @@ export async function mlsSearchProperty(address) {
 
   const page = await context.newPage();
 
+  // Hard 3-minute timeout — prevents hung browser contexts from leaking memory
+  const hardTimeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("mlsSearchProperty hard timeout (3min)")), 180_000)
+  );
+
   try {
-    await ensureAuthenticated(page, context);
-    await searchAddress(page, address);
-    const result = await extractListingData(page, context);
-    // Refresh session on success
-    await saveSession(context);
-    return { ok: true, ...result };
+    const result = await Promise.race([
+      (async () => {
+        await ensureAuthenticated(page, context);
+        await searchAddress(page, address);
+        const r = await extractListingData(page, context);
+        await saveSession(context);
+        return { ok: true, ...r };
+      })(),
+      hardTimeout,
+    ]);
+    return result;
   } catch (err) {
     console.error("[MLS] Error:", err);
     await page.screenshot({ path: "/tmp/mls_error.png" }).catch(() => {});
@@ -815,6 +828,79 @@ export function registerMlsRoutes(app) {
       res.send(buffer);
 
       console.log(`[MLS] Served document: ${filename} (${buffer.length} bytes)`);
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e.message });
+    } finally {
+      await context.close();
+    }
+  });
+
+  /**
+   * GET /mls/debug
+   * Loads mo.flexmls.com with the saved session, waits 15s, then snapshots every frame:
+   *   - URL, whether evaluate() blocked (timeout), input elements found, first 300 chars of text
+   * Returns JSON — use this to understand the real frame structure before guessing at selectors.
+   */
+  app.get("/mls/debug", async (req, res) => {
+    const browser = await getBrowser();
+    const context = await browser.newContext({
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      viewport: { width: 1280, height: 900 },
+    });
+    const page = await context.newPage();
+
+    // Helper: run an evaluate with a hard timeout so hung frames show {timedOut:true}
+    const safeEval = (frame, fn, ms = 3000) =>
+      Promise.race([
+        frame.evaluate(fn).catch(e => ({ evalError: e.message })),
+        new Promise(r => setTimeout(() => r({ timedOut: true }), ms)),
+      ]);
+
+    try {
+      // Load saved session
+      if (fs.existsSync(SESSION_FILE)) {
+        const state = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+        await context.addCookies(state.cookies ?? []);
+      }
+
+      const snapshots = [];
+      const navigated = [];
+      page.on("framenavigated", f => navigated.push({ url: f.url(), name: f.name() }));
+
+      await page.goto("https://mo.flexmls.com/", { waitUntil: "domcontentloaded", timeout: 20000 });
+
+      // Snapshot at t=0, t=5, t=10, t=15 seconds
+      for (const delay of [0, 5000, 10000, 15000]) {
+        if (delay > 0) await page.waitForTimeout(5000);
+        const t = delay / 1000;
+
+        const frameInfos = await Promise.all(
+          page.frames().map(async (frame) => {
+            const url = frame.url();
+            if (!url || url === "about:blank") return null;
+
+            const info = await safeEval(frame, () => {
+              const inputs = Array.from(document.querySelectorAll("input")).map(el => ({
+                type: el.type, name: el.name, id: el.id,
+                placeholder: el.placeholder,
+                visible: el.offsetParent !== null,
+              }));
+              return {
+                title: document.title,
+                bodyLen: document.body?.innerText?.length ?? 0,
+                bodySnippet: document.body?.innerText?.slice(0, 300) ?? "",
+                inputs,
+              };
+            });
+
+            return { t, url: url.slice(0, 150), name: frame.name(), ...info };
+          })
+        );
+
+        snapshots.push(...frameInfos.filter(Boolean));
+      }
+
+      res.json({ ok: true, navigated, snapshots });
     } catch (e) {
       res.status(500).json({ ok: false, error: e.message });
     } finally {
