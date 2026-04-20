@@ -435,6 +435,17 @@ async function waitForResultsFrame(page, dashboardUrl, timeout = 45000) {
 }
 
 async function searchAddress(page, address) {
+  // Block third-party frames that navigate constantly and cause Playwright's
+  // between-keystroke settle-waits to block indefinitely (especially in headless mode).
+  // WalkMe, Beamer, and HubSpot iframes serve no automation purpose.
+  await page.route(url => {
+    return url.includes("walkme.com") ||
+           url.includes("getbeamer.com") ||
+           url.includes("hs-sites.com") ||
+           url.includes("collect.flexmls.com");
+  }, route => route.abort());
+  console.log("[MLS] Third-party frame requests blocked");
+
   console.log("[MLS] Loading Flexmls app...");
   await page.goto("https://mo.flexmls.com/", { waitUntil: "domcontentloaded", timeout: 20000 });
 
