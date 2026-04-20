@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "postinstall": "PLAYWRIGHT_BROWSERS_PATH=/data/playwright npx playwright install chromium"
+    "postinstall": "echo 'Playwright browser will be installed at runtime'"
   },
   "keywords": [],
   "author": "",

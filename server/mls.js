@@ -18,12 +18,31 @@
 
 import { chromium } from "playwright";
 import fs from "fs";
+import { execFileSync } from "child_process";
 
-// Point Playwright to the persistent disk on Render so the browser binary
-// survives redeploys and is only downloaded once.
-if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
-  process.env.PLAYWRIGHT_BROWSERS_PATH = "/data/playwright";
+// On Render the persistent disk is mounted at /data at runtime (not during build).
+// We store Chromium there so it survives redeploys and is only downloaded once.
+const BROWSERS_PATH = "/data/playwright";
+process.env.PLAYWRIGHT_BROWSERS_PATH = BROWSERS_PATH;
+
+function ensureChromium() {
+  try {
+    const exe = chromium.executablePath();
+    if (!fs.existsSync(exe)) throw new Error("not found");
+    // Already installed
+  } catch {
+    console.log("[MLS] Chromium not found, installing to", BROWSERS_PATH, "...");
+    fs.mkdirSync(BROWSERS_PATH, { recursive: true });
+    execFileSync("npx", ["playwright", "install", "chromium"], {
+      env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: BROWSERS_PATH },
+      stdio: "inherit",
+    });
+    console.log("[MLS] Chromium installed.");
+  }
 }
+
+// Run once at module load (server startup) — /data is mounted by then.
+ensureChromium();
 import path from "path";
 
 const BASE_URL = "https://mo.flexmls.com";
