@@ -29,6 +29,12 @@ import { getAuthorizedClient, getClientIdFromReq, buildRawEmailWithBuffer } from
 const BROWSERS_PATH = "/data/playwright";
 
 function ensureChromium() {
+  // On non-Linux (local macOS dev) Playwright uses its own downloaded browser — skip.
+  if (process.platform !== "linux") {
+    console.log("[MLS] Non-Linux platform, skipping Chromium install (using local Playwright browser).");
+    return;
+  }
+
   const alreadyInstalled =
     fs.existsSync(BROWSERS_PATH) &&
     fs.readdirSync(BROWSERS_PATH).some((d) => d.startsWith("chromium"));
@@ -332,7 +338,7 @@ async function saveSession(context) {
 
 // ─── Ensure authenticated ─────────────────────────────────────────────────────
 
-async function ensureAuthenticated(page, context) {
+export async function ensureAuthenticated(page, context) {
   await loadSession(context);
 
   // Navigate to root
@@ -630,6 +636,70 @@ async function fetchDocuments(page, viewFrame) {
   return docs;
 }
 
+// ─── ShowingTime integration ──────────────────────────────────────────────────
+//
+// After a listing loads, the ShowingTime tab appears as:
+//   <a id="detail_<hash>_link" href="https://apps.flexmls.com/c3pi/showing_time/redirector">ShowingTime</a>
+// Clicking it opens a new popup/tab (no onclick, target may be _blank).
+// We intercept that popup, wait for the final redirect URL (showingtime.com), then close it.
+
+async function openShowingTime(page, context) {
+  const viewFrame = page.frames().find(f => f.name() === "view_frame");
+  if (!viewFrame) throw new Error("view_frame not found");
+
+  // Find the ShowingTime link
+  const stHref = await safeEval(viewFrame, () => {
+    const a = document.querySelector('a[href*="showing_time"]');
+    return a?.href ?? null;
+  }, undefined, 4000);
+
+  if (!stHref || stHref._timeout || stHref._error) {
+    throw new Error("ShowingTime tab not found in view_frame");
+  }
+  console.log("[MLS] ShowingTime redirector href:", stHref);
+
+  // The link opens in a new popup — intercept it before clicking
+  const [popup] = await Promise.all([
+    context.waitForEvent("page", { timeout: 15000 }).catch(() => null),
+    safeEval(viewFrame, () => {
+      document.querySelector('a[href*="showing_time"]')?.click();
+    }, undefined, 3000),
+  ]);
+
+  // Poll helper: wait until URL leaves flexmls.com (reached ShowingTime domain)
+  async function waitForShowingTimeUrl(pg, timeoutMs = 20000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const u = pg.url();
+      if (u && !u.includes("flexmls.com") && !u.includes("about:blank") && !u.startsWith("chrome-error")) {
+        return u;
+      }
+      await pg.waitForTimeout(500);
+    }
+    return pg.url(); // return whatever we have on timeout
+  }
+
+  if (popup) {
+    console.log("[MLS] ShowingTime popup opened, waiting for final redirect...");
+    const finalUrl = await waitForShowingTimeUrl(popup, 20000);
+    console.log("[MLS] ShowingTime final URL:", finalUrl);
+    await popup.close().catch(() => {});
+    return finalUrl;
+  }
+
+  // Fallback: follow the redirector URL directly in a new page
+  console.log("[MLS] No popup intercepted, navigating directly to redirector...");
+  const tmpPage = await context.newPage();
+  try {
+    await tmpPage.goto(stHref, { waitUntil: "domcontentloaded", timeout: 20000 });
+    const finalUrl = await waitForShowingTimeUrl(tmpPage, 15000);
+    console.log("[MLS] ShowingTime final URL (direct nav):", finalUrl);
+    return finalUrl;
+  } finally {
+    await tmpPage.close().catch(() => {});
+  }
+}
+
 // ─── Download a document PDF (using session cookies) ─────────────────────────
 
 async function downloadDocument(context, pdfUrl, destPath) {
@@ -866,6 +936,61 @@ export function registerMlsRoutes(app) {
   });
 
   /**
+   * POST /mls/showingtime
+   * Body: { address: string } or uses cached result for client_id
+   * Returns the ShowingTime URL for the listing (after SSO redirect).
+   */
+  app.post("/mls/showingtime", async (req, res) => {
+    const { address } = req.body ?? {};
+    const clientId = getClientIdFromReq(req);
+
+    // Use cached result or search fresh
+    let mlsResult = clientId ? _getCachedMlsResult(clientId) : null;
+    if (!mlsResult && address) {
+      console.log("[MLS] showingtime: searching:", address);
+      mlsResult = await mlsSearchProperty(address.trim());
+      if (mlsResult?.ok && clientId) _setCachedMlsResult(clientId, mlsResult);
+    }
+    if (!mlsResult?.ok && !address) {
+      return res.status(400).json({ ok: false, error: "Provide address or search a property first." });
+    }
+
+    // Open a fresh browser session to navigate to the listing and click ShowingTime
+    const browser = await getBrowser();
+    const stContext = await browser.newContext({
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      viewport: { width: 1280, height: 900 },
+    });
+    const stPage = await stContext.newPage();
+
+    const hardTimeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("showingtime hard timeout (3min)")), 180_000)
+    );
+
+    try {
+      const showingTimeUrl = await Promise.race([
+        (async () => {
+          await ensureAuthenticated(stPage, stContext);
+          const searchAddr = address?.trim() ?? mlsResult?.structured?.address ?? "";
+          if (!searchAddr) throw new Error("No address available to search");
+          await searchAddress(stPage, searchAddr);
+          await waitForDetailFrame(stPage, 10000);
+          return await openShowingTime(stPage, stContext);
+        })(),
+        hardTimeout,
+      ]);
+
+      await saveSession(stContext);
+      return res.json({ ok: true, url: showingTimeUrl });
+    } catch (err) {
+      console.error("[MLS] showingtime error:", err.message);
+      return res.status(500).json({ ok: false, error: err.message });
+    } finally {
+      await stContext.close();
+    }
+  });
+
+  /**
    * GET /mls/document?url=<encoded_pdf_url>
    * Downloads a Flexmls document PDF using the saved session and streams it to the client.
    * The URL comes from the `documents[].url` field returned by /mls/search.
@@ -931,6 +1056,6 @@ export function registerMlsRoutes(app) {
     }
   });
 
-  console.log("[MLS] Routes registered: POST /mls/search, POST /mls/send_disclosure, GET /mls/document, DELETE /mls/session");
+  console.log("[MLS] Routes registered: POST /mls/search, POST /mls/showingtime, POST /mls/send_disclosure, GET /mls/document, DELETE /mls/session");
 
 }
