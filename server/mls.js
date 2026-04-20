@@ -464,9 +464,10 @@ async function searchAddress(page, address) {
   const dashboardUrl = viewFrame?.url() ?? "";
   console.log("[MLS] view_frame initial URL:", dashboardUrl.slice(0, 100));
 
-  // Poll until top_frame context becomes accessible.
-  // All Playwright per-frame methods (click, focus, waitForSelector) block while child frames
-  // (WalkMe, Beamer, hs-sites.com) are still loading. We detect readiness with safeEval.
+  // Poll until top_frame context becomes accessible via safeEval.
+  // Playwright's per-frame locator methods also block while child frames (WalkMe, Beamer,
+  // hs-sites.com) are loading. Once safeEval returns successfully the child frames are done
+  // and locator methods will work without blocking.
   console.log("[MLS] Polling for top_frame context readiness...");
   let topFrameInputs = null;
   for (let i = 0; i < 30; i++) {
@@ -485,99 +486,43 @@ async function searchAddress(page, address) {
   }
   if (!topFrameInputs) throw new Error("top_frame context never became available");
 
-  // Step 1: Fill the search input
-  console.log("[MLS] Filling search input via cross-frame page.evaluate...");
-  const fillResult = await safeEval(page, (addr) => {
-    try {
-      const tf = window.frames["top_frame"];
-      if (!tf) return { ok: false, reason: "no window.frames.top_frame" };
+  // Step 1: Type address character-by-character via locator.pressSequentially().
+  // This fires real keyboard events that update React's internal state and trigger
+  // the autocomplete XHR to apps.flexmls.com/quick_launch/herald.
+  // (fill() / evaluate-based value-setting doesn't update React state and no XHR fires.)
+  const searchLocator = topFrame.locator('input.quick-launch__input, input[placeholder*="Address"]').first();
+  console.log("[MLS] Clicking search input...");
+  await searchLocator.click({ timeout: 8000 });
+  await searchLocator.clear({ timeout: 3000 }).catch(() => {});
+  console.log("[MLS] Typing address pressSequentially...");
+  await searchLocator.pressSequentially(address, { delay: 40, timeout: 60000 });
+  console.log("[MLS] Typing complete");
 
-      const input = tf.document.querySelector('input[placeholder*="Address"]') ||
-                    tf.document.querySelector('input[placeholder*="address"]') ||
-                    tf.document.querySelector('input[type="text"]');
-      if (!input) return {
-        ok: false, reason: "no input found",
-        inputs: Array.from(tf.document.querySelectorAll("input")).map(i => i.placeholder),
-      };
+  // Step 2: Wait for autocomplete XHR to fire and populate results (3s)
+  console.log("[MLS] Waiting 3s for autocomplete...");
+  await page.waitForTimeout(3000);
 
-      input.focus();
-      const setter = Object.getOwnPropertyDescriptor(tf.HTMLInputElement.prototype, "value").set;
-      setter.call(input, addr);
-      input.dispatchEvent(new tf.InputEvent("input", { bubbles: true, data: addr }));
-      input.dispatchEvent(new tf.Event("change", { bubbles: true }));
-
-      return { ok: true, value: input.value, placeholder: input.placeholder };
-    } catch (e) {
-      return { ok: false, reason: e.message };
+  // Step 3: Try clicking the first autocomplete result, fall back to Enter
+  const autocompleteItem = topFrame.locator('li.result.selectable').first();
+  let submitted = "enter";
+  try {
+    const count = await autocompleteItem.count();
+    if (count > 0) {
+      const text = await autocompleteItem.innerText().catch(() => "");
+      console.log("[MLS] Clicking autocomplete result:", text.slice(0, 80));
+      await autocompleteItem.click({ timeout: 3000 });
+      submitted = "autocomplete_click";
     }
-  }, address, 6000);
-
-  console.log("[MLS] Fill result:", JSON.stringify(fillResult));
-  if (fillResult._timeout || fillResult._error || !fillResult?.ok) {
-    throw new Error("Could not fill search input: " + JSON.stringify(fillResult));
+  } catch (e) {
+    console.log("[MLS] Autocomplete click failed:", e.message, "— pressing Enter");
   }
 
-  // Step 2: Wait for autocomplete XHR, then inspect and submit
-  console.log("[MLS] Waiting 2s for autocomplete...");
-  await page.waitForTimeout(2000);
+  if (submitted !== "autocomplete_click") {
+    console.log("[MLS] Pressing Enter to submit search...");
+    await searchLocator.press("Enter", { timeout: 5000 });
+  }
 
-  const submitResult = await safeEval(page, () => {
-    try {
-      const tf = window.frames["top_frame"];
-      const input = tf.document.querySelector('input[placeholder*="Address"]') ||
-                    tf.document.querySelector('input[type="text"]');
-
-      // Inspect autocomplete dropdown
-      const autoSelectors = [
-        'ul[class*="auto"] li', '[class*="suggest"] li', '[role="option"]',
-        '[role="listbox"] li', '.tt-suggestion', '.ui-menu-item', 'li[class*="result"]',
-        '[class*="autocomplete"] li', '[class*="dropdown"] li',
-      ];
-      let autocompleteItems = [];
-      for (const sel of autoSelectors) {
-        const items = tf.document.querySelectorAll(sel);
-        if (items.length > 0) { autocompleteItems = Array.from(items); break; }
-      }
-
-      const itemTexts = autocompleteItems.map(el => el.innerText?.trim()).filter(Boolean);
-      console.log("[MLS-inner] autocomplete items:", itemTexts.length, itemTexts.slice(0, 3));
-
-      if (autocompleteItems.length > 0) {
-        autocompleteItems[0].click();
-        return { submitted: "autocomplete_click", items: itemTexts };
-      }
-
-      // No autocomplete — inspect the form
-      const form = input?.closest("form");
-      const formInfo = form ? {
-        action: form.action, target: form.target, method: form.method,
-        inputs: Array.from(form.querySelectorAll("input")).map(i => ({ name: i.name, type: i.type, value: i.value.slice(0, 50) })),
-      } : null;
-
-      if (form) {
-        // Trigger submit event (calls onsubmit handlers, unlike form.submit())
-        const evt = new tf.Event("submit", { bubbles: true, cancelable: true });
-        const notCancelled = form.dispatchEvent(evt);
-        if (notCancelled) form.submit(); // if JS didn't cancel, do native submit
-        return { submitted: "form_submit", formInfo };
-      }
-
-      // Last resort: look for any search/go button and click it
-      const btn = tf.document.querySelector(
-        'button[type="submit"], input[type="submit"], button[class*="search"], [class*="go-btn"], [class*="searchBtn"]'
-      );
-      if (btn) {
-        btn.click();
-        return { submitted: "button_click", btnText: btn.innerText };
-      }
-
-      return { submitted: "nothing", formInfo, inputFound: !!input };
-    } catch (e) {
-      return { submitted: "error", reason: e.message };
-    }
-  }, undefined, 5000);
-
-  console.log("[MLS] Submit result:", JSON.stringify(submitResult));
+  console.log("[MLS] Submitted via:", submitted);
   console.log("[MLS] Waiting for view_frame to navigate to results...");
 
   // Wait for view_frame to navigate from the dashboard to the search results URL
