@@ -367,38 +367,85 @@ async function waitForDetailFrame(page, timeout = 10000) {
   return null; // Not fatal — listnum frame still has usable data
 }
 
-async function waitForResultsFrame(page, timeout = 40000) {
+async function waitForResultsFrame(page, timeout = 30000) {
   const deadline = Date.now() + timeout;
   let lastLogAt = 0;
+
+  // Known URL patterns that indicate content frames (ordered by preference)
+  const CONTENT_PATTERNS = [
+    "listnum/step2",
+    "display_custom_report",
+    "listnum",
+    "flexmls.com/cgi-bin",
+    "idx",
+    "search",
+    "listing",
+  ];
+  // Frames that are navigation/chrome — never the results frame
+  const NAV_PATTERNS = ["top_frame", "about:blank", "javascript:", "data:"];
+
   while (Date.now() < deadline) {
     const frames = page.frames();
 
-    // Log all frame URLs every 5 seconds to diagnose what's loading
-    if (Date.now() - lastLogAt > 5000) {
-      console.log("[MLS] Frames:", frames.map(f => f.url().slice(0, 80)).join(" | "));
+    // Log all frame URLs every 2 seconds for diagnostics
+    if (Date.now() - lastLogAt > 2000) {
+      console.log("[MLS] Frames:", frames.map(f => f.url().slice(0, 90)).join(" | "));
       lastLogAt = Date.now();
     }
 
+    let bestFrame = null;
+    let bestLen = 100; // minimum text threshold
+
     for (const frame of frames) {
       const url = frame.url();
-      if (
-        url.includes("listnum/step2") ||
-        url.includes("display_custom_report") ||
-        url.includes("listnum") ||
-        url.includes("flexmls.com/cgi-bin") ||
-        url.includes("idx") ||
-        url.includes("search") ||
-        url.includes("listing")
-      ) {
-        const text = await frame.evaluate(() => document.body?.innerText ?? "").catch(() => "");
-        if (text.length > 100) return frame;
+      if (!url || NAV_PATTERNS.some(p => url.includes(p))) continue;
+
+      // Preferred: known result URL patterns
+      const isKnown = CONTENT_PATTERNS.some(p => url.includes(p));
+      const text = await frame.evaluate(() => document.body?.innerText ?? "").catch(() => "");
+
+      if (isKnown && text.length > 100) {
+        console.log("[MLS] Results frame found (known URL):", url.slice(0, 90));
+        return frame;
+      }
+
+      // Fallback: any content frame with substantial text that isn't nav
+      if (text.length > bestLen && !looksLikeScript(text)) {
+        bestLen = text.length;
+        bestFrame = frame;
       }
     }
+
+    // If we have a fallback candidate with decent content, return it
+    if (bestFrame && bestLen > 500) {
+      console.log("[MLS] Results frame found (fallback, text len", bestLen, "):", bestFrame.url().slice(0, 90));
+      return bestFrame;
+    }
+
     await page.waitForTimeout(300);
   }
 
   // Final frame dump on timeout
-  console.log("[MLS] Timed out. All frames:", page.frames().map(f => f.url()).join("\n"));
+  const allFrames = page.frames().map(f => f.url());
+  console.log("[MLS] Timed out waiting for results. All frames:\n", allFrames.join("\n"));
+
+  // Last-resort: return whichever non-nav frame has the most text
+  let lastResort = null;
+  let lastResortLen = 0;
+  for (const frame of page.frames()) {
+    const url = frame.url();
+    if (!url || NAV_PATTERNS.some(p => url.includes(p))) continue;
+    const text = await frame.evaluate(() => document.body?.innerText ?? "").catch(() => "");
+    if (!looksLikeScript(text) && text.length > lastResortLen) {
+      lastResortLen = text.length;
+      lastResort = frame;
+    }
+  }
+  if (lastResort) {
+    console.log("[MLS] Using last-resort frame:", lastResort.url().slice(0, 90), "text len:", lastResortLen);
+    return lastResort;
+  }
+
   return null;
 }
 
@@ -423,12 +470,11 @@ async function searchAddress(page, address) {
   if (!topFrame) throw new Error("Flexmls top frame did not load");
   console.log("[MLS] Top frame ready");
 
-  // Wait for the frame to finish any SPA initialization navigations before we interact.
-  // Without this, evaluate() on the frame can block for 60-90s waiting for a pending navigation.
-  console.log("[MLS] Waiting for top frame network idle...");
-  await topFrame.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {
-    console.log("[MLS] Top frame not fully idle, proceeding anyway");
-  });
+  // Wait briefly for the SPA to settle — networkidle is unreliable for SPAs (they keep
+  // polling), so we just wait for domcontentloaded and a short settling pause instead.
+  console.log("[MLS] Waiting for top frame to settle...");
+  await topFrame.waitForLoadState("domcontentloaded", { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(800);
 
   // Wait for the search input to be visible inside the top frame
   const searchInput = await topFrame.waitForSelector(
