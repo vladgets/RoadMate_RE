@@ -492,8 +492,10 @@ async function searchAddress(page, address) {
   // (fill() / evaluate-based value-setting doesn't update React state and no XHR fires.)
   const searchLocator = topFrame.locator('input.quick-launch__input, input[placeholder*="Address"]').first();
   console.log("[MLS] Clicking search input...");
-  await searchLocator.click({ timeout: 8000 });
-  await searchLocator.clear({ timeout: 3000 }).catch(() => {});
+  // force:true uses JS dispatchEvent instead of CDP mouse, bypassing mid-click navigation waits
+  // noWaitAfter:true skips post-click navigation settling (child frames like WalkMe still loading)
+  await searchLocator.click({ timeout: 8000, force: true, noWaitAfter: true });
+  await searchLocator.clear({ timeout: 3000, noWaitAfter: true }).catch(() => {});
   console.log("[MLS] Typing address pressSequentially...");
   await searchLocator.pressSequentially(address, { delay: 40, timeout: 60000 });
   console.log("[MLS] Typing complete");
