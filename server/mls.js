@@ -384,11 +384,7 @@ async function waitForResultsFrame(page, dashboardUrl, timeout = 45000) {
   let lastLogAt = 0;
 
   while (Date.now() < deadline) {
-    if (Date.now() - lastLogAt > 3000) {
-      const urls = page.frames().map(f => `[${f.name() || "anon"}]${f.url().slice(0, 80)}`);
-      console.log("[MLS] Frames:", urls.join(" | "));
-      lastLogAt = Date.now();
-    }
+    // (no periodic frame dump — nav events logged below are sufficient)
 
     for (const frame of page.frames()) {
       const url = frame.url();
@@ -404,7 +400,6 @@ async function waitForResultsFrame(page, dashboardUrl, timeout = 45000) {
             text: document.body?.innerText?.slice(0, 100) ?? "",
           }), undefined, 2500);
           if (!r._timeout && !r._error && r.len > 200) {
-            console.log("[MLS] Results in view_frame:", url.slice(0, 100), "len:", r.len);
             return frame;
           }
         }
@@ -419,7 +414,6 @@ async function waitForResultsFrame(page, dashboardUrl, timeout = 45000) {
           text: document.body?.innerText?.slice(0, 100) ?? "",
         }), undefined, 2500);
         if (!r._timeout && !r._error && r.len > 200 && !looksLikeScript(r.text)) {
-          console.log("[MLS] Results in secondary frame:", url.slice(0, 100));
           return frame;
         }
       }
@@ -445,8 +439,6 @@ async function searchAddress(page, address) {
            u.includes("hs-sites.com") ||
            u.includes("collect.flexmls.com");
   }, route => route.abort());
-  console.log("[MLS] Third-party frame requests blocked");
-
   console.log("[MLS] Loading Flexmls app...");
   await page.goto("https://mo.flexmls.com/", { waitUntil: "domcontentloaded", timeout: 20000 });
 
@@ -456,61 +448,39 @@ async function searchAddress(page, address) {
       waitUntil: "domcontentloaded", timeout: 20000,
     });
   }
-  console.log("[MLS] App URL:", page.url());
-
-  // Log every frame navigation for diagnosis
+  // Log key frame navigations only (skip chrome-error and about:blank noise)
   page.on("framenavigated", f => {
     const u = f.url();
-    if (u && u !== "about:blank") {
-      console.log(`[MLS] nav [${f.name() || "anon"}]: ${u.slice(0, 110)}`);
+    if (u && u !== "about:blank" && !u.startsWith("chrome-error://") && f.name()) {
+      console.log(`[MLS] nav [${f.name()}]: ${u.slice(0, 100)}`);
     }
   });
 
   // Wait for top_frame to appear in the frame list (URL-based, no evaluate needed)
   const topFrame = await waitForTopFrame(page, 15000);
   if (!topFrame) throw new Error("top_frame did not load");
-  console.log("[MLS] top_frame URL:", topFrame.url().slice(0, 100));
 
   // Record view_frame's initial (dashboard) URL so we can detect when it navigates to results
   const viewFrame = page.frames().find(f => f.name() === "view_frame");
   const dashboardUrl = viewFrame?.url() ?? "";
-  console.log("[MLS] view_frame initial URL:", dashboardUrl.slice(0, 100));
 
   // Poll until top_frame context becomes accessible via safeEval.
-  // Playwright's per-frame locator methods also block while child frames (WalkMe, Beamer,
-  // hs-sites.com) are loading. Once safeEval returns successfully the child frames are done
-  // and locator methods will work without blocking.
-  console.log("[MLS] Polling for top_frame context readiness...");
-  let topFrameInputs = null;
+  let topFrameReady = false;
   for (let i = 0; i < 30; i++) {
     const r = await safeEval(topFrame, () =>
-      Array.from(document.querySelectorAll("input")).map(inp => ({
-        type: inp.type, placeholder: inp.placeholder, visible: inp.offsetParent !== null,
-      }))
+      document.querySelectorAll('input[placeholder*="Address"]').length
     , undefined, 1500);
-    if (Array.isArray(r) && r.length > 0) {
-      topFrameInputs = r;
-      console.log("[MLS] top_frame ready after", i, "polls. Inputs:", JSON.stringify(topFrameInputs));
-      break;
-    }
-    if (i % 5 === 0) console.log(`[MLS] top_frame poll ${i}: ${JSON.stringify(r)}`);
+    if (r > 0) { topFrameReady = true; break; }
     await page.waitForTimeout(400);
   }
-  if (!topFrameInputs) throw new Error("top_frame context never became available");
+  if (!topFrameReady) throw new Error("top_frame context never became available");
 
-  // Step 1: Type address character-by-character via locator.pressSequentially().
-  // This fires real keyboard events that update React's internal state and trigger
-  // the autocomplete XHR to apps.flexmls.com/quick_launch/herald.
-  // (fill() / evaluate-based value-setting doesn't update React state and no XHR fires.)
+  // Type address character-by-character to trigger React's autocomplete XHR
   const searchLocator = topFrame.locator('input.quick-launch__input, input[placeholder*="Address"]').first();
-  console.log("[MLS] Clicking search input...");
-  // force:true uses JS dispatchEvent instead of CDP mouse, bypassing mid-click navigation waits
-  // noWaitAfter:true skips post-click navigation settling (child frames like WalkMe still loading)
   await searchLocator.click({ timeout: 8000, force: true, noWaitAfter: true });
   await searchLocator.clear({ timeout: 3000, noWaitAfter: true }).catch(() => {});
-  console.log("[MLS] Typing address pressSequentially...");
+  console.log("[MLS] Searching:", address);
   await searchLocator.pressSequentially(address, { delay: 40, timeout: 60000 });
-  console.log("[MLS] Typing complete");
 
   // Step 2: Wait for autocomplete XHR to fire and populate results (3s)
   console.log("[MLS] Waiting 3s for autocomplete...");
@@ -526,39 +496,28 @@ async function searchAddress(page, address) {
   try {
     const count = await autocompleteItem.count();
     if (count > 0) {
-      const text = await autocompleteItem.innerText().catch(() => "");
-      console.log("[MLS] Clicking autocomplete result:", text.slice(0, 80));
       await autocompleteItem.click({ timeout: 4000, force: true, noWaitAfter: true });
       submitted = "autocomplete_click";
     }
   } catch (e) {
-    console.log("[MLS] Autocomplete click failed:", e.message, "— trying Enter");
+    // timeout OK — fall through to Enter
   }
 
   if (submitted !== "autocomplete_click") {
     try {
-      console.log("[MLS] Pressing Enter to submit search...");
       await searchLocator.press("Enter", { timeout: 5000 });
       submitted = "enter";
     } catch (e) {
       // Timeout here is OK — view_frame may already be navigating to results
-      console.log("[MLS] press(Enter) timed out (navigation may already be in progress):", e.message);
       submitted = "enter_timeout";
     }
   }
 
-  console.log("[MLS] Submitted via:", submitted);
-  console.log("[MLS] Waiting for view_frame to navigate to results...");
-
-  // Wait for view_frame to navigate from the dashboard to the search results URL
+  // Wait for view_frame to navigate from the dashboard to search results
   const resultsFrame = await waitForResultsFrame(page, dashboardUrl, 45000);
-  if (!resultsFrame) {
-    console.log("[MLS] Results frame not found after 45s");
-  } else {
-    console.log("[MLS] Results frame:", resultsFrame.url().slice(0, 100));
-  }
+  if (!resultsFrame) console.log("[MLS] Results frame not found after 45s");
 
-  // Also wait for a detail report sub-frame if it appears
+  // Also wait for the detail report sub-frame
   await waitForDetailFrame(page, 10000);
 }
 
@@ -727,7 +686,6 @@ async function extractListingData(page, context) {
     }
   }
 
-  console.log("[MLS] Best content frame:", bestFrame?.url()?.slice(0, 100), "| text length:", bestFrameText.length);
 
   const structured = await safeEval(bestFrame ?? page.mainFrame(), () => {
     const getText = (sel) => document.querySelector(sel)?.innerText?.trim() ?? null;
