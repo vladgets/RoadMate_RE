@@ -410,10 +410,15 @@ async function searchAddress(page, address) {
   );
 
   console.log("[MLS] Typing address:", address);
-  await searchInput.click();
-  await searchInput.fill("");
-  // type() with a short delay triggers keyboard events needed for autocomplete
-  await searchInput.type(address, { delay: 20 });
+  // noWaitAfter prevents Playwright from blocking on any SPA navigation triggered by click/type
+  await searchInput.click({ noWaitAfter: true });
+  await topFrame.evaluate(() => {
+    const input = document.querySelector(
+      'input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]'
+    );
+    if (input) { input.value = ""; input.dispatchEvent(new Event("input", { bubbles: true })); }
+  });
+  await searchInput.type(address, { delay: 20, noWaitAfter: true });
 
   // Wait for autocomplete dropdown — resolves immediately when it appears
   let clicked = false;
