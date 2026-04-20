@@ -423,7 +423,7 @@ async function searchAddress(page, address) {
       { timeout: 3000 }
     );
     console.log("[MLS] Autocomplete appeared, clicking first result");
-    await dropdown.click();
+    await dropdown.click({ noWaitAfter: true });
     clicked = true;
   } catch {
     console.log("[MLS] No autocomplete, pressing Enter");
