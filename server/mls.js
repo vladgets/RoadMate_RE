@@ -564,99 +564,86 @@ async function searchAddress(page, address) {
 
 // ─── Extract listing data ─────────────────────────────────────────────────────
 
-// ─── Documents tab ────────────────────────────────────────────────────────────
+// ─── Documents via giveMeMore / supplement.html ───────────────────────────────
+//
+// In Flexmls's embedded detail view (display_custom_report with allow_linkbar=N)
+// the Documents tab is hidden. The only route to supplement/document data is the
+// "More..." link which calls giveMeMore(listnbr, listingid, matechid, techid) to
+// load /cgi-bin/mainmenu.cgi?cmd=srv+lib/supplement/supplement.html into
+// moreSupplementFrame. That page contains documents.push() calls for any PDFs
+// attached to the listing.
 
-async function fetchDocuments(page, resultsFrame) {
-  console.log("[MLS] Opening Documents tab...");
-
-  // The Documents tab link has id="adv_document" in the search results frame.
-  // Older/alternate views may use id="detail_documents_link".
-  const docsLink = await resultsFrame.$("#adv_document, #detail_documents_link");
-  if (!docsLink) {
-    const linkIds = await safeEval(resultsFrame, () =>
-      Array.from(document.querySelectorAll("a[id]")).map(a => a.id), undefined, 2000
-    );
-    console.log("[MLS] No Documents tab found. Link IDs:", JSON.stringify(linkIds));
-    return [];
-  }
-  console.log("[MLS] Documents tab found:", await docsLink.getAttribute("id").catch(() => "?"));
-
-  await docsLink.click();
-
-  // Wait for the documents frame to appear and its JS data to be injected
-  let docsFrame = null;
-  let frameSource = "";
-  const deadline = Date.now() + 10000;
-  while (Date.now() < deadline) {
-    docsFrame = page.frames().find((f) => f.url().includes("documentviewer"));
-    if (docsFrame) {
-      frameSource = await docsFrame.content().catch(() => "");
-      if (frameSource.includes("documents.push")) break;
-    }
-    await page.waitForTimeout(200);
-  }
-
-  if (!docsFrame) {
-    console.log("[MLS] Documents frame did not load");
-    return [];
-  }
-
-  console.log("[MLS] Documents frame loaded:", docsFrame.url());
-  await page.screenshot({ path: "/tmp/mls_documents.png" });
-
-  // Parse document metadata from the embedded JavaScript:
-  // documents.push(new Document("picture_id","table","tech_id","description","caption","ext","order","confdnt_code","date","time","confidentiality","url"))
+function parseDocumentsPush(source) {
   const docs = [];
   const docRegex = /documents\.push\(new Document\(([^)]+)\)\)/g;
   let match;
-  while ((match = docRegex.exec(frameSource)) !== null) {
-    // Split carefully — values are comma-separated quoted strings
+  while ((match = docRegex.exec(source)) !== null) {
     const raw = match[1];
     const parts = [];
     let current = "";
     let inQuote = false;
     for (const ch of raw) {
-      if (ch === '"') {
-        inQuote = !inQuote;
-      } else if (ch === "," && !inQuote) {
-        parts.push(current.trim());
-        current = "";
-      } else {
-        current += ch;
-      }
+      if (ch === '"') { inQuote = !inQuote; }
+      else if (ch === "," && !inQuote) { parts.push(current.trim()); current = ""; }
+      else { current += ch; }
     }
     parts.push(current.trim());
-
     const [pictureId, , , description, , extension, , , modDate, modTime, confidentiality, customUrl] = parts;
-
-    // Build the PDF URL: use custom URL if provided, otherwise construct from picture_id
     const ext = (extension || "pdf").replace(/^['"]|['"]$/g, "");
-    const id = pictureId.replace(/^['"]|['"]$/g, "");
+    const id  = pictureId.replace(/^['"]|['"]$/g, "");
     const pdfUrl = customUrl?.replace(/^['"]|['"]$/g, "") ||
       `https://documents.flexmls.com/documents/mo/${id}.${ext}`;
-
     docs.push({
       name: description?.replace(/^['"]|['"]$/g, "") || "Unnamed",
       extension: ext,
       confidentiality: confidentiality?.replace(/^['"]|['"]$/g, "") || "unknown",
       modifiedDate: modDate?.replace(/^['"]|['"]$/g, "") || "",
-      modifiedTime: modTime?.replace(/^['"]|['"]$/g, "") || "",
       url: pdfUrl,
-      downloadable: true,
     });
   }
+  return docs;
+}
 
-  if (docs.length === 0) {
-    // Fallback: no JS data found — check if the page just says "no documents"
-    const bodyText = await docsFrame.evaluate(() => document.body?.innerText ?? "").catch(() => "");
-    console.log("[MLS] No document JS data found. Body text:", bodyText.slice(0, 200));
-    if (bodyText.toLowerCase().includes("no document")) {
-      return [];
-    }
+async function fetchDocuments(page, detailFrame) {
+  console.log("[MLS] Fetching documents via supplement page...");
+
+  // Extract giveMeMore args from the "More..." link in the detail frame
+  const suppPath = await safeEval(detailFrame, () => {
+    const link = document.querySelector("a[href*='giveMeMore']");
+    if (!link) return null;
+    const href = link.getAttribute("href") ?? "";
+    const m = href.match(/giveMeMore\('([^']+)','([^']+)','([^']+)','([^']+)'\)/);
+    if (!m) return null;
+    const [, , listingid, matechid, techid] = m;
+    // xId() in Flexmls wraps the ID in x'...' and URL-encodes it
+    const xId = id => encodeURIComponent("x'" + id + "'");
+    return `/cgi-bin/mainmenu.cgi?cmd=srv+lib/supplement/supplement.html` +
+      `&listingid=${listingid}&ma_tech_id=${xId(matechid)}&tech_id=${xId(techid)}`;
+  }, undefined, 3000);
+
+  if (!suppPath) {
+    console.log("[MLS] No giveMeMore link in detail frame — no supplement data");
+    return [];
   }
 
-  console.log(`[MLS] Found ${docs.length} document(s)`);
-  return docs;
+  const suppUrl = "https://mo.flexmls.com" + suppPath;
+  console.log("[MLS] Supplement URL:", suppUrl.slice(0, 120));
+
+  // Load supplement page in a fresh page (carries session cookies via context)
+  const suppPage = await page.context().newPage();
+  try {
+    await suppPage.goto(suppUrl, { waitUntil: "domcontentloaded", timeout: 15000 });
+    await suppPage.waitForTimeout(1500);
+    const source = await suppPage.content().catch(() => "");
+    const docs = parseDocumentsPush(source);
+    console.log(`[MLS] Supplement: found ${docs.length} document(s)`);
+    return docs;
+  } catch (e) {
+    console.log("[MLS] Supplement fetch error:", e.message);
+    return [];
+  } finally {
+    await suppPage.close().catch(() => {});
+  }
 }
 
 // ─── Download a document PDF (using session cookies) ─────────────────────────
@@ -703,7 +690,7 @@ async function extractListingData(page, context) {
 
   let bestFrame = viewFrame ?? null;
   let bestFrameText = "";
-  let docsSourceFrame = null;
+  let detailFrame = null; // iframe_detail (display_custom_report) — used for document fetching
 
   // Read view_frame first; fall back to other frames if it's blocked
   for (const frame of page.frames()) {
@@ -713,10 +700,9 @@ async function extractListingData(page, context) {
     const r = await safeEval(frame, () => document.body?.innerText ?? "", undefined, 3000);
     const text = (typeof r === "string") ? r : "";
 
-    // Prefer the view_frame (listnum/step2) as docs source — it has the Documents tab.
-    // display_custom_report uses allow_linkbar=N so its tab bar is stripped.
-    if (url.includes("listnum/step2") && !docsSourceFrame) {
-      docsSourceFrame = frame;
+    // iframe_detail (display_custom_report) is used for document access via giveMeMore
+    if (url.includes("display_custom_report")) {
+      detailFrame = frame;
     }
 
     if (looksLikeScript(text)) continue;
@@ -750,8 +736,8 @@ async function extractListingData(page, context) {
     };
   }, undefined, 3000).catch(() => ({}));
 
-  const documents = docsSourceFrame
-    ? await fetchDocuments(page, docsSourceFrame)
+  const documents = detailFrame
+    ? await fetchDocuments(page, detailFrame)
     : [];
 
   return {
