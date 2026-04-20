@@ -565,26 +565,58 @@ async function downloadDocument(context, pdfUrl, destPath) {
 
 // ─── Extract listing data ─────────────────────────────────────────────────────
 
+// Returns true if text looks like minified/raw JavaScript (not property content)
+function looksLikeScript(text) {
+  const t = text.trimStart();
+  return (
+    t.startsWith("!function") ||
+    t.startsWith("function(") ||
+    t.startsWith("(function") ||
+    t.startsWith("var ") ||
+    t.startsWith("/*") ||
+    // high density of JS syntax characters
+    (t.length > 200 && (t.match(/[{};()=>]/g) || []).length / t.length > 0.08)
+  );
+}
+
 async function extractListingData(page, context) {
-  // Find the results frame (already loaded by searchAddress)
   let bestFrame = null;
   let bestFrameText = "";
   let resultsFrame = null;
 
   for (const frame of page.frames()) {
     try {
+      const url = frame.url();
+      // Skip non-content frames (blank, JS, data URIs, analytics scripts)
+      if (!url || url === "about:blank" || url.startsWith("javascript:") || url.startsWith("data:")) continue;
+
       const text = await frame.evaluate(() => document.body?.innerText ?? "");
-      if (text.length > bestFrameText.length) {
+
+      if (url.includes("listnum/step2")) {
+        resultsFrame = frame;
+      }
+
+      // Skip frames whose visible text is actually minified JS
+      if (looksLikeScript(text)) {
+        console.log("[MLS] Skipping script-like frame:", url.slice(0, 80));
+        continue;
+      }
+
+      // Prefer known detail/report frames over generic frames
+      const isDetailFrame =
+        url.includes("display_custom_report") ||
+        url.includes("flexmls.com/cgi-bin") ||
+        url.includes("mo.flexmls.com/");
+
+      const score = text.length + (isDetailFrame ? 100000 : 0);
+      if (score > (bestFrame ? bestFrameText.length + (bestFrame.url().includes("display_custom_report") ? 100000 : 0) : 0)) {
         bestFrameText = text;
         bestFrame = frame;
-      }
-      if (frame.url().includes("listnum/step2")) {
-        resultsFrame = frame;
       }
     } catch {}
   }
 
-  console.log("[MLS] Best content frame:", bestFrame?.url());
+  console.log("[MLS] Best content frame:", bestFrame?.url(), "| text length:", bestFrameText.length);
 
   // Try to extract structured data from the richest frame
   let structured = {};
