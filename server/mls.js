@@ -20,6 +20,8 @@ import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
+import { google } from "googleapis";
+import { getAuthorizedClient, getClientIdFromReq, buildRawEmailWithBuffer } from "./gmail.js";
 
 // Where we store the Chromium binary on the Render persistent disk.
 // We pass executablePath directly to chromium.launch() so Playwright
@@ -70,6 +72,22 @@ ensureChromium();
 
 const BASE_URL = "https://mo.flexmls.com";
 const SESSION_FILE = process.env.MLS_SESSION_FILE ?? "/data/mls_session.json";
+
+// Short-TTL in-memory cache for MLS results, keyed by client_id.
+// Allows send_disclosure to reuse the last search without re-running Playwright.
+const MLS_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const _mlsCache = new Map();
+
+function _setCachedMlsResult(clientId, result) {
+  _mlsCache.set(clientId, { result, ts: Date.now() });
+}
+
+function _getCachedMlsResult(clientId) {
+  const entry = _mlsCache.get(clientId);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > MLS_CACHE_TTL_MS) { _mlsCache.delete(clientId); return null; }
+  return entry.result;
+}
 
 // ─── Browser singleton ───────────────────────────────────────────────────────
 
@@ -767,7 +785,84 @@ export function registerMlsRoutes(app) {
       return res.status(400).json({ ok: false, error: "Missing required field: address" });
     }
     const result = await mlsSearchProperty(address.trim());
+    // Cache result per client so send_disclosure can reuse it
+    const clientId = getClientIdFromReq(req);
+    if (clientId && result.ok) _setCachedMlsResult(clientId, result);
     res.json(result);
+  });
+
+  /**
+   * POST /mls/send_disclosure
+   * Body: { to_email, subject, body, doc_name?, address? }
+   * Header: X-Client-Id
+   * Downloads the matching PDF from the cached (or fresh) MLS result and sends via Gmail.
+   */
+  app.post("/mls/send_disclosure", async (req, res) => {
+    const clientId = getClientIdFromReq(req);
+    if (!clientId) return res.status(400).json({ ok: false, error: "Missing client_id" });
+
+    const { to_email, subject, body: emailBody, doc_name, address } = req.body ?? {};
+    if (!to_email) return res.status(400).json({ ok: false, error: "Missing to_email" });
+    if (!subject)  return res.status(400).json({ ok: false, error: "Missing subject" });
+    if (!emailBody) return res.status(400).json({ ok: false, error: "Missing body" });
+
+    // Use cached result or search fresh if address provided
+    let mlsResult = _getCachedMlsResult(clientId);
+    if (!mlsResult && address) {
+      console.log("[MLS] send_disclosure: cache miss, searching:", address);
+      mlsResult = await mlsSearchProperty(address.trim());
+      if (mlsResult.ok) _setCachedMlsResult(clientId, mlsResult);
+    }
+    if (!mlsResult?.ok) {
+      return res.status(400).json({ ok: false, error: "No MLS listing found. Provide an address or search first." });
+    }
+
+    const docs = mlsResult.documents ?? [];
+    if (docs.length === 0) return res.status(400).json({ ok: false, error: "No documents found for this listing." });
+
+    // Pick best matching document
+    const hint = doc_name?.toLowerCase() ?? "";
+    const doc = hint
+      ? (docs.find(d => d.name?.toLowerCase().includes(hint)) ?? docs[0])
+      : docs[0];
+
+    // Download PDF using saved session cookies
+    const browser = await getBrowser();
+    const dlContext = await browser.newContext({
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    });
+    try {
+      if (fs.existsSync(SESSION_FILE)) {
+        const state = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+        await dlContext.addCookies(state.cookies ?? []);
+      }
+
+      const pdfResp = await dlContext.request.get(doc.url, {
+        headers: { Accept: "application/pdf,*/*", Referer: "https://mo.flexmls.com/" },
+      });
+      if (!pdfResp.ok()) {
+        return res.status(502).json({ ok: false, error: `Could not download document: HTTP ${pdfResp.status()}` });
+      }
+      const pdfBuffer = await pdfResp.body();
+      const pdfFilename = doc.name ? `${doc.name.replace(/[^a-zA-Z0-9_\- ]/g, "_")}.pdf` : "disclosure.pdf";
+
+      // Send via Gmail
+      const auth = await getAuthorizedClient(clientId);
+      const gmail = google.gmail({ version: "v1", auth });
+      const raw = buildRawEmailWithBuffer({
+        to: to_email,
+        subject,
+        bodyText: emailBody,
+        attachmentBuffer: pdfBuffer,
+        attachmentFilename: pdfFilename,
+        contentType: "application/pdf",
+      });
+      const result = await gmail.users.messages.send({ userId: "me", requestBody: { raw } });
+      console.log(`[MLS] Disclosure sent: ${pdfFilename} → ${to_email} (msg ${result.data.id})`);
+      return res.json({ ok: true, message_id: result.data.id, to: to_email, document: doc.name });
+    } finally {
+      await dlContext.close();
+    }
   });
 
   /**
@@ -836,6 +931,6 @@ export function registerMlsRoutes(app) {
     }
   });
 
-  console.log("[MLS] Routes registered: POST /mls/search, GET /mls/document, DELETE /mls/session");
+  console.log("[MLS] Routes registered: POST /mls/search, POST /mls/send_disclosure, GET /mls/document, DELETE /mls/session");
 
 }

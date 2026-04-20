@@ -443,6 +443,53 @@ $trimmedPrefs''';
         "required": ["subject", "body"]
       }
     },
+    // MLS tools
+    {
+      "type": "function",
+      "name": "mls_search",
+      "description": "Search MLS (Flexmls) for a property by address. Returns listing details: price, status, beds, baths, and available documents. Results are cached for 30 minutes for use by send_disclosure.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Full property address, e.g. '27 Regency Way, Manalapan, NJ 07726'."
+          }
+        },
+        "required": ["address"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "send_disclosure",
+      "description": "Send a disclosure or other MLS listing document to a client via email with the PDF attached. Uses the last searched listing automatically; provide address only if different from the last search.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to_email": {
+            "type": "string",
+            "description": "Recipient email address."
+          },
+          "subject": {
+            "type": "string",
+            "description": "Email subject line."
+          },
+          "body": {
+            "type": "string",
+            "description": "Email body text."
+          },
+          "doc_name": {
+            "type": "string",
+            "description": "Hint for which document to send, e.g. 'disclosure', 'seller', 'inspection'. Omit to send the first available document."
+          },
+          "address": {
+            "type": "string",
+            "description": "Property address — only needed if different from the last MLS search."
+          }
+        },
+        "required": ["to_email", "subject", "body"]
+      }
+    },
     {
       "type": "function",
       "name": "read_drive_file",

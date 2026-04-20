@@ -263,8 +263,35 @@ function buildRawEmail({ to, subject, bodyText, attachmentText, attachmentFilena
   return Buffer.from(mime).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
+function buildRawEmailWithBuffer({ to, subject, bodyText, attachmentBuffer, attachmentFilename, contentType = "application/octet-stream" }) {
+  const boundary = `rm_boundary_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  // MIME requires base64 lines ≤76 chars
+  const raw64 = attachmentBuffer.toString("base64").replace(/(.{76})/g, "$1\r\n");
+  const mime = [
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/plain; charset=utf-8",
+    "",
+    bodyText,
+    "",
+    `--${boundary}`,
+    `Content-Type: ${contentType}; name="${attachmentFilename}"`,
+    `Content-Disposition: attachment; filename="${attachmentFilename}"`,
+    "Content-Transfer-Encoding: base64",
+    "",
+    raw64,
+    "",
+    `--${boundary}--`,
+  ].join("\r\n");
+  return Buffer.from(mime).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
 // Shared helpers exported for use by other Google service modules.
-export { loadToken, getAuthorizedClient, sanitizeClientId, getClientIdFromReq, TOKEN_DIR };
+export { loadToken, getAuthorizedClient, sanitizeClientId, getClientIdFromReq, TOKEN_DIR, buildRawEmailWithBuffer };
 
 //
 // Exposed APIs

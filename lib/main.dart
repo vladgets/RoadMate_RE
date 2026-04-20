@@ -21,6 +21,7 @@ import 'services/memory_store.dart';
 import 'services/calendar.dart';
 import 'services/web_search.dart';
 import 'services/gmail_client.dart';
+import 'services/mls_client.dart';
 import 'services/gcalendar_client.dart';
 import 'services/gdrive_client.dart';
 import 'services/map_navigation.dart';
@@ -136,6 +137,8 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   late final WebSearchClient _webSearchClient = WebSearchClient();
   late final WebSearchTool _webSearchTool = WebSearchTool(client: _webSearchClient);
 
+  // MLS client — initialized alongside Gmail with the same client id.
+  late MlsClient mlsClient;
   // Gmail client (multi-user): initialized with per-install client id.
   late final GmailClient gmailClient;
   // Google Calendar client — used on web always, on mobile when source == 'google'.
@@ -227,6 +230,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       gmailClient = GmailClient(baseUrl: Config.serverUrl, clientId: cid);
       gCalendarClient = GCalendarClient(baseUrl: Config.serverUrl, clientId: cid);
       gDriveClient = GDriveClient(baseUrl: Config.serverUrl, clientId: cid);
+      mlsClient = MlsClient(baseUrl: Config.serverUrl, clientId: cid);
       debugPrint('[ClientId] $cid');
 
       // Fetch and cache the user's own email address (used by gmail_send_email tool).
@@ -759,6 +763,32 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     }
     return await GmailSendEmailTool(client: gmailClient).call(args);
   },
+  'mls_search': (args) async {
+    if (_clientId == null) {
+      return {'ok': false, 'error': 'Not initialized yet. Try again in a second.'};
+    }
+    final address = args['address'] as String? ?? '';
+    if (address.isEmpty) return {'ok': false, 'error': 'Missing address'};
+    return await mlsClient.searchProperty(address);
+  },
+  'send_disclosure': (args) async {
+    if (_clientId == null) {
+      return {'ok': false, 'error': 'Not initialized yet. Try again in a second.'};
+    }
+    final toEmail = args['to_email'] as String? ?? '';
+    final subject = args['subject'] as String? ?? '';
+    final body = args['body'] as String? ?? '';
+    if (toEmail.isEmpty) return {'ok': false, 'error': 'Missing to_email'};
+    if (subject.isEmpty) return {'ok': false, 'error': 'Missing subject'};
+    if (body.isEmpty) return {'ok': false, 'error': 'Missing body'};
+    return await mlsClient.sendDisclosure(
+      toEmail: toEmail,
+      subject: subject,
+      body: body,
+      docName: args['doc_name'] as String?,
+      address: args['address'] as String?,
+    );
+  },
   'read_drive_file': (args) async {
     if (_clientId == null) {
       return {'ok': false, 'error': 'Not initialized yet. Try again in a second.'};
@@ -1066,6 +1096,8 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       'gmail_send_email',
       'read_drive_file',
       'traffic_eta',
+      'mls_search',
+      'send_disclosure',
     };
 
     // Start thinking sound for long-running tools
