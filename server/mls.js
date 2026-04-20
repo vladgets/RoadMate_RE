@@ -557,11 +557,17 @@ async function searchAddress(page, address) {
 async function fetchDocuments(page, resultsFrame) {
   console.log("[MLS] Opening Documents tab...");
 
-  const docsLink = await resultsFrame.$("#detail_documents_link");
+  // The Documents tab link has id="adv_document" in the search results frame.
+  // Older/alternate views may use id="detail_documents_link".
+  const docsLink = await resultsFrame.$("#adv_document, #detail_documents_link");
   if (!docsLink) {
-    console.log("[MLS] No Documents tab found on this listing");
+    const linkIds = await safeEval(resultsFrame, () =>
+      Array.from(document.querySelectorAll("a[id]")).map(a => a.id), undefined, 2000
+    );
+    console.log("[MLS] No Documents tab found. Link IDs:", JSON.stringify(linkIds));
     return [];
   }
+  console.log("[MLS] Documents tab found:", await docsLink.getAttribute("id").catch(() => "?"));
 
   await docsLink.click();
 
@@ -695,7 +701,9 @@ async function extractListingData(page, context) {
     const r = await safeEval(frame, () => document.body?.innerText ?? "", undefined, 3000);
     const text = (typeof r === "string") ? r : "";
 
-    if (url.includes("listnum/step2") || url.includes("display_custom_report")) {
+    // Prefer the view_frame (listnum/step2) as docs source — it has the Documents tab.
+    // display_custom_report uses allow_linkbar=N so its tab bar is stripped.
+    if (url.includes("listnum/step2") && !docsSourceFrame) {
       docsSourceFrame = frame;
     }
 
