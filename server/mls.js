@@ -504,24 +504,35 @@ async function searchAddress(page, address) {
   console.log("[MLS] Waiting 3s for autocomplete...");
   await page.waitForTimeout(3000);
 
-  // Step 3: Try clicking the first autocomplete result, fall back to Enter
+  // Step 3: Try clicking the first autocomplete result, fall back to Enter.
+  // Both actions may timeout because child frames are still navigating (Playwright
+  // waits for them mid-action). We use force:true+noWaitAfter:true to avoid this,
+  // and catch any remaining timeouts — if view_frame already started navigating the
+  // search was submitted successfully regardless.
   const autocompleteItem = topFrame.locator('li.result.selectable').first();
-  let submitted = "enter";
+  let submitted = "pending";
   try {
     const count = await autocompleteItem.count();
     if (count > 0) {
       const text = await autocompleteItem.innerText().catch(() => "");
       console.log("[MLS] Clicking autocomplete result:", text.slice(0, 80));
-      await autocompleteItem.click({ timeout: 3000 });
+      await autocompleteItem.click({ timeout: 4000, force: true, noWaitAfter: true });
       submitted = "autocomplete_click";
     }
   } catch (e) {
-    console.log("[MLS] Autocomplete click failed:", e.message, "— pressing Enter");
+    console.log("[MLS] Autocomplete click failed:", e.message, "— trying Enter");
   }
 
   if (submitted !== "autocomplete_click") {
-    console.log("[MLS] Pressing Enter to submit search...");
-    await searchLocator.press("Enter", { timeout: 5000 });
+    try {
+      console.log("[MLS] Pressing Enter to submit search...");
+      await searchLocator.press("Enter", { timeout: 5000 });
+      submitted = "enter";
+    } catch (e) {
+      // Timeout here is OK — view_frame may already be navigating to results
+      console.log("[MLS] press(Enter) timed out (navigation may already be in progress):", e.message);
+      submitted = "enter_timeout";
+    }
   }
 
   console.log("[MLS] Submitted via:", submitted);
