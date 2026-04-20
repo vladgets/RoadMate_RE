@@ -6,6 +6,7 @@ import { registerFollowUpBossRoutes } from "./followupboss.js";
 import { registerConversationRoutes } from "./conversations.js";
 import { registerCalendarRoutes } from "./google_calendar.js";
 import { registerDriveRoutes } from "./google_drive.js";
+import { registerMlsRoutes } from "./mls.js";
 import { fileURLToPath } from "url";
 import path from "path";
 
@@ -21,6 +22,7 @@ registerFollowUpBossRoutes(app);
 registerConversationRoutes(app);
 registerCalendarRoutes(app);
 registerDriveRoutes(app);
+registerMlsRoutes(app);
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 

@@ -17,6 +17,7 @@
     "googleapis": "^144.0.0",
     "pdf-parse": "^1.1.4",
     "pino": "^9.6.0",
+    "playwright": "^1.59.1",
     "qrcode": "^1.5.4"
   }
 }
