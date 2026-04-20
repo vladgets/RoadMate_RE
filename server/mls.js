@@ -353,179 +353,197 @@ async function waitForTopFrame(page, timeout = 15000) {
 }
 
 async function waitForDetailFrame(page, timeout = 10000) {
-  // The display_custom_report frame has the full property details
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     for (const frame of page.frames()) {
       if (frame.url().includes("display_custom_report")) {
-        const text = await frame.evaluate(() => document.body?.innerText ?? "").catch(() => "");
-        if (text.length > 200) return frame;
+        const r = await safeEval(frame, () => document.body?.innerText ?? "", undefined, 2000);
+        if (typeof r === "string" && r.length > 200) return frame;
       }
     }
     await page.waitForTimeout(200);
   }
-  return null; // Not fatal — listnum frame still has usable data
-}
-
-async function waitForResultsFrame(page, timeout = 30000) {
-  const deadline = Date.now() + timeout;
-  let lastLogAt = 0;
-
-  // Known URL patterns that indicate content frames (ordered by preference)
-  const CONTENT_PATTERNS = [
-    "listnum/step2",
-    "display_custom_report",
-    "listnum",
-    "flexmls.com/cgi-bin",
-    "idx",
-    "search",
-    "listing",
-  ];
-  // Frames that are navigation/chrome — never the results frame
-  const NAV_PATTERNS = ["top_frame", "about:blank", "javascript:", "data:"];
-
-  while (Date.now() < deadline) {
-    const frames = page.frames();
-
-    // Log all frame URLs every 2 seconds for diagnostics
-    if (Date.now() - lastLogAt > 2000) {
-      console.log("[MLS] Frames:", frames.map(f => f.url().slice(0, 90)).join(" | "));
-      lastLogAt = Date.now();
-    }
-
-    let bestFrame = null;
-    let bestLen = 100; // minimum text threshold
-
-    for (const frame of frames) {
-      const url = frame.url();
-      if (!url || NAV_PATTERNS.some(p => url.includes(p))) continue;
-
-      // Preferred: known result URL patterns
-      const isKnown = CONTENT_PATTERNS.some(p => url.includes(p));
-      const text = await frame.evaluate(() => document.body?.innerText ?? "").catch(() => "");
-
-      if (isKnown && text.length > 100) {
-        console.log("[MLS] Results frame found (known URL):", url.slice(0, 90));
-        return frame;
-      }
-
-      // Fallback: any content frame with substantial text that isn't nav
-      if (text.length > bestLen && !looksLikeScript(text)) {
-        bestLen = text.length;
-        bestFrame = frame;
-      }
-    }
-
-    // If we have a fallback candidate with decent content, return it
-    if (bestFrame && bestLen > 500) {
-      console.log("[MLS] Results frame found (fallback, text len", bestLen, "):", bestFrame.url().slice(0, 90));
-      return bestFrame;
-    }
-
-    await page.waitForTimeout(300);
-  }
-
-  // Final frame dump on timeout
-  const allFrames = page.frames().map(f => f.url());
-  console.log("[MLS] Timed out waiting for results. All frames:\n", allFrames.join("\n"));
-
-  // Last-resort: return whichever non-nav frame has the most text
-  let lastResort = null;
-  let lastResortLen = 0;
-  for (const frame of page.frames()) {
-    const url = frame.url();
-    if (!url || NAV_PATTERNS.some(p => url.includes(p))) continue;
-    const text = await frame.evaluate(() => document.body?.innerText ?? "").catch(() => "");
-    if (!looksLikeScript(text) && text.length > lastResortLen) {
-      lastResortLen = text.length;
-      lastResort = frame;
-    }
-  }
-  if (lastResort) {
-    console.log("[MLS] Using last-resort frame:", lastResort.url().slice(0, 90), "text len:", lastResortLen);
-    return lastResort;
-  }
-
   return null;
 }
 
+// safeEval: run fn in frame with a hard ms timeout.
+// Returns {_timeout:true} or {_error:msg} instead of hanging indefinitely.
+function safeEval(frame, fn, arg, ms = 3000) {
+  return Promise.race([
+    frame.evaluate(fn, arg).catch(e => ({ _error: e.message })),
+    new Promise(r => setTimeout(() => r({ _timeout: true }), ms)),
+  ]);
+}
+
+async function waitForResultsFrame(page, dashboardUrl, timeout = 45000) {
+  // view_frame is the named content area where search results load.
+  // We wait for it to navigate AWAY from the initial dashboard URL.
+  const DASHBOARD_PATTERNS = ["flexdash", "private_dashboard"];
+
+  const deadline = Date.now() + timeout;
+  let lastLogAt = 0;
+
+  while (Date.now() < deadline) {
+    if (Date.now() - lastLogAt > 3000) {
+      const urls = page.frames().map(f => `[${f.name() || "anon"}]${f.url().slice(0, 80)}`);
+      console.log("[MLS] Frames:", urls.join(" | "));
+      lastLogAt = Date.now();
+    }
+
+    for (const frame of page.frames()) {
+      const url = frame.url();
+      if (!url || url === "about:blank") continue;
+
+      // Primary target: view_frame that has left the dashboard URL
+      if (frame.name() === "view_frame") {
+        const isStillDashboard = url === dashboardUrl ||
+          DASHBOARD_PATTERNS.some(p => url.includes(p));
+        if (!isStillDashboard) {
+          const r = await safeEval(frame, () => ({
+            len: document.body?.innerText?.length ?? 0,
+            text: document.body?.innerText?.slice(0, 100) ?? "",
+          }), undefined, 2500);
+          if (!r._timeout && !r._error && r.len > 200) {
+            console.log("[MLS] Results in view_frame:", url.slice(0, 100), "len:", r.len);
+            return frame;
+          }
+        }
+        continue;
+      }
+
+      // Secondary: any frame whose URL suggests search results
+      const RESULT_PATTERNS = ["listnum", "display_custom_report", "cgi-bin/mainmenu"];
+      if (RESULT_PATTERNS.some(p => url.includes(p))) {
+        const r = await safeEval(frame, () => ({
+          len: document.body?.innerText?.length ?? 0,
+          text: document.body?.innerText?.slice(0, 100) ?? "",
+        }), undefined, 2500);
+        if (!r._timeout && !r._error && r.len > 200 && !looksLikeScript(r.text)) {
+          console.log("[MLS] Results in secondary frame:", url.slice(0, 100));
+          return frame;
+        }
+      }
+    }
+
+    await page.waitForTimeout(400);
+  }
+
+  // Timeout — return view_frame with whatever it has, for best-effort extraction
+  const vf = page.frames().find(f => f.name() === "view_frame");
+  console.log("[MLS] waitForResultsFrame timed out. view_frame URL:", vf?.url()?.slice(0, 100));
+  return vf ?? null;
+}
+
 async function searchAddress(page, address) {
-  // For cached sessions try navigating directly to mo.flexmls.com — faster than
-  // going through the SSO redirect chain.
   console.log("[MLS] Loading Flexmls app...");
   await page.goto("https://mo.flexmls.com/", { waitUntil: "domcontentloaded", timeout: 20000 });
 
-  // If we landed on the ticket/login page, fall back to the SSO redirect
   if (page.url().includes("/ticket")) {
     console.log("[MLS] Direct nav failed, using SSO redirect...");
     await page.goto("https://members.flexmls.com/ticket/redirect", {
-      waitUntil: "domcontentloaded",
-      timeout: 20000,
+      waitUntil: "domcontentloaded", timeout: 20000,
     });
   }
   console.log("[MLS] App URL:", page.url());
 
-  // Wait for the top frame (search bar) to appear — no fixed sleep
-  const topFrame = await waitForTopFrame(page);
-  if (!topFrame) throw new Error("Flexmls top frame did not load");
-  console.log("[MLS] Top frame ready");
-
-  // Wait briefly for the SPA to settle — networkidle is unreliable for SPAs (they keep
-  // polling), so we just wait for domcontentloaded and a short settling pause instead.
-  console.log("[MLS] Waiting for top frame to settle...");
-  await topFrame.waitForLoadState("domcontentloaded", { timeout: 5000 }).catch(() => {});
-  await page.waitForTimeout(800);
-
-  // Wait for the search input to be visible inside the top frame
-  const searchInput = await topFrame.waitForSelector(
-    'input[placeholder*="Address"], input[placeholder*="address"], input[type="text"]:first-of-type',
-    { state: "visible", timeout: 10000 }
-  );
-
-  // Attach frame navigation listener BEFORE typing so we capture every URL change
-  const frameLog = [];
-  page.on("framenavigated", (f) => {
+  // Log every frame navigation for diagnosis
+  page.on("framenavigated", f => {
     const u = f.url();
     if (u && u !== "about:blank") {
-      const msg = `[MLS] framenavigated → ${u.slice(0, 120)}`;
-      console.log(msg);
-      frameLog.push(u);
+      console.log(`[MLS] nav [${f.name() || "anon"}]: ${u.slice(0, 110)}`);
     }
   });
 
-  console.log("[MLS] Typing address:", address);
-  // noWaitAfter prevents Playwright from waiting for any navigation triggered by the click.
-  // focus() has no such option and was hanging because child frames (hs-sites.com widgets)
-  // keep top_frame in a "navigating" state in Playwright's tracker.
-  await searchInput.click({ noWaitAfter: true });
-  await page.keyboard.press("Control+a");
-  await page.keyboard.press("Delete");
-  await page.keyboard.type(address, { delay: 20 });
-  console.log("[MLS] Done typing. Waiting 2s for autocomplete...");
+  // Wait for top_frame to appear in the frame list (URL-based, no evaluate needed)
+  const topFrame = await waitForTopFrame(page, 15000);
+  if (!topFrame) throw new Error("top_frame did not load");
+  console.log("[MLS] top_frame URL:", topFrame.url().slice(0, 100));
 
-  // Use a plain timeout — NEVER waitForSelector/evaluate here because typing
-  // triggers a pending navigation which causes those calls to block indefinitely.
-  await page.waitForTimeout(2000);
-  console.log("[MLS] Post-wait frames:", page.frames().map(f => f.url().slice(0, 80)).join(" | "));
+  // Record view_frame's initial (dashboard) URL so we can detect when it navigates to results
+  const viewFrame = page.frames().find(f => f.name() === "view_frame");
+  const dashboardUrl = viewFrame?.url() ?? "";
+  console.log("[MLS] view_frame initial URL:", dashboardUrl.slice(0, 100));
 
-  // Always press ArrowDown first (selects top autocomplete item if visible,
-  // or moves cursor if not), then Enter to submit.
-  console.log("[MLS] Pressing ArrowDown + Enter to submit search...");
-  await page.keyboard.press("ArrowDown");
-  await page.waitForTimeout(150);
-  await page.keyboard.press("Enter");
-  console.log("[MLS] Enter pressed. Waiting for results frame...");
+  // Poll until top_frame context becomes accessible.
+  // All Playwright per-frame methods (click, focus, waitForSelector) block while child frames
+  // (WalkMe, Beamer, hs-sites.com) are still loading. We detect readiness with safeEval.
+  console.log("[MLS] Polling for top_frame context readiness...");
+  let topFrameInputs = null;
+  for (let i = 0; i < 30; i++) {
+    const r = await safeEval(topFrame, () =>
+      Array.from(document.querySelectorAll("input")).map(inp => ({
+        type: inp.type, placeholder: inp.placeholder, visible: inp.offsetParent !== null,
+      }))
+    , undefined, 1500);
+    if (Array.isArray(r) && r.length > 0) {
+      topFrameInputs = r;
+      console.log("[MLS] top_frame ready after", i, "polls. Inputs:", JSON.stringify(topFrameInputs));
+      break;
+    }
+    if (i % 5 === 0) console.log(`[MLS] top_frame poll ${i}: ${JSON.stringify(r)}`);
+    await page.waitForTimeout(400);
+  }
+  if (!topFrameInputs) throw new Error("top_frame context never became available");
 
-  // Wait for the main results frame to have content
-  const resultsFrame = await waitForResultsFrame(page, 30000);
-  if (!resultsFrame) {
-    console.log("[MLS] Results frame not found — page title:", await page.title());
-    console.log("[MLS] All frame URLs seen:", frameLog);
-  } else {
-    console.log("[MLS] Results loaded in frame:", resultsFrame.url().slice(0, 80));
+  // Fill the search input using page.evaluate() on the MAIN FRAMESET context.
+  //
+  // Why: top_frame and main page are both at mo.flexmls.com (same origin), so
+  // window.frames['top_frame'] is accessible from the main page's JS context.
+  // page.evaluate() only blocks on the MAIN FRAME's navigation — not child frames.
+  // This completely avoids the ElementHandle blocking issue.
+  console.log("[MLS] Filling search via cross-frame page.evaluate...");
+  const fillResult = await safeEval(page, (addr) => {
+    try {
+      const tf = window.frames["top_frame"];
+      if (!tf) return { ok: false, reason: "no window.frames.top_frame" };
+
+      const input = tf.document.querySelector('input[placeholder*="Address"]') ||
+                    tf.document.querySelector('input[placeholder*="address"]') ||
+                    tf.document.querySelector('input[type="text"]');
+      if (!input) return {
+        ok: false, reason: "no input found",
+        inputs: Array.from(tf.document.querySelectorAll("input")).map(i => i.placeholder),
+      };
+
+      // Focus via cross-frame call
+      input.focus();
+
+      // Use the frame-native value setter so React/Vue synthetic events fire
+      const setter = Object.getOwnPropertyDescriptor(tf.HTMLInputElement.prototype, "value").set;
+      setter.call(input, addr);
+      input.dispatchEvent(new tf.InputEvent("input", { bubbles: true, data: addr }));
+      input.dispatchEvent(new tf.Event("change", { bubbles: true }));
+
+      return { ok: true, value: input.value, placeholder: input.placeholder };
+    } catch (e) {
+      return { ok: false, reason: e.message };
+    }
+  }, address, 6000);
+
+  console.log("[MLS] Fill result:", JSON.stringify(fillResult));
+  if (fillResult._timeout || fillResult._error || !fillResult?.ok) {
+    throw new Error("Could not fill search input: " + JSON.stringify(fillResult));
   }
 
-  // Wait for the detail report frame to load (has full property data + Documents tab)
+  // Wait for autocomplete suggestions (Flexmls fires XHR after input event)
+  await page.waitForTimeout(1800);
+  console.log("[MLS] Submitting search (ArrowDown + Enter via CDP keyboard)...");
+
+  // page.keyboard.press() → Input.dispatchKeyEvent CDP — no navigation wait, no frame context needed
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(200);
+  await page.keyboard.press("Enter");
+  console.log("[MLS] Search submitted. Waiting for view_frame to navigate to results...");
+
+  // Wait for view_frame to navigate from the dashboard to the search results URL
+  const resultsFrame = await waitForResultsFrame(page, dashboardUrl, 45000);
+  if (!resultsFrame) {
+    console.log("[MLS] Results frame not found after 45s");
+  } else {
+    console.log("[MLS] Results frame:", resultsFrame.url().slice(0, 100));
+  }
+
+  // Also wait for a detail report sub-frame if it appears
   await waitForDetailFrame(page, 10000);
 }
 
@@ -658,70 +676,65 @@ function looksLikeScript(text) {
 }
 
 async function extractListingData(page, context) {
-  let bestFrame = null;
+  // Use view_frame by name (the main content area) — it's the definitive results frame
+  const viewFrame = page.frames().find(f => f.name() === "view_frame");
+  const SKIP = ["about:blank", "javascript:", "data:", "top_frame", "walkme", "beamer", "getbeamer", "hs-sites.com"];
+
+  let bestFrame = viewFrame ?? null;
   let bestFrameText = "";
-  let resultsFrame = null;
+  let docsSourceFrame = null;
 
+  // Read view_frame first; fall back to other frames if it's blocked
   for (const frame of page.frames()) {
-    try {
-      const url = frame.url();
-      // Skip non-content frames (blank, JS, data URIs, analytics scripts)
-      if (!url || url === "about:blank" || url.startsWith("javascript:") || url.startsWith("data:")) continue;
+    const url = frame.url();
+    if (!url || SKIP.some(p => url.includes(p))) continue;
 
-      const text = await frame.evaluate(() => document.body?.innerText ?? "");
+    const r = await safeEval(frame, () => document.body?.innerText ?? "", undefined, 3000);
+    const text = (typeof r === "string") ? r : "";
 
-      if (url.includes("listnum/step2")) {
-        resultsFrame = frame;
-      }
+    if (url.includes("listnum/step2") || url.includes("display_custom_report")) {
+      docsSourceFrame = frame;
+    }
 
-      // Skip frames whose visible text is actually minified JS
-      if (looksLikeScript(text)) {
-        console.log("[MLS] Skipping script-like frame:", url.slice(0, 80));
-        continue;
-      }
+    if (looksLikeScript(text)) continue;
 
-      // Prefer known detail/report frames over generic frames
-      const isDetailFrame =
-        url.includes("display_custom_report") ||
-        url.includes("flexmls.com/cgi-bin") ||
-        url.includes("mo.flexmls.com/");
+    const isViewFrame = frame.name() === "view_frame";
+    const score = text.length + (isViewFrame ? 200000 : 0) +
+      (url.includes("display_custom_report") ? 100000 : 0);
 
-      const score = text.length + (isDetailFrame ? 100000 : 0);
-      if (score > (bestFrame ? bestFrameText.length + (bestFrame.url().includes("display_custom_report") ? 100000 : 0) : 0)) {
-        bestFrameText = text;
-        bestFrame = frame;
-      }
-    } catch {}
+    const bestScore = bestFrameText.length +
+      (bestFrame?.name() === "view_frame" ? 200000 : 0) +
+      (bestFrame?.url().includes("display_custom_report") ? 100000 : 0);
+
+    if (score > bestScore) {
+      bestFrameText = text;
+      bestFrame = frame;
+    }
   }
 
-  console.log("[MLS] Best content frame:", bestFrame?.url(), "| text length:", bestFrameText.length);
+  console.log("[MLS] Best content frame:", bestFrame?.url()?.slice(0, 100), "| text length:", bestFrameText.length);
 
-  // Try to extract structured data from the richest frame
-  let structured = {};
-  if (bestFrame) {
-    structured = await bestFrame.evaluate(() => {
-      const getText = (sel) => document.querySelector(sel)?.innerText?.trim() ?? null;
-      return {
-        address: getText('[class*="address"], h1, [class*="Address"]'),
-        price: getText('[class*="price"], [class*="Price"]'),
-        status: getText('[class*="status"], [class*="Status"]'),
-        beds: getText('[class*="bed"], [class*="Bed"]'),
-        baths: getText('[class*="bath"], [class*="Bath"]'),
-        sqft: getText('[class*="sqft"], [class*="SqFt"], [class*="square"]'),
-        mlsNumber: getText('[class*="mls_nbr"], [class*="MlsNumber"], [class*="listing_number"]'),
-      };
-    }).catch(() => ({}));
-  }
+  const structured = await safeEval(bestFrame ?? page.mainFrame(), () => {
+    const getText = (sel) => document.querySelector(sel)?.innerText?.trim() ?? null;
+    return {
+      address: getText('[class*="address"], h1, [class*="Address"]'),
+      price: getText('[class*="price"], [class*="Price"]'),
+      status: getText('[class*="status"], [class*="Status"]'),
+      beds: getText('[class*="bed"], [class*="Bed"]'),
+      baths: getText('[class*="bath"], [class*="Bath"]'),
+      sqft: getText('[class*="sqft"], [class*="SqFt"], [class*="square"]'),
+      mlsNumber: getText('[class*="mls_nbr"], [class*="MlsNumber"], [class*="listing_number"]'),
+    };
+  }, undefined, 3000).catch(() => ({}));
 
-  // Fetch documents
-  const documents = resultsFrame
-    ? await fetchDocuments(page, resultsFrame)
+  const documents = docsSourceFrame
+    ? await fetchDocuments(page, docsSourceFrame)
     : [];
 
   return {
     url: page.url(),
-    title: await page.title(),
-    structured,
+    viewFrameUrl: viewFrame?.url() ?? null,
+    structured: (structured && !structured._timeout && !structured._error) ? structured : {},
     rawText: bestFrameText.slice(0, 5000),
     documents,
   };
