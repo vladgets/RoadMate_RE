@@ -485,15 +485,8 @@ async function searchAddress(page, address) {
   }
   if (!topFrameInputs) throw new Error("top_frame context never became available");
 
-  // Fill the search input AND schedule keyboard submission — all inside page.evaluate().
-  //
-  // Why page.evaluate() + setTimeout instead of page.keyboard.press():
-  //   WalkMe navigates its hidden iframe right after we fill the input, stealing
-  //   browser focus. CDP keyboard events (page.keyboard) go to whatever has focus —
-  //   after WalkMe's nav they miss the search input entirely.
-  //   By dispatching KeyboardEvents inside top_frame's JS context via setTimeout,
-  //   the events fire directly on the input element regardless of browser focus.
-  console.log("[MLS] Filling search and scheduling submission via cross-frame page.evaluate...");
+  // Step 1: Fill the search input
+  console.log("[MLS] Filling search input via cross-frame page.evaluate...");
   const fillResult = await safeEval(page, (addr) => {
     try {
       const tf = window.frames["top_frame"];
@@ -507,35 +500,11 @@ async function searchAddress(page, address) {
         inputs: Array.from(tf.document.querySelectorAll("input")).map(i => i.placeholder),
       };
 
-      // Focus and fill using frame-native setter so React/Vue synthetic events fire
       input.focus();
       const setter = Object.getOwnPropertyDescriptor(tf.HTMLInputElement.prototype, "value").set;
       setter.call(input, addr);
       input.dispatchEvent(new tf.InputEvent("input", { bubbles: true, data: addr }));
       input.dispatchEvent(new tf.Event("change", { bubbles: true }));
-
-      // After 2s (autocomplete XHR latency), dispatch ArrowDown + Enter INSIDE
-      // top_frame's context. This bypasses browser focus routing entirely —
-      // events fire on the element directly, not on whatever happens to be focused.
-      setTimeout(() => {
-        try {
-          input.focus();
-          input.dispatchEvent(new tf.KeyboardEvent("keydown", {
-            key: "ArrowDown", keyCode: 40, which: 40, bubbles: true, cancelable: true,
-          }));
-          setTimeout(() => {
-            input.dispatchEvent(new tf.KeyboardEvent("keydown", {
-              key: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true,
-            }));
-            input.dispatchEvent(new tf.KeyboardEvent("keypress", {
-              key: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true,
-            }));
-            input.dispatchEvent(new tf.KeyboardEvent("keyup", {
-              key: "Enter", keyCode: 13, which: 13, bubbles: true,
-            }));
-          }, 400);
-        } catch (_) {}
-      }, 2000);
 
       return { ok: true, value: input.value, placeholder: input.placeholder };
     } catch (e) {
@@ -548,10 +517,68 @@ async function searchAddress(page, address) {
     throw new Error("Could not fill search input: " + JSON.stringify(fillResult));
   }
 
-  // Wait for the setTimeout chain to fire: 2s autocomplete + 0.4s ArrowDown + buffer
-  console.log("[MLS] Waiting for in-frame keyboard submission to fire...");
-  await page.waitForTimeout(3500);
-  console.log("[MLS] Keyboard events fired. Waiting for view_frame to navigate to results...");
+  // Step 2: Wait for autocomplete XHR, then inspect and submit
+  console.log("[MLS] Waiting 2s for autocomplete...");
+  await page.waitForTimeout(2000);
+
+  const submitResult = await safeEval(page, () => {
+    try {
+      const tf = window.frames["top_frame"];
+      const input = tf.document.querySelector('input[placeholder*="Address"]') ||
+                    tf.document.querySelector('input[type="text"]');
+
+      // Inspect autocomplete dropdown
+      const autoSelectors = [
+        'ul[class*="auto"] li', '[class*="suggest"] li', '[role="option"]',
+        '[role="listbox"] li', '.tt-suggestion', '.ui-menu-item', 'li[class*="result"]',
+        '[class*="autocomplete"] li', '[class*="dropdown"] li',
+      ];
+      let autocompleteItems = [];
+      for (const sel of autoSelectors) {
+        const items = tf.document.querySelectorAll(sel);
+        if (items.length > 0) { autocompleteItems = Array.from(items); break; }
+      }
+
+      const itemTexts = autocompleteItems.map(el => el.innerText?.trim()).filter(Boolean);
+      console.log("[MLS-inner] autocomplete items:", itemTexts.length, itemTexts.slice(0, 3));
+
+      if (autocompleteItems.length > 0) {
+        autocompleteItems[0].click();
+        return { submitted: "autocomplete_click", items: itemTexts };
+      }
+
+      // No autocomplete — inspect the form
+      const form = input?.closest("form");
+      const formInfo = form ? {
+        action: form.action, target: form.target, method: form.method,
+        inputs: Array.from(form.querySelectorAll("input")).map(i => ({ name: i.name, type: i.type, value: i.value.slice(0, 50) })),
+      } : null;
+
+      if (form) {
+        // Trigger submit event (calls onsubmit handlers, unlike form.submit())
+        const evt = new tf.Event("submit", { bubbles: true, cancelable: true });
+        const notCancelled = form.dispatchEvent(evt);
+        if (notCancelled) form.submit(); // if JS didn't cancel, do native submit
+        return { submitted: "form_submit", formInfo };
+      }
+
+      // Last resort: look for any search/go button and click it
+      const btn = tf.document.querySelector(
+        'button[type="submit"], input[type="submit"], button[class*="search"], [class*="go-btn"], [class*="searchBtn"]'
+      );
+      if (btn) {
+        btn.click();
+        return { submitted: "button_click", btnText: btn.innerText };
+      }
+
+      return { submitted: "nothing", formInfo, inputFound: !!input };
+    } catch (e) {
+      return { submitted: "error", reason: e.message };
+    }
+  }, undefined, 5000);
+
+  console.log("[MLS] Submit result:", JSON.stringify(submitResult));
+  console.log("[MLS] Waiting for view_frame to navigate to results...");
 
   // Wait for view_frame to navigate from the dashboard to the search results URL
   const resultsFrame = await waitForResultsFrame(page, dashboardUrl, 45000);
