@@ -482,36 +482,42 @@ async function searchAddress(page, address) {
     { state: "visible", timeout: 10000 }
   );
 
+  // Attach frame navigation listener BEFORE typing so we capture every URL change
+  const frameLog = [];
+  page.on("framenavigated", (f) => {
+    const u = f.url();
+    if (u && u !== "about:blank") {
+      const msg = `[MLS] framenavigated → ${u.slice(0, 120)}`;
+      console.log(msg);
+      frameLog.push(u);
+    }
+  });
+
   console.log("[MLS] Typing address:", address);
-  // focus() is a simple DOM op that doesn't trigger navigation.
-  // page.keyboard bypasses Playwright's navigation-wait entirely.
   await searchInput.focus();
   await page.keyboard.press("Control+a");
   await page.keyboard.press("Delete");
   await page.keyboard.type(address, { delay: 20 });
+  console.log("[MLS] Done typing. Waiting 2s for autocomplete...");
 
-  // Wait for autocomplete dropdown — resolves immediately when it appears
-  let clicked = false;
-  try {
-    await topFrame.waitForSelector(
-      'ul[class*="auto"], .autocomplete, [class*="suggest"], ul li[class*="result"]',
-      { timeout: 3000 }
-    );
-    console.log("[MLS] Autocomplete appeared, selecting first result via page.keyboard");
-    // page.keyboard dispatches raw input events — no navigation waiting like ElementHandle.press()
-    await page.keyboard.press("ArrowDown");
-    await new Promise(r => setTimeout(r, 200));
-    await page.keyboard.press("Enter");
-    clicked = true;
-  } catch {
-    console.log("[MLS] No autocomplete, pressing Enter via page.keyboard");
-    await page.keyboard.press("Enter");
-  }
+  // Use a plain timeout — NEVER waitForSelector/evaluate here because typing
+  // triggers a pending navigation which causes those calls to block indefinitely.
+  await page.waitForTimeout(2000);
+  console.log("[MLS] Post-wait frames:", page.frames().map(f => f.url().slice(0, 80)).join(" | "));
+
+  // Always press ArrowDown first (selects top autocomplete item if visible,
+  // or moves cursor if not), then Enter to submit.
+  console.log("[MLS] Pressing ArrowDown + Enter to submit search...");
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(150);
+  await page.keyboard.press("Enter");
+  console.log("[MLS] Enter pressed. Waiting for results frame...");
 
   // Wait for the main results frame to have content
-  const resultsFrame = await waitForResultsFrame(page, 40000);
+  const resultsFrame = await waitForResultsFrame(page, 30000);
   if (!resultsFrame) {
     console.log("[MLS] Results frame not found — page title:", await page.title());
+    console.log("[MLS] All frame URLs seen:", frameLog);
   } else {
     console.log("[MLS] Results loaded in frame:", resultsFrame.url().slice(0, 80));
   }
