@@ -472,11 +472,15 @@ export async function searchAddress(page, address) {
       waitUntil: "domcontentloaded", timeout: 20000,
     });
   }
-  // Log key frame navigations only (skip chrome-error and about:blank noise)
+  // Log key frame navigations and capture the stable listing-by-ID URL for later use
   page.on("framenavigated", f => {
     const u = f.url();
     if (u && u !== "about:blank" && !u.startsWith("chrome-error://") && f.name()) {
       console.log(`[MLS] nav [${f.name()}]: ${u.slice(0, 100)}`);
+    }
+    // start/listing/id URLs are stable deep links (not session-specific)
+    if (f.name() === "view_frame" && u && u.includes("start/listing/id")) {
+      page._listingIdUrl = u;
     }
   });
 
@@ -954,9 +958,9 @@ async function extractListingData(page, context) {
     };
   }, undefined, 3000).catch(() => ({}));
 
-  // Capture the listing page URL BEFORE fetchDocuments navigates view_frame away.
-  // This URL is used by ShowingTime endpoints to reload the listing directly.
-  const listingPageUrl = viewFrame?.url() ?? null;
+  // Prefer the stable listing-by-ID URL captured during navigation (not session-specific).
+  // Fall back to the current view_frame URL if not captured yet.
+  const listingPageUrl = page._listingIdUrl ?? viewFrame?.url() ?? null;
   if (listingPageUrl) console.log("[MLS] Cached listing page URL:", listingPageUrl);
 
   // fetchDocuments needs view_frame (listnum/step2) to click #detail_documents_link
