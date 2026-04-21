@@ -682,33 +682,19 @@ function aggregateAvailability(availability) {
   return result;
 }
 
-// Fast path for both ShowingTime endpoints: load session, navigate main Flexmls page,
-// then point view_frame at the cached listing URL and click the ShowingTime tab.
-// This is necessary because the ShowingTime link submits a POST form with listing
-// parameters — navigating to the href directly results in "Missing required parameters".
+// Fast path for both ShowingTime endpoints: authenticate properly via ensureAuthenticated
+// (which handles SAML correctly), then point view_frame at the cached listing URL.
+// Using ensureAuthenticated is essential — loading cookies manually + navigating directly
+// causes a stale SAML assertion when ShowingTime SSO fires.
 async function loadFlexmlsWithListing(context, listingPageUrl) {
   const page = await context.newPage();
 
-  // Load session cookies
-  if (fs.existsSync(SESSION_FILE)) {
-    const state = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
-    await context.addCookies(state.cookies ?? []);
-  }
+  await ensureAuthenticated(page, context);
 
-  // Load the main Flexmls frame shell so top_frame/view_frame are created
-  await page.goto("https://mo.flexmls.com/", { waitUntil: "domcontentloaded", timeout: 20000 });
+  const viewFrame = page.frames().find(f => f.name() === "view_frame");
+  if (!viewFrame) throw new Error("view_frame not found after authentication");
 
-  // Wait for view_frame to exist
-  const vfDeadline = Date.now() + 15000;
-  let viewFrame = null;
-  while (Date.now() < vfDeadline) {
-    viewFrame = page.frames().find(f => f.name() === "view_frame");
-    if (viewFrame) break;
-    await page.waitForTimeout(300);
-  }
-  if (!viewFrame) throw new Error("view_frame not found after loading Flexmls");
-
-  // Navigate view_frame directly to the cached listing page
+  // Navigate view_frame directly to the cached listing page — skips re-search
   console.log("[MLS] Fast path: navigating view_frame to:", listingPageUrl);
   await viewFrame.goto(listingPageUrl, { waitUntil: "domcontentloaded", timeout: 20000 });
 
