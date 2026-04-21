@@ -63,33 +63,37 @@ class _MlsWebViewPageState extends State<MlsWebViewPage> {
 
   Future<void> _injectCookiesAndLoad() async {
     final cookieManager = WebViewCookieManager();
-
-    // Build Cookie header string for the initial request (most reliable on iOS WKWebView)
     final cookiePairs = <String>[];
+
     for (final c in widget.cookies) {
       final name = c['name'] as String? ?? '';
       final value = c['value'] as String? ?? '';
       final domain = c['domain'] as String? ?? '';
+      final path = (c['path'] as String?) ?? '/';
       if (name.isEmpty || domain.isEmpty) continue;
 
-      cookiePairs.add('$name=$value');
+      // Strip leading dot for WebViewCookie but keep subdomain-level domain
+      // (e.g. ".flexmls.com" → "flexmls.com", "mo.flexmls.com" → "mo.flexmls.com")
+      final cookieDomain = domain.startsWith('.') ? domain.substring(1) : domain;
+      debugPrint('[MlsWebView] setCookie name=$name domain=$cookieDomain');
 
-      // Also register in cookie store for subsequent navigation requests
-      final cleanDomain = domain.startsWith('.') ? domain.substring(1) : domain;
-      final path = (c['path'] as String?) ?? '/';
       await cookieManager.setCookie(WebViewCookie(
         name: name,
         value: value,
-        domain: cleanDomain,
+        domain: cookieDomain,
         path: path,
       ));
+      cookiePairs.add('$name=$value');
     }
+
+    debugPrint('[MlsWebView] set ${cookiePairs.length} cookies, loading $_mainUrl');
+
+    // Small delay to ensure cookies are flushed to the WebView cookie store
+    await Future.delayed(const Duration(milliseconds: 300));
 
     await _controller.loadRequest(
       Uri.parse(_mainUrl),
-      headers: cookiePairs.isNotEmpty
-          ? {'Cookie': cookiePairs.join('; ')}
-          : {},
+      headers: cookiePairs.isNotEmpty ? {'Cookie': cookiePairs.join('; ')} : {},
     );
   }
 
