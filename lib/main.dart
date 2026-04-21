@@ -799,8 +799,14 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     }
     final urlResult = await mlsClient.getListingUrl();
     if (urlResult['ok'] != true || urlResult['url'] == null) return urlResult;
-    final cookieResult = await mlsClient.getSessionCookies();
     final url = urlResult['url'] as String;
+    if (kIsWeb) {
+      // On web, cross-origin iframes are blocked — open in a new tab instead
+      final uri = Uri.tryParse(url);
+      if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return {'ok': true, 'url': url, 'note': 'Opened in browser tab (web platform)'};
+    }
+    final cookieResult = await mlsClient.getSessionCookies();
     final cookies = cookieResult['ok'] == true
         ? List<Map<String, dynamic>>.from(
             (cookieResult['cookies'] as List).map((c) => Map<String, dynamic>.from(c as Map)))

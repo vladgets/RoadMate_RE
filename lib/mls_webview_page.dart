@@ -25,43 +25,72 @@ class _MlsWebViewPageState extends State<MlsWebViewPage> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..addJavaScriptChannel(
+        'FlutterLog',
+        onMessageReceived: (msg) => debugPrint('[WebView] ${msg.message}'),
+      )
       ..setNavigationDelegate(NavigationDelegate(
-        onPageStarted: (_) => setState(() => _loading = true),
+        onPageStarted: (url) {
+          debugPrint('[WebView] pageStarted: $url');
+          setState(() => _loading = true);
+        },
         onPageFinished: (url) async {
+          debugPrint('[WebView] pageFinished: $url');
           setState(() => _loading = false);
+
+          // Log DOM state to help debug
+          await _controller.runJavaScript(
+            "FlutterLog.postMessage('title=' + document.title + ' body=' + document.body?.innerHTML?.slice(0,200));",
+          ).catchError((_) {});
+
           // After the main Flexmls frameset loads, navigate view_frame to the listing.
-          // Only do this once — subsequent onPageFinished fires are from frame navigations.
           if (!_listingNavigated && url.contains('flexmls.com')) {
             _listingNavigated = true;
-            await Future.delayed(const Duration(milliseconds: 800));
+            await Future.delayed(const Duration(milliseconds: 1500));
             final escaped = widget.listingUrl.replaceAll("'", "\\'");
             await _controller.runJavaScript(
-              "var vf = document.querySelector('frame[name=\"view_frame\"]') "
-              "|| document.querySelector('iframe[name=\"view_frame\"]');"
+              "var vf = document.querySelector('frame[name=\"view_frame\"]')"
+              " || document.querySelector('iframe[name=\"view_frame\"]');"
+              "FlutterLog.postMessage('view_frame found: ' + !!vf + ' url=' + window.location.href);"
               "if (vf) { vf.src = '$escaped'; }",
             );
           }
         },
+        onWebResourceError: (err) => debugPrint('[WebView] error: ${err.description}'),
       ));
     _injectCookiesAndLoad();
   }
 
   Future<void> _injectCookiesAndLoad() async {
     final cookieManager = WebViewCookieManager();
+
+    // Build Cookie header string for the initial request (most reliable on iOS WKWebView)
+    final cookiePairs = <String>[];
     for (final c in widget.cookies) {
       final name = c['name'] as String? ?? '';
       final value = c['value'] as String? ?? '';
       final domain = c['domain'] as String? ?? '';
-      final path = (c['path'] as String?) ?? '/';
       if (name.isEmpty || domain.isEmpty) continue;
+
+      cookiePairs.add('$name=$value');
+
+      // Also register in cookie store for subsequent navigation requests
+      final cleanDomain = domain.startsWith('.') ? domain.substring(1) : domain;
+      final path = (c['path'] as String?) ?? '/';
       await cookieManager.setCookie(WebViewCookie(
         name: name,
         value: value,
-        domain: domain.startsWith('.') ? domain.substring(1) : domain,
+        domain: cleanDomain,
         path: path,
       ));
     }
-    await _controller.loadRequest(Uri.parse(_mainUrl));
+
+    await _controller.loadRequest(
+      Uri.parse(_mainUrl),
+      headers: cookiePairs.isNotEmpty
+          ? {'Cookie': cookiePairs.join('; ')}
+          : {},
+    );
   }
 
   @override
