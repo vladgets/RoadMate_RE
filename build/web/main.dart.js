@@ -28727,6 +28727,7 @@ this.a=c},
 YM:function YM(){var _=this
 _.d=$
 _.e=!0
+_.f=!1
 _.c=_.a=null},
 azL:function azL(a){this.a=a},
 aOa(a){return new A.fj(B.e.j(Date.now()),"assistant",a,new A.bL(Date.now(),0,!1),"text","sent",null)},
@@ -100271,9 +100272,11 @@ q===$&&A.a()
 A.b29(new A.akt(q.a))
 return A.iW(r,s,A.jO(B.bX,void 1,B.J,B.bT),s,s,s)}}
 A.azL.prototype={
-$0(){var s=this.a.d
+$0(){var s=this.a
+s.f=!1
+s=s.d
 s===$&&A.a()
-return s.a5j()},
+s.a5j()},
 $S:0}
 A.fj.prototype={
 du(){var s,r=this,q=r.d.vl(),p=r.r

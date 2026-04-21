@@ -806,7 +806,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
             (cookieResult['cookies'] as List).map((c) => Map<String, dynamic>.from(c as Map)))
         : <Map<String, dynamic>>[];
     navigatorKey.currentState?.push(MaterialPageRoute(
-      builder: (_) => MlsWebViewPage(url: url, cookies: cookies),
+      builder: (_) => MlsWebViewPage(listingUrl: url, cookies: cookies),
     ));
     return {'ok': true, 'url': url};
   },
