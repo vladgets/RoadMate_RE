@@ -492,21 +492,6 @@ $trimmedPrefs''';
     },
     {
       "type": "function",
-      "name": "open_showingtime",
-      "description": "Open the MLS listing page for the last searched property in the user's browser. The user can then click ShowingTime or any other tab themselves. Use when the user says 'open ShowingTime', 'open the listing', 'show me the MLS page', or wants to see the property in MLS.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "address": {
-            "type": "string",
-            "description": "Property address — only needed if different from the last MLS search."
-          }
-        },
-        "required": []
-      }
-    },
-    {
-      "type": "function",
       "name": "check_showingtime",
       "description": "Check ShowingTime availability for a property. Returns listing details (price, status, appointment type) and available showing slots for the current week, grouped by day. Use after mls_search or provide an address directly.",
       "parameters": {

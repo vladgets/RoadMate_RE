@@ -686,63 +686,6 @@ function aggregateAvailability(availability) {
   return result;
 }
 
-// Fast path for both ShowingTime endpoints: authenticate properly via ensureAuthenticated
-// (which handles SAML correctly), then point view_frame at the cached listing URL.
-// Using ensureAuthenticated is essential — loading cookies manually + navigating directly
-// causes a stale SAML assertion when ShowingTime SSO fires.
-async function loadFlexmlsWithListing(context, listingPageUrl) {
-  const page = await context.newPage();
-
-  await ensureAuthenticated(page, context);
-
-  const viewFrame = page.frames().find(f => f.name() === "view_frame");
-  if (!viewFrame) throw new Error("view_frame not found after authentication");
-
-  // Navigate view_frame directly to the cached listing page — skips re-search
-  console.log("[MLS] Fast path: navigating view_frame to:", listingPageUrl);
-  await viewFrame.goto(listingPageUrl, { waitUntil: "domcontentloaded", timeout: 20000 });
-
-  return { page, viewFrame };
-}
-
-// Clicks the ShowingTime tab on an already-loaded Flexmls listing page,
-// intercepts the popup, follows SSO, and returns the final authenticated URL.
-async function getShowingTimeUrlFromPage(page, context) {
-  const viewFrame = page.frames().find(f => f.name() === "view_frame");
-  if (!viewFrame) throw new Error("view_frame not found");
-
-  // Poll for ShowingTime tab
-  let stHref = null;
-  const deadline = Date.now() + 10000;
-  while (Date.now() < deadline) {
-    const r = await safeEval(viewFrame, () => {
-      const a = document.querySelector('a[href*="showing_time"]');
-      return a?.href ?? null;
-    }, undefined, 2000);
-    if (r && !r._timeout && !r._error) { stHref = r; break; }
-    await viewFrame.waitForTimeout(500);
-  }
-  if (!stHref) throw new Error("ShowingTime tab not found in view_frame after 10s");
-
-  const [popup] = await Promise.all([
-    context.waitForEvent("page", { timeout: 15000 }).catch(() => null),
-    safeEval(viewFrame, () => { document.querySelector('a[href*="showing_time"]')?.click(); }, undefined, 3000),
-  ]);
-  const stPage = popup ?? await context.newPage();
-  if (!popup) await stPage.goto(stHref, { waitUntil: "domcontentloaded", timeout: 20000 });
-
-  const ssoDeadline = Date.now() + 20000;
-  while (Date.now() < ssoDeadline) {
-    const u = stPage.url();
-    if (u && !u.includes("flexmls.com") && !u.includes("about:blank") && !u.startsWith("chrome-error")) break;
-    await stPage.waitForTimeout(500);
-  }
-  const finalUrl = stPage.url();
-  await stPage.close().catch(() => {});
-  console.log("[MLS] ShowingTime SSO URL:", finalUrl);
-  return finalUrl;
-}
-
 // Follows a ShowingTime redirector href through SSO and returns the final
 // authenticated URL. Context must have valid Flexmls session cookies loaded.
 export async function resolveShowingTimeUrl(context, redirectorHref) {
@@ -1173,24 +1116,6 @@ export function registerMlsRoutes(app) {
   });
 
   /**
-   * POST /mls/listing_url
-   * Returns the cached MLS listing page URL for the last searched property.
-   * No browser automation — pure cache lookup. The client opens this URL directly.
-   */
-  app.post("/mls/listing_url", async (req, res) => {
-    const clientId = getClientIdFromReq(req);
-    const mlsResult = clientId ? _getCachedMlsResult(clientId) : null;
-    if (!mlsResult?.ok) {
-      return res.status(400).json({ ok: false, error: "No cached listing. Search a property first." });
-    }
-    const url = mlsResult.listingPageUrl ?? mlsResult.url ?? null;
-    if (!url) {
-      return res.status(404).json({ ok: false, error: "No listing URL available." });
-    }
-    return res.json({ ok: true, url });
-  });
-
-  /**
    * GET /mls/document?url=<encoded_pdf_url>
    * Downloads a Flexmls document PDF using the saved session and streams it to the client.
    * The URL comes from the `documents[].url` field returned by /mls/search.
@@ -1256,23 +1181,6 @@ export function registerMlsRoutes(app) {
     }
   });
 
-  /**
-   * GET /mls/session_cookies
-   * Returns saved Flexmls session cookies so the Flutter WebView can inject them
-   * and open MLS pages without requiring the user to log in.
-   */
-  app.get("/mls/session_cookies", (req, res) => {
-    if (!fs.existsSync(SESSION_FILE)) {
-      return res.status(404).json({ ok: false, error: "No session saved. Search a property first." });
-    }
-    try {
-      const state = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
-      return res.json({ ok: true, cookies: state.cookies ?? [] });
-    } catch (e) {
-      return res.status(500).json({ ok: false, error: e.message });
-    }
-  });
-
-  console.log("[MLS] Routes registered: POST /mls/search, POST /mls/showingtime, POST /mls/listing_url, GET /mls/session_cookies, POST /mls/send_disclosure, GET /mls/document, DELETE /mls/session");
+  console.log("[MLS] Routes registered: POST /mls/search, POST /mls/showingtime, POST /mls/send_disclosure, GET /mls/document, DELETE /mls/session");
 
 }

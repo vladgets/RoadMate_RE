@@ -48,19 +48,7 @@ class MlsClient {
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getListingUrl() async {
-    debugPrint('[MlsClient] getListingUrl');
-    final r = await http.post(_u('/mls/listing_url'), headers: _headers(), body: '{}');
-    return jsonDecode(r.body) as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> getSessionCookies() async {
-    debugPrint('[MlsClient] getSessionCookies');
-    final r = await http.get(_u('/mls/session_cookies'), headers: _headers());
-    return jsonDecode(r.body) as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> checkShowingTime({String? address}) async {
+Future<Map<String, dynamic>> checkShowingTime({String? address}) async {
     debugPrint('[MlsClient] checkShowingTime: address=$address');
     final payload = <String, dynamic>{
       if (address != null && address.isNotEmpty) 'address': address,
