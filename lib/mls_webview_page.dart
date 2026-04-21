@@ -25,6 +25,7 @@ class _MlsWebViewPageState extends State<MlsWebViewPage> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36')
       ..addJavaScriptChannel(
         'FlutterLog',
         onMessageReceived: (msg) => debugPrint('[WebView] ${msg.message}'),
