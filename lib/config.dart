@@ -493,7 +493,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "open_showingtime",
-      "description": "Open the ShowingTime page for a property directly in the user's browser. Performs MLS authentication and SSO so the user lands on an already-logged-in ShowingTime page. Use when the user says 'open ShowingTime', 'show me the ShowingTime page', or wants to interact with ShowingTime directly.",
+      "description": "Open the MLS listing page for the last searched property in the user's browser. The user can then click ShowingTime or any other tab themselves. Use when the user says 'open ShowingTime', 'open the listing', 'show me the MLS page', or wants to see the property in MLS.",
       "parameters": {
         "type": "object",
         "properties": {

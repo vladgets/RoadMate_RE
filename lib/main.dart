@@ -793,7 +793,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     if (_clientId == null) {
       return {'ok': false, 'error': 'Not initialized yet. Try again in a second.'};
     }
-    final result = await mlsClient.getShowingTimeUrl(address: args['address'] as String?);
+    final result = await mlsClient.getListingUrl();
     if (result['ok'] == true && result['url'] != null) {
       final uri = Uri.tryParse(result['url'] as String);
       if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -1116,7 +1116,6 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       'mls_search',
       'send_disclosure',
       'check_showingtime',
-      'open_showingtime',
     };
 
     // Start thinking sound for long-running tools

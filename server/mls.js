@@ -1169,62 +1169,21 @@ export function registerMlsRoutes(app) {
   });
 
   /**
-   * POST /mls/showingtime_url
-   * Returns the SSO-authenticated ShowingTime URL for the listing so the client
-   * can open it directly in a browser without needing MLS credentials.
-   * Uses the ShowingTime redirector href cached during /mls/search to skip re-searching.
+   * POST /mls/listing_url
+   * Returns the cached MLS listing page URL for the last searched property.
+   * No browser automation — pure cache lookup. The client opens this URL directly.
    */
-  app.post("/mls/showingtime_url", async (req, res) => {
-    const { address } = req.body ?? {};
+  app.post("/mls/listing_url", async (req, res) => {
     const clientId = getClientIdFromReq(req);
-
-    let mlsResult = clientId ? _getCachedMlsResult(clientId) : null;
-    if (!mlsResult && address) {
-      mlsResult = await mlsSearchProperty(address.trim());
-      if (mlsResult?.ok && clientId) _setCachedMlsResult(clientId, mlsResult);
+    const mlsResult = clientId ? _getCachedMlsResult(clientId) : null;
+    if (!mlsResult?.ok) {
+      return res.status(400).json({ ok: false, error: "No cached listing. Search a property first." });
     }
-    if (!mlsResult?.ok && !address) {
-      return res.status(400).json({ ok: false, error: "Provide address or search a property first." });
+    const url = mlsResult.listingPageUrl ?? mlsResult.url ?? null;
+    if (!url) {
+      return res.status(404).json({ ok: false, error: "No listing URL available." });
     }
-
-    const browser = await getBrowser();
-    const stContext = await browser.newContext({
-      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-      viewport: { width: 1280, height: 900 },
-    });
-    const hardTimeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("showingtime_url hard timeout (2min)")), 120_000)
-    );
-
-    try {
-      const url = await Promise.race([
-        (async () => {
-          const listingPageUrl = mlsResult?.listingPageUrl;
-          if (listingPageUrl) {
-            console.log("[MLS] showingtime_url: fast path via cached listing URL");
-            const { page: stPage } = await loadFlexmlsWithListing(stContext, listingPageUrl);
-            return await getShowingTimeUrlFromPage(stPage, stContext);
-          }
-          // Slow path: full auth + search
-          console.log("[MLS] showingtime_url: no cached listing URL, doing full search");
-          const stPage = await stContext.newPage();
-          await ensureAuthenticated(stPage, stContext);
-          const searchAddr = address?.trim() ?? mlsResult?.structured?.address ?? "";
-          if (!searchAddr) throw new Error("No address available to search");
-          await searchAddress(stPage, searchAddr);
-          await waitForDetailFrame(stPage, 10000);
-          await saveSession(stContext);
-          return await getShowingTimeUrlFromPage(stPage, stContext);
-        })(),
-        hardTimeout,
-      ]);
-      return res.json({ ok: true, url });
-    } catch (err) {
-      console.error("[MLS] showingtime_url error:", err.message);
-      return res.status(500).json({ ok: false, error: err.message });
-    } finally {
-      await stContext.close();
-    }
+    return res.json({ ok: true, url });
   });
 
   /**
@@ -1293,6 +1252,6 @@ export function registerMlsRoutes(app) {
     }
   });
 
-  console.log("[MLS] Routes registered: POST /mls/search, POST /mls/showingtime, POST /mls/showingtime_url, POST /mls/send_disclosure, GET /mls/document, DELETE /mls/session");
+  console.log("[MLS] Routes registered: POST /mls/search, POST /mls/showingtime, POST /mls/listing_url, POST /mls/send_disclosure, GET /mls/document, DELETE /mls/session");
 
 }
