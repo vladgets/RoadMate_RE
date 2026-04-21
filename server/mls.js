@@ -682,43 +682,24 @@ function aggregateAvailability(availability) {
   return result;
 }
 
-// Navigates to the ShowingTime tab for the current listing and returns the
-// final SSO-authenticated URL (schedulingsso.showingtime.com) without further automation.
-export async function getShowingTimeUrl(page, context) {
-  const viewFrame = page.frames().find(f => f.name() === "view_frame");
-  if (!viewFrame) throw new Error("view_frame not found");
-
-  // Poll for ShowingTime tab — may take ~5s after waitForDetailFrame
-  let stHref = null;
-  const stTabDeadline = Date.now() + 10000;
-  while (Date.now() < stTabDeadline) {
-    const result = await safeEval(viewFrame, () => {
-      const a = document.querySelector('a[href*="showing_time"]');
-      return a?.href ?? null;
-    }, undefined, 2000);
-    if (result && !result._timeout && !result._error) { stHref = result; break; }
-    await viewFrame.waitForTimeout(500);
+// Follows a ShowingTime redirector href through SSO and returns the final
+// authenticated URL. Context must have valid Flexmls session cookies loaded.
+export async function resolveShowingTimeUrl(context, redirectorHref) {
+  const stPage = await context.newPage();
+  try {
+    await stPage.goto(redirectorHref, { waitUntil: "domcontentloaded", timeout: 20000 });
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      const u = stPage.url();
+      if (u && !u.includes("flexmls.com") && !u.includes("about:blank") && !u.startsWith("chrome-error")) break;
+      await stPage.waitForTimeout(500);
+    }
+    const finalUrl = stPage.url();
+    console.log("[MLS] ShowingTime SSO URL:", finalUrl);
+    return finalUrl;
+  } finally {
+    await stPage.close().catch(() => {});
   }
-  if (!stHref) throw new Error("ShowingTime tab not found in view_frame after 10s");
-
-  // Intercept the popup and wait for SSO redirect to leave flexmls.com
-  const [popup] = await Promise.all([
-    context.waitForEvent("page", { timeout: 15000 }).catch(() => null),
-    safeEval(viewFrame, () => { document.querySelector('a[href*="showing_time"]')?.click(); }, undefined, 3000),
-  ]);
-  const stPage = popup ?? await context.newPage();
-  if (!popup) await stPage.goto(stHref, { waitUntil: "domcontentloaded", timeout: 20000 });
-
-  const deadline = Date.now() + 20000;
-  while (Date.now() < deadline) {
-    const u = stPage.url();
-    if (u && !u.includes("flexmls.com") && !u.includes("about:blank") && !u.startsWith("chrome-error")) break;
-    await stPage.waitForTimeout(500);
-  }
-  const finalUrl = stPage.url();
-  await stPage.close().catch(() => {});
-  console.log("[MLS] ShowingTime SSO URL:", finalUrl);
-  return finalUrl;
 }
 
 // from the ContactInfo page, click "Schedule Single Showing", parse the
@@ -761,94 +742,70 @@ export async function openShowingTime(page, context) {
   console.log("[MLS] ShowingTime landed:", stPage.url());
 
   try {
-    // ── Extract listing details from ContactInfo page ─────────────────────
-    await stPage.waitForLoadState("domcontentloaded", { timeout: 10000 }).catch(() => {});
-
-    const listingDetails = await stPage.evaluate(() => {
-      // Parse label:value pairs from the listing details block
-      const detailEl = document.querySelector('[class*="listingDetails"], [class*="listing-detail"], [class*="propertyDetails"]')
-        ?? document.querySelector('[class*="detail"]');
-      if (!detailEl) return {};
-
-      const result = {};
-      const text = detailEl.innerText ?? "";
-      // Split on newlines and extract "Label:\nValue" patterns
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      let lastKey = null;
-      for (const line of lines) {
-        if (line.endsWith(':')) {
-          lastKey = line.slice(0, -1).trim();
-        } else if (lastKey) {
-          result[lastKey] = line;
-          lastKey = null;
-        }
-      }
-      return result;
-    }).catch(() => ({}));
-    console.log("[MLS] Listing details:", JSON.stringify(listingDetails));
-
-    // ── Click "Schedule Single Showing" ───────────────────────────────────
-    await stPage.click('#goSingleShowing', { timeout: 8000 });
-    console.log("[MLS] Clicked Schedule Single Showing");
-
-    // Wait for Calendar/Week page
-    const calDeadline = Date.now() + 15000;
-    while (Date.now() < calDeadline && !stPage.url().includes("Calendar")) {
-      await stPage.waitForTimeout(300);
-    }
-    console.log("[MLS] Calendar URL:", stPage.url());
-
-    // ── Parse weekly availability ─────────────────────────────────────────
-    await stPage.waitForTimeout(1000); // let calendar JS render
-    const { weekLabel, availability } = await stPage.evaluate(() => {
-      // Week header text e.g. "Week of: Apr 20 - Apr 26"
-      const weekEl = document.querySelector('[class*="week"], h2, h3, .calendar-header');
-      const weekLabel = weekEl?.innerText?.trim() ?? "";
-
-      // Day headers — find the row with "Mon", "Tue", etc.
-      const table = document.querySelector('table.cal-table');
-      if (!table) return { weekLabel, availability: {} };
-
-      const headerRow = Array.from(table.querySelectorAll('tr'))
-        .find(r => r.innerText.includes('Mon') && r.innerText.includes('Tue'));
-      const dayCols = headerRow
-        ? Array.from(headerRow.querySelectorAll('td')).map(td => td.innerText.trim())
-        : [];
-
-      const availability = {};
-
-      table.querySelectorAll('tr').forEach(row => {
-        const cells = Array.from(row.querySelectorAll('td'));
-        // Only process rows that have a time header cell
-        const timeCells = cells.filter(c => c.className.includes('time-header-cell'));
-        if (timeCells.length === 0) return;
-
-        cells.forEach(cell => {
-          if (cell.className.includes('time-header-cell')) return;
-          if (!cell.className.includes('white-cell')) return; // unavailable
-
-          const a = cell.querySelector('a');
-          if (!a) return;
-          const title = a.title || a.getAttribute('alt') || '';
-          // "Click here to set the start time of the showing on April 21 at 8:30 am"
-          const m = title.match(/on (.+?) at (.+?)$/i);
-          if (!m) return;
-          const day = m[1].trim();
-          const time = m[2].trim();
-          if (!availability[day]) availability[day] = [];
-          availability[day].push(time);
-        });
-      });
-
-      return { weekLabel, availability };
-    }).catch(() => ({ weekLabel: "", availability: {} }));
-
-    console.log(`[MLS] ShowingTime availability: ${Object.keys(availability).length} days`);
-    const aggregated = aggregateAvailability(availability);
-    return { url: stPage.url(), listingDetails, weekLabel, availability: aggregated };
+    return await scrapeShowingTimeCalendar(stPage);
   } finally {
     await stPage.close().catch(() => {});
   }
+}
+
+// Scrapes listing details and weekly availability from a ShowingTime page.
+// The page must already be on schedulingsso.showingtime.com (post-SSO).
+async function scrapeShowingTimeCalendar(stPage) {
+  await stPage.waitForLoadState("domcontentloaded", { timeout: 10000 }).catch(() => {});
+
+  const listingDetails = await stPage.evaluate(() => {
+    const detailEl = document.querySelector('[class*="listingDetails"], [class*="listing-detail"], [class*="propertyDetails"]')
+      ?? document.querySelector('[class*="detail"]');
+    if (!detailEl) return {};
+    const result = {};
+    const lines = (detailEl.innerText ?? "").split('\n').map(l => l.trim()).filter(Boolean);
+    let lastKey = null;
+    for (const line of lines) {
+      if (line.endsWith(':')) { lastKey = line.slice(0, -1).trim(); }
+      else if (lastKey) { result[lastKey] = line; lastKey = null; }
+    }
+    return result;
+  }).catch(() => ({}));
+  console.log("[MLS] Listing details:", JSON.stringify(listingDetails));
+
+  await stPage.click('#goSingleShowing', { timeout: 8000 });
+  console.log("[MLS] Clicked Schedule Single Showing");
+
+  const calDeadline = Date.now() + 15000;
+  while (Date.now() < calDeadline && !stPage.url().includes("Calendar")) {
+    await stPage.waitForTimeout(300);
+  }
+  console.log("[MLS] Calendar URL:", stPage.url());
+
+  await stPage.waitForTimeout(1000);
+  const { weekLabel, availability } = await stPage.evaluate(() => {
+    const weekEl = document.querySelector('[class*="week"], h2, h3, .calendar-header');
+    const weekLabel = weekEl?.innerText?.trim() ?? "";
+    const table = document.querySelector('table.cal-table');
+    if (!table) return { weekLabel, availability: {} };
+    const availability = {};
+    table.querySelectorAll('tr').forEach(row => {
+      const cells = Array.from(row.querySelectorAll('td'));
+      if (!cells.some(c => c.className.includes('time-header-cell'))) return;
+      cells.forEach(cell => {
+        if (cell.className.includes('time-header-cell')) return;
+        if (!cell.className.includes('white-cell')) return;
+        const a = cell.querySelector('a');
+        if (!a) return;
+        const title = a.title || a.getAttribute('alt') || '';
+        const m = title.match(/on (.+?) at (.+?)$/i);
+        if (!m) return;
+        const day = m[1].trim(), time = m[2].trim();
+        if (!availability[day]) availability[day] = [];
+        availability[day].push(time);
+      });
+    });
+    return { weekLabel, availability };
+  }).catch(() => ({ weekLabel: "", availability: {} }));
+
+  console.log(`[MLS] ShowingTime availability: ${Object.keys(availability).length} days`);
+  const aggregated = aggregateAvailability(availability);
+  return { url: stPage.url(), listingDetails, weekLabel, availability: aggregated };
 }
 
 // ─── Download a document PDF (using session cookies) ─────────────────────────
@@ -945,12 +902,29 @@ async function extractListingData(page, context) {
     ? await fetchDocuments(page, viewFrame)
     : [];
 
+  // Grab ShowingTime redirector href from view_frame while we still have the page open.
+  // Poll up to 10s — the tab renders a few seconds after the listing detail loads.
+  let showingTimeHref = null;
+  if (viewFrame) {
+    const stDeadline = Date.now() + 10000;
+    while (Date.now() < stDeadline) {
+      const r = await safeEval(viewFrame, () => {
+        const a = document.querySelector('a[href*="showing_time"]');
+        return a?.href ?? null;
+      }, undefined, 2000);
+      if (r && !r._timeout && !r._error) { showingTimeHref = r; break; }
+      await viewFrame.waitForTimeout(500);
+    }
+    if (showingTimeHref) console.log("[MLS] Cached ShowingTime href:", showingTimeHref);
+  }
+
   return {
     url: page.url(),
     viewFrameUrl: viewFrame?.url() ?? null,
     structured: (structured && !structured._timeout && !structured._error) ? structured : {},
     rawText: bestFrameText.slice(0, 5000),
     documents,
+    showingTimeHref,
   };
 }
 
@@ -1106,13 +1080,11 @@ export function registerMlsRoutes(app) {
       return res.status(400).json({ ok: false, error: "Provide address or search a property first." });
     }
 
-    // Open a fresh browser session to navigate to the listing and click ShowingTime
     const browser = await getBrowser();
     const stContext = await browser.newContext({
       userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
       viewport: { width: 1280, height: 900 },
     });
-    const stPage = await stContext.newPage();
 
     const hardTimeout = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("showingtime hard timeout (3min)")), 180_000)
@@ -1121,6 +1093,32 @@ export function registerMlsRoutes(app) {
     try {
       const stData = await Promise.race([
         (async () => {
+          const cachedHref = mlsResult?.showingTimeHref;
+          const stPage = await stContext.newPage();
+          if (cachedHref) {
+            // Fast path: load session cookies + navigate directly to the redirector
+            console.log("[MLS] showingtime: using cached href, skipping re-search");
+            if (fs.existsSync(SESSION_FILE)) {
+              const state = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+              await stContext.addCookies(state.cookies ?? []);
+            }
+            // Navigate to the redirector URL (opens a popup or redirects in same page)
+            const [popup] = await Promise.all([
+              stContext.waitForEvent("page", { timeout: 15000 }).catch(() => null),
+              stPage.goto(cachedHref, { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => {}),
+            ]);
+            const targetPage = popup ?? stPage;
+            const deadline0 = Date.now() + 20000;
+            while (Date.now() < deadline0) {
+              const u = targetPage.url();
+              if (u && !u.includes("flexmls.com") && !u.includes("about:blank") && !u.startsWith("chrome-error")) break;
+              await targetPage.waitForTimeout(500);
+            }
+            // Now targetPage is on schedulingsso.showingtime.com — proceed with openShowingTime logic
+            return await scrapeShowingTimeCalendar(targetPage);
+          }
+          // Slow path: full auth + search
+          console.log("[MLS] showingtime: no cached href, doing full search");
           await ensureAuthenticated(stPage, stContext);
           const searchAddr = address?.trim() ?? mlsResult?.structured?.address ?? "";
           if (!searchAddr) throw new Error("No address available to search");
@@ -1145,6 +1143,7 @@ export function registerMlsRoutes(app) {
    * POST /mls/showingtime_url
    * Returns the SSO-authenticated ShowingTime URL for the listing so the client
    * can open it directly in a browser without needing MLS credentials.
+   * Uses the ShowingTime redirector href cached during /mls/search to skip re-searching.
    */
   app.post("/mls/showingtime_url", async (req, res) => {
     const { address } = req.body ?? {};
@@ -1164,7 +1163,6 @@ export function registerMlsRoutes(app) {
       userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
       viewport: { width: 1280, height: 900 },
     });
-    const stPage = await stContext.newPage();
     const hardTimeout = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("showingtime_url hard timeout (2min)")), 120_000)
     );
@@ -1172,16 +1170,43 @@ export function registerMlsRoutes(app) {
     try {
       const url = await Promise.race([
         (async () => {
+          const cachedHref = mlsResult?.showingTimeHref;
+          if (cachedHref) {
+            // Fast path: we have the redirector URL from search — just load session + follow SSO
+            console.log("[MLS] showingtime_url: using cached href, skipping re-search");
+            if (fs.existsSync(SESSION_FILE)) {
+              const state = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+              await stContext.addCookies(state.cookies ?? []);
+            }
+            return await resolveShowingTimeUrl(stContext, cachedHref);
+          }
+          // Slow path: no cached href, do full auth + search
+          console.log("[MLS] showingtime_url: no cached href, doing full search");
+          const stPage = await stContext.newPage();
           await ensureAuthenticated(stPage, stContext);
           const searchAddr = address?.trim() ?? mlsResult?.structured?.address ?? "";
           if (!searchAddr) throw new Error("No address available to search");
           await searchAddress(stPage, searchAddr);
           await waitForDetailFrame(stPage, 10000);
-          return await getShowingTimeUrl(stPage, stContext);
+          // Poll for ShowingTime tab and resolve URL
+          const viewFrame = stPage.frames().find(f => f.name() === "view_frame");
+          if (!viewFrame) throw new Error("view_frame not found");
+          let stHref = null;
+          const deadline2 = Date.now() + 10000;
+          while (Date.now() < deadline2) {
+            const r = await safeEval(viewFrame, () => {
+              const a = document.querySelector('a[href*="showing_time"]');
+              return a?.href ?? null;
+            }, undefined, 2000);
+            if (r && !r._timeout && !r._error) { stHref = r; break; }
+            await viewFrame.waitForTimeout(500);
+          }
+          if (!stHref) throw new Error("ShowingTime tab not found in view_frame after 10s");
+          await saveSession(stContext);
+          return await resolveShowingTimeUrl(stContext, stHref);
         })(),
         hardTimeout,
       ]);
-      await saveSession(stContext);
       return res.json({ ok: true, url });
     } catch (err) {
       console.error("[MLS] showingtime_url error:", err.message);
