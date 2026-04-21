@@ -257,19 +257,136 @@ if (viewFrame) {
       return pg.url();
     }
 
-    if (popup) {
-      console.log("Popup opened:", popup.url());
-      const finalUrl = await waitForShowingTimeUrl(popup, 20000);
-      console.log("\n✅ ShowingTime final URL:", finalUrl);
-      await popup.close().catch(() => {});
-    } else {
-      console.log("No popup — navigating directly to redirector URL...");
-      const tmpPage = await context.newPage();
-      await tmpPage.goto(stHref, { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => {});
-      const finalUrl = await waitForShowingTimeUrl(tmpPage, 15000);
-      console.log("\n✅ ShowingTime final URL (direct nav):", finalUrl);
-      await tmpPage.close().catch(() => {});
+    const stPage = popup ?? await context.newPage();
+    if (!popup) {
+      console.log("No popup — navigating directly...");
+      await stPage.goto(stHref, { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => {});
     }
+
+    const finalUrl = await waitForShowingTimeUrl(stPage, 20000);
+    console.log("\n✅ ShowingTime landing URL:", finalUrl);
+
+    // ── Dump page structure ─────────────────────────────────────────────────
+    console.log("\n[11] Waiting 3s for ShowingTime page to fully load...");
+    await new Promise(r => setTimeout(r, 3000));
+    console.log("URL after wait:", stPage.url());
+
+    console.log("\n[12] Full page text:");
+    const pageText = await stPage.evaluate(() => document.body?.innerText ?? "").catch(() => "");
+    console.log(pageText.slice(0, 3000));
+
+    console.log("\n[13] All buttons and interactive elements:");
+    const buttons = await stPage.evaluate(() => {
+      return Array.from(document.querySelectorAll('button, a, [role="button"], input[type="submit"], input[type="button"]'))
+        .map(el => ({
+          tag: el.tagName,
+          id: el.id || "",
+          cls: (el.className?.toString() ?? "").slice(0, 60),
+          text: (el.innerText ?? el.value ?? "").trim().slice(0, 80),
+          href: (el.href ?? "").slice(0, 80),
+          type: el.type || "",
+        }))
+        .filter(e => e.text || e.id);
+    }).catch(() => []);
+    buttons.forEach(b => console.log(`  [${b.tag}#${b.id}] type="${b.type}" text="${b.text}" cls="${b.cls}" href="${b.href}"`));
+
+    console.log("\n[14] Listing Details section:");
+    const listingDetails = await stPage.evaluate(() => {
+      // Look for listing info section
+      const selectors = [
+        '[class*="listing"]', '[class*="property"]', '[class*="detail"]',
+        '[id*="listing"]', '[id*="property"]',
+      ];
+      const results = [];
+      for (const sel of selectors) {
+        for (const el of document.querySelectorAll(sel)) {
+          const text = el.innerText?.trim();
+          if (text && text.length > 10 && text.length < 500) {
+            results.push({ sel, text: text.slice(0, 200) });
+          }
+        }
+      }
+      return results.slice(0, 20);
+    }).catch(() => []);
+    listingDetails.forEach(d => console.log(`  [${d.sel}] ${d.text}`));
+
+    // ── Try clicking "Schedule single showing" ────────────────────────────
+    console.log("\n[15] Looking for 'Schedule' button...");
+    const scheduleBtn = await stPage.evaluate(() => {
+      const candidates = Array.from(document.querySelectorAll('button, a, [role="button"]'))
+        .find(el => {
+          const t = (el.innerText ?? "").toLowerCase();
+          return t.includes("schedule") || t.includes("single showing") || t.includes("book");
+        });
+      if (!candidates) return null;
+      return { tag: candidates.tagName, id: candidates.id, text: candidates.innerText?.trim(), cls: (candidates.className?.toString() ?? "").slice(0, 60) };
+    }).catch(() => null);
+
+    console.log("Schedule button found:", JSON.stringify(scheduleBtn));
+
+    if (scheduleBtn) {
+      console.log("\n[16] Clicking schedule button...");
+      await stPage.evaluate(() => {
+        const btn = Array.from(document.querySelectorAll('button, a, [role="button"]'))
+          .find(el => {
+            const t = (el.innerText ?? "").toLowerCase();
+            return t.includes("schedule") || t.includes("single showing") || t.includes("book");
+          });
+        btn?.click();
+      });
+
+      console.log("Waiting 5s for calendar/availability page...");
+      await new Promise(r => setTimeout(r, 5000));
+      console.log("URL after click:", stPage.url());
+
+      console.log("\n[17] Calendar/availability page text:");
+      const calText = await stPage.evaluate(() => document.body?.innerText ?? "").catch(() => "");
+      console.log(calText.slice(0, 3000));
+
+      console.log("\n[18] Calendar table — first 4 data rows raw HTML:");
+      const calHtml = await stPage.evaluate(() => {
+        const table = document.querySelector('table.cal-table');
+        if (!table) return "table.cal-table not found";
+        const rows = Array.from(table.querySelectorAll('tr')).slice(2, 6);
+        return rows.map(r => r.outerHTML.replace(/\s+/g, ' ').slice(0, 600)).join('\n---\n');
+      }).catch(e => e.message);
+      console.log(calHtml);
+
+      console.log("\n[19] All unique TD class names in calendar:");
+      const tdClasses = await stPage.evaluate(() => {
+        const table = document.querySelector('table.cal-table');
+        const classes = new Set();
+        table?.querySelectorAll('td').forEach(td => { if (td.className) classes.add(td.className.toString().trim()); });
+        return [...classes];
+      }).catch(() => []);
+      tdClasses.forEach(c => console.log(`  "${c}"`));
+
+      console.log("\n[20] Slot cells (non-time-header) — first 20:");
+      const slots = await stPage.evaluate(() => {
+        const table = document.querySelector('table.cal-table');
+        if (!table) return [];
+        const results = [];
+        table.querySelectorAll('tr').forEach(row => {
+          const cells = Array.from(row.querySelectorAll('td'));
+          const timeCell = cells.find(c => c.className.includes('time-header-cell') && !c.className.includes('minutes-only'));
+          if (!timeCell) return;
+          const timeText = timeCell.innerText.trim();
+          cells.forEach((cell, idx) => {
+            if (cell.className.includes('time-header-cell')) return;
+            results.push({
+              time: timeText, idx,
+              cls: cell.className.toString(),
+              hasLink: cell.innerHTML.includes('<a'),
+              html: cell.innerHTML.replace(/\s+/g,' ').slice(0, 120),
+            });
+          });
+        });
+        return results.slice(0, 20);
+      }).catch(() => []);
+      slots.forEach(s => console.log(`  [${s.time} col${s.idx}] cls="${s.cls}" link=${s.hasLink} html="${s.html}"`));
+    }
+
+    await stPage.close().catch(() => {});
   } else {
     console.log("ShowingTime link not found in view_frame.");
   }
