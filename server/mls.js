@@ -682,6 +682,77 @@ function aggregateAvailability(availability) {
   return result;
 }
 
+// Fast path for both ShowingTime endpoints: load session, navigate main Flexmls page,
+// then point view_frame at the cached listing URL and click the ShowingTime tab.
+// This is necessary because the ShowingTime link submits a POST form with listing
+// parameters — navigating to the href directly results in "Missing required parameters".
+async function loadFlexmlsWithListing(context, listingPageUrl) {
+  const page = await context.newPage();
+
+  // Load session cookies
+  if (fs.existsSync(SESSION_FILE)) {
+    const state = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+    await context.addCookies(state.cookies ?? []);
+  }
+
+  // Load the main Flexmls frame shell so top_frame/view_frame are created
+  await page.goto("https://mo.flexmls.com/", { waitUntil: "domcontentloaded", timeout: 20000 });
+
+  // Wait for view_frame to exist
+  const vfDeadline = Date.now() + 15000;
+  let viewFrame = null;
+  while (Date.now() < vfDeadline) {
+    viewFrame = page.frames().find(f => f.name() === "view_frame");
+    if (viewFrame) break;
+    await page.waitForTimeout(300);
+  }
+  if (!viewFrame) throw new Error("view_frame not found after loading Flexmls");
+
+  // Navigate view_frame directly to the cached listing page
+  console.log("[MLS] Fast path: navigating view_frame to:", listingPageUrl);
+  await viewFrame.goto(listingPageUrl, { waitUntil: "domcontentloaded", timeout: 20000 });
+
+  return { page, viewFrame };
+}
+
+// Clicks the ShowingTime tab on an already-loaded Flexmls listing page,
+// intercepts the popup, follows SSO, and returns the final authenticated URL.
+async function getShowingTimeUrlFromPage(page, context) {
+  const viewFrame = page.frames().find(f => f.name() === "view_frame");
+  if (!viewFrame) throw new Error("view_frame not found");
+
+  // Poll for ShowingTime tab
+  let stHref = null;
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    const r = await safeEval(viewFrame, () => {
+      const a = document.querySelector('a[href*="showing_time"]');
+      return a?.href ?? null;
+    }, undefined, 2000);
+    if (r && !r._timeout && !r._error) { stHref = r; break; }
+    await viewFrame.waitForTimeout(500);
+  }
+  if (!stHref) throw new Error("ShowingTime tab not found in view_frame after 10s");
+
+  const [popup] = await Promise.all([
+    context.waitForEvent("page", { timeout: 15000 }).catch(() => null),
+    safeEval(viewFrame, () => { document.querySelector('a[href*="showing_time"]')?.click(); }, undefined, 3000),
+  ]);
+  const stPage = popup ?? await context.newPage();
+  if (!popup) await stPage.goto(stHref, { waitUntil: "domcontentloaded", timeout: 20000 });
+
+  const ssoDeadline = Date.now() + 20000;
+  while (Date.now() < ssoDeadline) {
+    const u = stPage.url();
+    if (u && !u.includes("flexmls.com") && !u.includes("about:blank") && !u.startsWith("chrome-error")) break;
+    await stPage.waitForTimeout(500);
+  }
+  const finalUrl = stPage.url();
+  await stPage.close().catch(() => {});
+  console.log("[MLS] ShowingTime SSO URL:", finalUrl);
+  return finalUrl;
+}
+
 // Follows a ShowingTime redirector href through SSO and returns the final
 // authenticated URL. Context must have valid Flexmls session cookies loaded.
 export async function resolveShowingTimeUrl(context, redirectorHref) {
@@ -897,26 +968,15 @@ async function extractListingData(page, context) {
     };
   }, undefined, 3000).catch(() => ({}));
 
+  // Capture the listing page URL BEFORE fetchDocuments navigates view_frame away.
+  // This URL is used by ShowingTime endpoints to reload the listing directly.
+  const listingPageUrl = viewFrame?.url() ?? null;
+  if (listingPageUrl) console.log("[MLS] Cached listing page URL:", listingPageUrl);
+
   // fetchDocuments needs view_frame (listnum/step2) to click #detail_documents_link
   const documents = viewFrame
     ? await fetchDocuments(page, viewFrame)
     : [];
-
-  // Grab ShowingTime redirector href from view_frame while we still have the page open.
-  // Poll up to 10s — the tab renders a few seconds after the listing detail loads.
-  let showingTimeHref = null;
-  if (viewFrame) {
-    const stDeadline = Date.now() + 10000;
-    while (Date.now() < stDeadline) {
-      const r = await safeEval(viewFrame, () => {
-        const a = document.querySelector('a[href*="showing_time"]');
-        return a?.href ?? null;
-      }, undefined, 2000);
-      if (r && !r._timeout && !r._error) { showingTimeHref = r; break; }
-      await viewFrame.waitForTimeout(500);
-    }
-    if (showingTimeHref) console.log("[MLS] Cached ShowingTime href:", showingTimeHref);
-  }
 
   return {
     url: page.url(),
@@ -924,7 +984,7 @@ async function extractListingData(page, context) {
     structured: (structured && !structured._timeout && !structured._error) ? structured : {},
     rawText: bestFrameText.slice(0, 5000),
     documents,
-    showingTimeHref,
+    listingPageUrl,
   };
 }
 
@@ -1093,32 +1153,15 @@ export function registerMlsRoutes(app) {
     try {
       const stData = await Promise.race([
         (async () => {
-          const cachedHref = mlsResult?.showingTimeHref;
-          const stPage = await stContext.newPage();
-          if (cachedHref) {
-            // Fast path: load session cookies + navigate directly to the redirector
-            console.log("[MLS] showingtime: using cached href, skipping re-search");
-            if (fs.existsSync(SESSION_FILE)) {
-              const state = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
-              await stContext.addCookies(state.cookies ?? []);
-            }
-            // Navigate to the redirector URL (opens a popup or redirects in same page)
-            const [popup] = await Promise.all([
-              stContext.waitForEvent("page", { timeout: 15000 }).catch(() => null),
-              stPage.goto(cachedHref, { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => {}),
-            ]);
-            const targetPage = popup ?? stPage;
-            const deadline0 = Date.now() + 20000;
-            while (Date.now() < deadline0) {
-              const u = targetPage.url();
-              if (u && !u.includes("flexmls.com") && !u.includes("about:blank") && !u.startsWith("chrome-error")) break;
-              await targetPage.waitForTimeout(500);
-            }
-            // Now targetPage is on schedulingsso.showingtime.com — proceed with openShowingTime logic
-            return await scrapeShowingTimeCalendar(targetPage);
+          const listingPageUrl = mlsResult?.listingPageUrl;
+          if (listingPageUrl) {
+            console.log("[MLS] showingtime: fast path via cached listing URL");
+            const { page: stPage, viewFrame } = await loadFlexmlsWithListing(stContext, listingPageUrl);
+            return await openShowingTime(stPage, stContext);
           }
           // Slow path: full auth + search
-          console.log("[MLS] showingtime: no cached href, doing full search");
+          console.log("[MLS] showingtime: no cached listing URL, doing full search");
+          const stPage = await stContext.newPage();
           await ensureAuthenticated(stPage, stContext);
           const searchAddr = address?.trim() ?? mlsResult?.structured?.address ?? "";
           if (!searchAddr) throw new Error("No address available to search");
@@ -1170,40 +1213,22 @@ export function registerMlsRoutes(app) {
     try {
       const url = await Promise.race([
         (async () => {
-          const cachedHref = mlsResult?.showingTimeHref;
-          if (cachedHref) {
-            // Fast path: we have the redirector URL from search — just load session + follow SSO
-            console.log("[MLS] showingtime_url: using cached href, skipping re-search");
-            if (fs.existsSync(SESSION_FILE)) {
-              const state = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
-              await stContext.addCookies(state.cookies ?? []);
-            }
-            return await resolveShowingTimeUrl(stContext, cachedHref);
+          const listingPageUrl = mlsResult?.listingPageUrl;
+          if (listingPageUrl) {
+            console.log("[MLS] showingtime_url: fast path via cached listing URL");
+            const { page: stPage } = await loadFlexmlsWithListing(stContext, listingPageUrl);
+            return await getShowingTimeUrlFromPage(stPage, stContext);
           }
-          // Slow path: no cached href, do full auth + search
-          console.log("[MLS] showingtime_url: no cached href, doing full search");
+          // Slow path: full auth + search
+          console.log("[MLS] showingtime_url: no cached listing URL, doing full search");
           const stPage = await stContext.newPage();
           await ensureAuthenticated(stPage, stContext);
           const searchAddr = address?.trim() ?? mlsResult?.structured?.address ?? "";
           if (!searchAddr) throw new Error("No address available to search");
           await searchAddress(stPage, searchAddr);
           await waitForDetailFrame(stPage, 10000);
-          // Poll for ShowingTime tab and resolve URL
-          const viewFrame = stPage.frames().find(f => f.name() === "view_frame");
-          if (!viewFrame) throw new Error("view_frame not found");
-          let stHref = null;
-          const deadline2 = Date.now() + 10000;
-          while (Date.now() < deadline2) {
-            const r = await safeEval(viewFrame, () => {
-              const a = document.querySelector('a[href*="showing_time"]');
-              return a?.href ?? null;
-            }, undefined, 2000);
-            if (r && !r._timeout && !r._error) { stHref = r; break; }
-            await viewFrame.waitForTimeout(500);
-          }
-          if (!stHref) throw new Error("ShowingTime tab not found in view_frame after 10s");
           await saveSession(stContext);
-          return await resolveShowingTimeUrl(stContext, stHref);
+          return await getShowingTimeUrlFromPage(stPage, stContext);
         })(),
         hardTimeout,
       ]);
