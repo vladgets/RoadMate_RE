@@ -682,6 +682,45 @@ function aggregateAvailability(availability) {
   return result;
 }
 
+// Navigates to the ShowingTime tab for the current listing and returns the
+// final SSO-authenticated URL (schedulingsso.showingtime.com) without further automation.
+export async function getShowingTimeUrl(page, context) {
+  const viewFrame = page.frames().find(f => f.name() === "view_frame");
+  if (!viewFrame) throw new Error("view_frame not found");
+
+  // Poll for ShowingTime tab — may take ~5s after waitForDetailFrame
+  let stHref = null;
+  const stTabDeadline = Date.now() + 10000;
+  while (Date.now() < stTabDeadline) {
+    const result = await safeEval(viewFrame, () => {
+      const a = document.querySelector('a[href*="showing_time"]');
+      return a?.href ?? null;
+    }, undefined, 2000);
+    if (result && !result._timeout && !result._error) { stHref = result; break; }
+    await viewFrame.waitForTimeout(500);
+  }
+  if (!stHref) throw new Error("ShowingTime tab not found in view_frame after 10s");
+
+  // Intercept the popup and wait for SSO redirect to leave flexmls.com
+  const [popup] = await Promise.all([
+    context.waitForEvent("page", { timeout: 15000 }).catch(() => null),
+    safeEval(viewFrame, () => { document.querySelector('a[href*="showing_time"]')?.click(); }, undefined, 3000),
+  ]);
+  const stPage = popup ?? await context.newPage();
+  if (!popup) await stPage.goto(stHref, { waitUntil: "domcontentloaded", timeout: 20000 });
+
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    const u = stPage.url();
+    if (u && !u.includes("flexmls.com") && !u.includes("about:blank") && !u.startsWith("chrome-error")) break;
+    await stPage.waitForTimeout(500);
+  }
+  const finalUrl = stPage.url();
+  await stPage.close().catch(() => {});
+  console.log("[MLS] ShowingTime SSO URL:", finalUrl);
+  return finalUrl;
+}
+
 // from the ContactInfo page, click "Schedule Single Showing", parse the
 // weekly calendar for available slots, and return structured data.
 
@@ -1103,6 +1142,56 @@ export function registerMlsRoutes(app) {
   });
 
   /**
+   * POST /mls/showingtime_url
+   * Returns the SSO-authenticated ShowingTime URL for the listing so the client
+   * can open it directly in a browser without needing MLS credentials.
+   */
+  app.post("/mls/showingtime_url", async (req, res) => {
+    const { address } = req.body ?? {};
+    const clientId = getClientIdFromReq(req);
+
+    let mlsResult = clientId ? _getCachedMlsResult(clientId) : null;
+    if (!mlsResult && address) {
+      mlsResult = await mlsSearchProperty(address.trim());
+      if (mlsResult?.ok && clientId) _setCachedMlsResult(clientId, mlsResult);
+    }
+    if (!mlsResult?.ok && !address) {
+      return res.status(400).json({ ok: false, error: "Provide address or search a property first." });
+    }
+
+    const browser = await getBrowser();
+    const stContext = await browser.newContext({
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      viewport: { width: 1280, height: 900 },
+    });
+    const stPage = await stContext.newPage();
+    const hardTimeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("showingtime_url hard timeout (2min)")), 120_000)
+    );
+
+    try {
+      const url = await Promise.race([
+        (async () => {
+          await ensureAuthenticated(stPage, stContext);
+          const searchAddr = address?.trim() ?? mlsResult?.structured?.address ?? "";
+          if (!searchAddr) throw new Error("No address available to search");
+          await searchAddress(stPage, searchAddr);
+          await waitForDetailFrame(stPage, 10000);
+          return await getShowingTimeUrl(stPage, stContext);
+        })(),
+        hardTimeout,
+      ]);
+      await saveSession(stContext);
+      return res.json({ ok: true, url });
+    } catch (err) {
+      console.error("[MLS] showingtime_url error:", err.message);
+      return res.status(500).json({ ok: false, error: err.message });
+    } finally {
+      await stContext.close();
+    }
+  });
+
+  /**
    * GET /mls/document?url=<encoded_pdf_url>
    * Downloads a Flexmls document PDF using the saved session and streams it to the client.
    * The URL comes from the `documents[].url` field returned by /mls/search.
@@ -1168,6 +1257,6 @@ export function registerMlsRoutes(app) {
     }
   });
 
-  console.log("[MLS] Routes registered: POST /mls/search, POST /mls/showingtime, POST /mls/send_disclosure, GET /mls/document, DELETE /mls/session");
+  console.log("[MLS] Routes registered: POST /mls/search, POST /mls/showingtime, POST /mls/showingtime_url, POST /mls/send_disclosure, GET /mls/document, DELETE /mls/session");
 
 }

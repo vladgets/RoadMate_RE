@@ -48,6 +48,19 @@ class MlsClient {
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> getShowingTimeUrl({String? address}) async {
+    debugPrint('[MlsClient] getShowingTimeUrl: address=$address');
+    final payload = <String, dynamic>{
+      if (address != null && address.isNotEmpty) 'address': address,
+    };
+    final r = await http.post(
+      _u('/mls/showingtime_url'),
+      headers: _headers(),
+      body: jsonEncode(payload),
+    );
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> checkShowingTime({String? address}) async {
     debugPrint('[MlsClient] checkShowingTime: address=$address');
     final payload = <String, dynamic>{
