@@ -1256,6 +1256,23 @@ export function registerMlsRoutes(app) {
     }
   });
 
-  console.log("[MLS] Routes registered: POST /mls/search, POST /mls/showingtime, POST /mls/listing_url, POST /mls/send_disclosure, GET /mls/document, DELETE /mls/session");
+  /**
+   * GET /mls/session_cookies
+   * Returns saved Flexmls session cookies so the Flutter WebView can inject them
+   * and open MLS pages without requiring the user to log in.
+   */
+  app.get("/mls/session_cookies", (req, res) => {
+    if (!fs.existsSync(SESSION_FILE)) {
+      return res.status(404).json({ ok: false, error: "No session saved. Search a property first." });
+    }
+    try {
+      const state = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+      return res.json({ ok: true, cookies: state.cookies ?? [] });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  console.log("[MLS] Routes registered: POST /mls/search, POST /mls/showingtime, POST /mls/listing_url, GET /mls/session_cookies, POST /mls/send_disclosure, GET /mls/document, DELETE /mls/session");
 
 }

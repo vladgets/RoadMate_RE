@@ -22,6 +22,7 @@ import 'services/calendar.dart';
 import 'services/web_search.dart';
 import 'services/gmail_client.dart';
 import 'services/mls_client.dart';
+import 'mls_webview_page.dart';
 import 'services/gcalendar_client.dart';
 import 'services/gdrive_client.dart';
 import 'services/map_navigation.dart';
@@ -60,6 +61,8 @@ Future<void> main() async {
 
   runApp(const MyApp());
 }
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -105,6 +108,7 @@ class _MyAppState extends State<MyApp> {
     }
 
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       home: (kIsWeb || _hasCompletedOnboarding!)
           ? const VoiceButtonPage()
@@ -793,12 +797,18 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     if (_clientId == null) {
       return {'ok': false, 'error': 'Not initialized yet. Try again in a second.'};
     }
-    final result = await mlsClient.getListingUrl();
-    if (result['ok'] == true && result['url'] != null) {
-      final uri = Uri.tryParse(result['url'] as String);
-      if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-    return result;
+    final urlResult = await mlsClient.getListingUrl();
+    if (urlResult['ok'] != true || urlResult['url'] == null) return urlResult;
+    final cookieResult = await mlsClient.getSessionCookies();
+    final url = urlResult['url'] as String;
+    final cookies = cookieResult['ok'] == true
+        ? List<Map<String, dynamic>>.from(
+            (cookieResult['cookies'] as List).map((c) => Map<String, dynamic>.from(c as Map)))
+        : <Map<String, dynamic>>[];
+    navigatorKey.currentState?.push(MaterialPageRoute(
+      builder: (_) => MlsWebViewPage(url: url, cookies: cookies),
+    ));
+    return {'ok': true, 'url': url};
   },
   'check_showingtime': (args) async {
     if (_clientId == null) {

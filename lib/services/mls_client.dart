@@ -54,6 +54,12 @@ class MlsClient {
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> getSessionCookies() async {
+    debugPrint('[MlsClient] getSessionCookies');
+    final r = await http.get(_u('/mls/session_cookies'), headers: _headers());
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> checkShowingTime({String? address}) async {
     debugPrint('[MlsClient] checkShowingTime: address=$address');
     final payload = <String, dynamic>{
