@@ -641,6 +641,47 @@ async function fetchDocuments(page, viewFrame) {
 // After a listing loads, the ShowingTime tab appears as:
 //   <a id="detail_<hash>_link" href="https://apps.flexmls.com/c3pi/showing_time/redirector">ShowingTime</a>
 // Clicking it opens a new popup/tab. We intercept it, extract listing details
+// Converts a 12-hour time string like "9:15 am" to minutes since midnight.
+function timeToMinutes(t) {
+  const m = t.match(/(\d+):(\d+)\s*(am|pm)/i);
+  if (!m) return 0;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  const pm = m[3].toLowerCase() === 'pm';
+  if (pm && h !== 12) h += 12;
+  if (!pm && h === 12) h = 0;
+  return h * 60 + min;
+}
+
+function minutesToTime(mins) {
+  const h24 = Math.floor(mins / 60);
+  const m = mins % 60;
+  const period = h24 >= 12 ? 'pm' : 'am';
+  const h12 = h24 % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+// Merges consecutive 15-min slots into ranges, e.g. ["9:00 am – 5:00 pm", ...]
+function aggregateAvailability(availability) {
+  const result = {};
+  for (const [day, slots] of Object.entries(availability)) {
+    const mins = slots.map(timeToMinutes).sort((a, b) => a - b);
+    const ranges = [];
+    let start = mins[0], end = mins[0];
+    for (let i = 1; i < mins.length; i++) {
+      if (mins[i] - end <= 15) {
+        end = mins[i];
+      } else {
+        ranges.push(`${minutesToTime(start)} – ${minutesToTime(end)}`);
+        start = end = mins[i];
+      }
+    }
+    ranges.push(`${minutesToTime(start)} – ${minutesToTime(end)}`);
+    result[day] = ranges;
+  }
+  return result;
+}
+
 // from the ContactInfo page, click "Schedule Single Showing", parse the
 // weekly calendar for available slots, and return structured data.
 
@@ -764,7 +805,8 @@ export async function openShowingTime(page, context) {
     }).catch(() => ({ weekLabel: "", availability: {} }));
 
     console.log(`[MLS] ShowingTime availability: ${Object.keys(availability).length} days`);
-    return { url: stPage.url(), listingDetails, weekLabel, availability };
+    const aggregated = aggregateAvailability(availability);
+    return { url: stPage.url(), listingDetails, weekLabel, availability: aggregated };
   } finally {
     await stPage.close().catch(() => {});
   }
