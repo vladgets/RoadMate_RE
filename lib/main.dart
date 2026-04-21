@@ -789,6 +789,12 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       address: args['address'] as String?,
     );
   },
+  'check_showingtime': (args) async {
+    if (_clientId == null) {
+      return {'ok': false, 'error': 'Not initialized yet. Try again in a second.'};
+    }
+    return await mlsClient.checkShowingTime(address: args['address'] as String?);
+  },
   'read_drive_file': (args) async {
     if (_clientId == null) {
       return {'ok': false, 'error': 'Not initialized yet. Try again in a second.'};
@@ -1098,6 +1104,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       'traffic_eta',
       'mls_search',
       'send_disclosure',
+      'check_showingtime',
     };
 
     // Start thinking sound for long-running tools

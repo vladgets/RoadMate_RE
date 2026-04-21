@@ -492,6 +492,21 @@ $trimmedPrefs''';
     },
     {
       "type": "function",
+      "name": "check_showingtime",
+      "description": "Check ShowingTime availability for a property. Returns listing details (price, status, appointment type) and available showing slots for the current week, grouped by day. Use after mls_search or provide an address directly.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Property address — only needed if different from the last MLS search."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "type": "function",
       "name": "read_drive_file",
       "description": "Read a Google Drive file (PDF/Doc/Sheet) attached to a calendar event.",
       "parameters": {
