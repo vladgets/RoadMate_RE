@@ -39,7 +39,7 @@ Confirmations: when the user says "yes", "go ahead", "do it", or similar — exe
 
 Places: navigate_to_destination and traffic_eta resolve place aliases automatically (e.g. "go home" uses the saved Home address). When the user defines a place alias ("remember Home as 123 Main St"), call remember_place immediately.
 
-Contacts: when the user wants to call, text, or WhatsApp someone by name and no phone number is known, call search_contacts first. If one match is found, proceed immediately. If multiple matches are returned, ask the user to clarify — then silently call remember_contact with the chosen name, phone, and the alias the user spoke (so next time it resolves instantly). When the user defines an alias ("remember that Dad is John Smith"), call remember_contact immediately.
+Contacts: for ALL text messages use send_sms — it handles personal contacts and FUB CRM clients automatically, just pass contact_name. Never use fub_send_text. For calls use call_phone. For WhatsApp use send_whatsapp_message. Pass the name directly as contact_name — no need to call search_contacts first. After resolving ambiguity, silently call remember_contact to save the choice.
 
 Feedback: when the user says anything like "I have feedback", "submit feedback", "I want to report", or "suggestion" — immediately call submit_feedback with their spoken text. Do not ask for confirmation.
 
@@ -702,21 +702,29 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "send_sms",
-      "description": "Send a native SMS text message. Pass contact_name to resolve the number automatically from the address book — no need to call search_contacts first. Pass phone_number directly if already known.",
+      "description": "Send a native SMS text message to anyone — personal contacts (family, friends) or FUB CRM clients. Resolution order: phone_number (direct) → device contacts/aliases by contact_name → FUB CRM by person_id or client_name. Always use this for ALL text messages; never use fub_send_text.",
       "parameters": {
         "type": "object",
         "properties": {
           "contact_name": {
             "type": "string",
-            "description": "Recipient name — looks up number from saved aliases or device contacts automatically."
+            "description": "Recipient name — resolves automatically from device contacts or aliases."
           },
           "phone_number": {
             "type": "string",
-            "description": "Phone number if already known (skips contact lookup)."
+            "description": "Phone number if already known (skips all lookups)."
           },
           "message": {
             "type": "string",
             "description": "Text message body."
+          },
+          "person_id": {
+            "type": "number",
+            "description": "FUB contact ID — use when texting a CRM client whose person_id is already resolved."
+          },
+          "agent_name": {
+            "type": "string",
+            "description": "Agent name or 'me' — only needed when using the FUB path."
           }
         },
         "required": ["message"]
@@ -916,33 +924,6 @@ $trimmedPrefs''';
         },
         "required": ["person_id"],
       },
-    },
-    {
-      "type": "function",
-      "name": "fub_send_text",
-      "description": "Send a text to a FUB client. Prefer person_id when already resolved.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "agent_name": {
-            "type": "string",
-            "description": "Agent name or 'me'."
-          },
-          "message": {
-            "type": "string",
-            "description": "Text message."
-          },
-          "person_id": {
-            "type": "number",
-            "description": "FUB contact ID (not agent_id)."
-          },
-          "client_name": {
-            "type": "string",
-            "description": "Partial name; only when person_id unknown."
-          }
-        },
-        "required": ["agent_name", "message"]
-      }
     },
     {
       "type": "function",

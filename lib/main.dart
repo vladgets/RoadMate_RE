@@ -1047,58 +1047,65 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     }
     return {'ok': true, 'person_id': personId, 'contact_name': contactName};
   },
-  'fub_send_text': (args) async {
-    final raw = (args is Map) ? args['agent_name'] as String? : null;
-    final message = (args is Map) ? args['message'] as String? ?? '' : '';
-    final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
-    final clientName = (args is Map) ? args['client_name'] as String? : null;
-    final result = await FubClient().sendText(
-      message: message,
-      agentId: _resolveFubAgentId(raw),
-      agentName: _resolveFubAgent(raw) ?? 'me',
-      personId: personId,
-      clientName: clientName,
-    );
-    _maybeUpdateLastClient(result);
-    // Open native SMS app with pre-filled message using phone number from server
-    if (result['ok'] == true) {
-      final phone = result['phone_number'] as String?;
-      if (phone != null && phone.isNotEmpty) {
-        final clean = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
-        final smsUri = Uri(
-          scheme: 'sms',
-          path: clean,
-          queryParameters: {'body': message},
-        );
-        try { await launchUrl(smsUri, mode: LaunchMode.externalApplication); } catch (_) {}
-      }
-    }
-    return result;
-  },
-  // Native SMS tool — resolves contact by name if phone_number not provided
+  // Unified SMS tool — handles personal contacts and FUB CRM clients
   'send_sms': (args) async {
     final message = args is Map ? (args['message'] as String?) ?? '' : '';
     if (message.isEmpty) return {'ok': false, 'error': 'message is required'};
 
     String phone = args is Map ? (args['phone_number'] as String?) ?? '' : '';
     String name = args is Map ? (args['contact_name'] as String?) ?? '' : '';
+    final personId = (args is Map && args['person_id'] != null) ? (args['person_id'] as num).toInt() : null;
+    final raw = args is Map ? args['agent_name'] as String? : null;
 
-    // Resolve by name if no phone number given
+    // 1. Phone number provided directly — use it
+    // 2. FUB person_id provided — resolve via FUB
+    if (phone.isEmpty && personId != null) {
+      final result = await FubClient().sendText(
+        message: message,
+        agentId: _resolveFubAgentId(raw),
+        agentName: _resolveFubAgent(raw) ?? 'me',
+        personId: personId,
+        clientName: null,
+      );
+      _maybeUpdateLastClient(result);
+      if (result['ok'] == true) {
+        phone = (result['phone_number'] as String?) ?? '';
+        name = name.isNotEmpty ? name : (result['contact_name'] as String? ?? '');
+      } else {
+        return result;
+      }
+    }
+
+    // 3. Contact name only — resolve from device contacts/aliases
     if (phone.isEmpty) {
       if (name.isEmpty) return {'ok': false, 'error': 'contact_name or phone_number is required'};
-      final result = await ContactsService.searchContacts({'name': name});
-      if (result['ok'] != true || (result['found'] as int? ?? 0) == 0) {
-        return {'ok': false, 'error': 'No contact found for "$name". Check the name or add them to your address book.'};
+      final lookup = await ContactsService.searchContacts({'name': name});
+      if (lookup['ok'] != true || (lookup['found'] as int? ?? 0) == 0) {
+        // Try FUB as last resort
+        final fubResult = await FubClient().sendText(
+          message: message,
+          agentId: _resolveFubAgentId(raw),
+          agentName: _resolveFubAgent(raw) ?? 'me',
+          personId: null,
+          clientName: name,
+        );
+        _maybeUpdateLastClient(fubResult);
+        if (fubResult['ok'] == true) {
+          phone = (fubResult['phone_number'] as String?) ?? '';
+        } else {
+          return {'ok': false, 'error': 'Could not find "$name" in your contacts or CRM.'};
+        }
+      } else {
+        final contacts = lookup['contacts'] as List;
+        if (contacts.length > 1) {
+          return {'ok': false, 'needs_clarification': true, 'matches': contacts,
+            'message': 'Multiple contacts match "$name". Please clarify which one.'};
+        }
+        final phones = contacts.first['phones'] as List;
+        if (phones.isEmpty) return {'ok': false, 'error': 'No phone number found for "$name".'};
+        phone = phones.first['number'] as String;
+        name = contacts.first['name'] as String;
       }
-      final contacts = result['contacts'] as List;
-      if (contacts.length > 1) {
-        return {'ok': false, 'needs_clarification': true, 'matches': contacts,
-          'message': 'Multiple contacts match "$name". Please clarify which one.'};
-      }
-      final phones = contacts.first['phones'] as List;
-      if (phones.isEmpty) return {'ok': false, 'error': 'No phone number found for "$name".'};
-      phone = phones.first['number'] as String;
-      name = contacts.first['name'] as String;
     }
 
     final clean = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
