@@ -159,6 +159,9 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   // Deduplicate tool calls (Realtime may emit in_progress + completed, and can resend events).
   final Set<String> _handledToolCallIds = <String>{};
 
+  // Message to inject into the session as soon as the data channel opens.
+  String? _pendingUserMessage;
+
   // Audio player for thinking sound during long-running tool execution
   final AudioPlayer _thinkingSoundPlayer = AudioPlayer();
 
@@ -415,7 +418,11 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
 
       _dc!.onDataChannelState = (RTCDataChannelState state) {
         debugPrint("DataChannel state: $state");
-
+        if (state == RTCDataChannelState.RTCDataChannelOpen && _pendingUserMessage != null) {
+          final msg = _pendingUserMessage!;
+          _pendingUserMessage = null;
+          Future.delayed(const Duration(milliseconds: 300), () => _injectUserMessage(msg));
+        }
       };
 
       _dc!.onMessage = (RTCDataChannelMessage msg) {
@@ -1255,6 +1262,32 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
   ///
   /// The Realtime API expects a "tool output" / "function_call_output" item.
   /// If your logs show a different required shape, adjust here (this is the single place).
+  /// Inject a text message as the user and trigger an AI response.
+  void _injectUserMessage(String text) {
+    final dc = _dc;
+    if (dc == null || dc.state != RTCDataChannelState.RTCDataChannelOpen) return;
+    dc.send(RTCDataChannelMessage(jsonEncode({
+      'type': 'conversation.item.create',
+      'item': {
+        'type': 'message',
+        'role': 'user',
+        'content': [{'type': 'input_text', 'text': text}],
+      },
+    })));
+    dc.send(RTCDataChannelMessage(jsonEncode({'type': 'response.create'})));
+  }
+
+  /// Activate session (if needed) then inject the feedback prompt.
+  Future<void> _startFeedback() async {
+    const prompt = 'I want to provide feedback about the app.';
+    if (_connected && _dc?.state == RTCDataChannelState.RTCDataChannelOpen) {
+      _injectUserMessage(prompt);
+    } else {
+      _pendingUserMessage = prompt;
+      if (!_connecting && !_connected) await _connect();
+    }
+  }
+
   Future<void> _sendToolOutput({
     required String callId,
     required String name,
@@ -1354,62 +1387,99 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
         child: const Icon(Icons.chat_bubble_outline),
       ),
       body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  _status ?? (isBusy ? "Working…" : "Ready."),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, fontSize: 16),
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.redAccent, fontSize: 13),
-                  ),
-                ],
-                const SizedBox(height: 36),
-                GestureDetector(
-                  onTap: isBusy ? null : _toggle,
-                  child: Container(
-                    width: 160,
-                    height: 160,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _connected ? Colors.redAccent : Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.white.withValues(alpha: 0.25),
-                          blurRadius: 24,
-                          spreadRadius: 8,
+        child: Stack(
+          children: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _status ?? (isBusy ? "Working…" : "Ready."),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white70, fontSize: 16),
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                      ),
+                    ],
+                    const SizedBox(height: 36),
+                    GestureDetector(
+                      onTap: isBusy ? null : _toggle,
+                      child: Container(
+                        width: 160,
+                        height: 160,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _connected ? Colors.redAccent : Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              blurRadius: 24,
+                              spreadRadius: 8,
+                            ),
+                          ],
                         ),
-                      ],
+                        child: Icon(
+                          icon,
+                          size: 72,
+                          color: _connected ? Colors.white : Colors.black,
+                        ),
+                      ),
                     ),
-                    child: Icon(
-                      icon,
-                      size: 72,
-                      color: _connected ? Colors.white : Colors.black,
+                    const SizedBox(height: 20),
+                    Text(
+                      label,
+                      style: const TextStyle(color: Colors.white54, fontSize: 14),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      isBusy ? "Connecting…" : (_connected ? "Speak now" : "Not connected"),
+                      style: const TextStyle(color: Colors.white38, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Feedback button — bottom-right corner
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: Tooltip(
+                message: 'Send feedback',
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _startFeedback,
+                    borderRadius: BorderRadius.circular(28),
+                    child: Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.08),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.rate_review_outlined,
+                        color: Colors.white54,
+                        size: 22,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  label,
-                  style: const TextStyle(color: Colors.white54, fontSize: 14),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  isBusy ? "Connecting…" : (_connected ? "Speak now" : "Not connected"),
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
