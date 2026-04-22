@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'contact_alias_store.dart';
 
 class ContactsService {
-  /// Search device contacts by name. Returns up to [maxResults] matches
-  /// with their phone numbers. Requests permission on first call.
+  /// Search contacts by name. Checks saved aliases first; falls back to
+  /// device address book. Requests permission on first device lookup.
   static Future<Map<String, dynamic>> searchContacts(dynamic args) async {
     if (kIsWeb) {
       return {'ok': false, 'error': 'Contact access is not available on web.'};
@@ -12,6 +13,19 @@ class ContactsService {
     final name = args is Map ? (args['name'] as String?)?.trim() ?? '' : '';
     if (name.isEmpty) {
       return {'ok': false, 'error': 'name is required'};
+    }
+
+    // Check saved aliases first — exact or substring match on the key.
+    final alias = await ContactAliasStore.lookup(name);
+    if (alias != null) {
+      return {
+        'ok': true,
+        'found': 1,
+        'from_alias': true,
+        'contacts': [
+          {'name': alias['name'], 'phones': [{'label': 'saved', 'number': alias['phone']}]}
+        ],
+      };
     }
 
     final granted = await FlutterContacts.requestPermission(readonly: true);

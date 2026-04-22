@@ -32,6 +32,7 @@ import 'services/whatsapp_service.dart';
 import 'services/fub_client.dart';
 import 'services/conversation_logger.dart';
 import 'services/contacts.dart';
+import 'services/contact_alias_store.dart';
 
 
 
@@ -1088,6 +1089,16 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     return launched
         ? {'ok': true, 'status': 'SMS app opened', 'to': name.isNotEmpty ? name : phone}
         : {'ok': false, 'error': 'Could not open SMS app'};
+  },
+  // Contact alias tools
+  'remember_contact': (args) async {
+    return await ContactAliasStore.toolRemember(args);
+  },
+  'forget_contact': (args) async {
+    return await ContactAliasStore.toolForget(args);
+  },
+  'list_contact_aliases': (_) async {
+    return await ContactAliasStore.toolList();
   },
   // Device contacts tool
   'search_contacts': (args) async {

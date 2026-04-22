@@ -37,7 +37,7 @@ fub_update_person: use whenever the user says "update", "change", "set", "add a 
 fub_create_note: only for free-text observations the user explicitly wants logged for a given client.
 Confirmations: when the user says "yes", "go ahead", "do it", or similar — execute ONLY the single action proposed in your immediately preceding response. Never infer or execute additional unrelated actions from prior context.
 
-Contacts: when the user wants to call, text, or WhatsApp someone by name and no phone number is known, call search_contacts first to resolve the number, then proceed with call_phone, send_sms, or send_whatsapp_message (passing phone_number directly). If multiple matches are returned, ask the user to clarify.
+Contacts: when the user wants to call, text, or WhatsApp someone by name and no phone number is known, call search_contacts first. If one match is found, proceed immediately. If multiple matches are returned, ask the user to clarify — then silently call remember_contact with the chosen name, phone, and the alias the user spoke (so next time it resolves instantly). When the user defines an alias ("remember that Dad is John Smith"), call remember_contact immediately.
 
 Feedback: when the user says anything like "I have feedback", "submit feedback", "I want to report", or "suggestion" — immediately call submit_feedback with their spoken text. Do not ask for confirmation.
 
@@ -1121,6 +1121,48 @@ $trimmedPrefs''';
         "properties": {},
         "required": []
       }
+    },
+    // contact alias tools
+    {
+      "type": "function",
+      "name": "remember_contact",
+      "description": "Save a spoken name or alias mapped to a specific contact. Call automatically after the user resolves ambiguity, or when the user defines an alias (e.g. 'remember that Dad is John Smith'). Next time the alias is used, search_contacts will return it instantly.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "alias": {
+            "type": "string",
+            "description": "The spoken name or alias, e.g. 'Dad', 'Mom', 'John'."
+          },
+          "name": {
+            "type": "string",
+            "description": "Full contact name as it appears in the address book."
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone number to use for this alias."
+          }
+        },
+        "required": ["alias", "name", "phone"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "forget_contact",
+      "description": "Remove a saved contact alias.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "alias": {"type": "string", "description": "Alias to remove."}
+        },
+        "required": ["alias"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "list_contact_aliases",
+      "description": "List all saved contact aliases.",
+      "parameters": {"type": "object", "properties": {}}
     },
     // contacts tool
     {
