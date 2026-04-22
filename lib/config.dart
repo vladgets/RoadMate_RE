@@ -663,7 +663,7 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "send_whatsapp_message",
-      "description": "Send WhatsApp message. Looks up number from memory by contact_name. If phone_number is provided (e.g. from search_contacts), it is used directly. Can include photos.",
+      "description": "Send WhatsApp message. Resolves contact_name automatically from memory, saved aliases, or device contacts — no need to call search_contacts first. Pass phone_number directly if already known.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -702,24 +702,24 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "send_sms",
-      "description": "Send a native SMS text message. Use after search_contacts to get the phone number, or when the user provides one directly.",
+      "description": "Send a native SMS text message. Pass contact_name to resolve the number automatically from the address book — no need to call search_contacts first. Pass phone_number directly if already known.",
       "parameters": {
         "type": "object",
         "properties": {
+          "contact_name": {
+            "type": "string",
+            "description": "Recipient name — looks up number from saved aliases or device contacts automatically."
+          },
           "phone_number": {
             "type": "string",
-            "description": "Recipient phone number, e.g. +14085551234."
+            "description": "Phone number if already known (skips contact lookup)."
           },
           "message": {
             "type": "string",
             "description": "Text message body."
-          },
-          "contact_name": {
-            "type": "string",
-            "description": "Contact name for confirmation feedback."
           }
         },
-        "required": ["phone_number", "message"]
+        "required": ["message"]
       }
     },
     {

@@ -1075,16 +1075,33 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     }
     return result;
   },
-  // Native SMS tool
+  // Native SMS tool — resolves contact by name if phone_number not provided
   'send_sms': (args) async {
-    final phone = args is Map ? (args['phone_number'] as String?) ?? '' : '';
     final message = args is Map ? (args['message'] as String?) ?? '' : '';
-    final name = args is Map ? (args['contact_name'] as String?) ?? '' : '';
-    if (phone.isEmpty) return {'ok': false, 'error': 'phone_number is required'};
     if (message.isEmpty) return {'ok': false, 'error': 'message is required'};
+
+    String phone = args is Map ? (args['phone_number'] as String?) ?? '' : '';
+    String name = args is Map ? (args['contact_name'] as String?) ?? '' : '';
+
+    // Resolve by name if no phone number given
+    if (phone.isEmpty) {
+      if (name.isEmpty) return {'ok': false, 'error': 'contact_name or phone_number is required'};
+      final result = await ContactsService.searchContacts({'name': name});
+      if (result['ok'] != true || (result['found'] as int? ?? 0) == 0) {
+        return {'ok': false, 'error': 'No contact found for "$name". Check the name or add them to your address book.'};
+      }
+      final contacts = result['contacts'] as List;
+      if (contacts.length > 1) {
+        return {'ok': false, 'needs_clarification': true, 'matches': contacts,
+          'message': 'Multiple contacts match "$name". Please clarify which one.'};
+      }
+      final phones = contacts.first['phones'] as List;
+      if (phones.isEmpty) return {'ok': false, 'error': 'No phone number found for "$name".'};
+      phone = phones.first['number'] as String;
+      name = contacts.first['name'] as String;
+    }
+
     final clean = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
-    // sms: is a built-in system scheme — launch directly without canLaunchUrl guard
-    // (canLaunchUrl requires LSApplicationQueriesSchemes on iOS but launchUrl works regardless)
     final smsUri = Uri(scheme: 'sms', path: clean, queryParameters: {'body': message});
     try {
       await launchUrl(smsUri, mode: LaunchMode.externalApplication);

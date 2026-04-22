@@ -2,6 +2,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/whatsapp_contact.dart';
 import 'memory_store.dart';
+import 'contacts.dart';
 import 'dart:io';
 
 /// Service for sending WhatsApp messages via voice commands.
@@ -48,12 +49,34 @@ class WhatsAppService {
       } else {
         contact = await _findContact(contactName);
       }
+      // Fall back to device contacts if not in memory or passed directly
+      if (contact == null) {
+        final result = await ContactsService.searchContacts({'name': contactName});
+        if (result['ok'] == true && (result['found'] as int? ?? 0) > 0) {
+          final contacts = result['contacts'] as List;
+          if (contacts.length == 1) {
+            final phones = contacts.first['phones'] as List;
+            if (phones.isNotEmpty) {
+              contact = WhatsAppContact(
+                name: contacts.first['name'] as String,
+                phoneNumber: phones.first['number'] as String,
+              );
+            }
+          } else if (contacts.length > 1) {
+            return {
+              'status': 'error',
+              'needs_clarification': true,
+              'matches': contacts,
+              'message': 'Multiple contacts match "$contactName". Please clarify which one.',
+            };
+          }
+        }
+      }
       if (contact == null) {
         return {
           'status': 'error',
-          'message': 'Could not find $contactName\'s WhatsApp number. '
-              'Try saying "search contacts for $contactName" first, or save the number by saying '
-              '"remember $contactName\'s WhatsApp is +[phone number]"',
+          'message': 'Could not find $contactName in your contacts or memory. '
+              'Save their number by saying "remember $contactName\'s WhatsApp is +[number]".',
         };
       }
 
