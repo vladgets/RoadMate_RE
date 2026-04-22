@@ -33,6 +33,7 @@ import 'services/fub_client.dart';
 import 'services/conversation_logger.dart';
 import 'services/contacts.dart';
 import 'services/contact_alias_store.dart';
+import 'services/place_alias_store.dart';
 
 
 
@@ -1089,6 +1090,16 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     return launched
         ? {'ok': true, 'status': 'SMS app opened', 'to': name.isNotEmpty ? name : phone}
         : {'ok': false, 'error': 'Could not open SMS app'};
+  },
+  // Place alias tools
+  'remember_place': (args) async {
+    return await PlaceAliasStore.toolRemember(args);
+  },
+  'forget_place': (args) async {
+    return await PlaceAliasStore.toolForget(args);
+  },
+  'list_place_aliases': (_) async {
+    return await PlaceAliasStore.toolList();
   },
   // Contact alias tools
   'remember_contact': (args) async {

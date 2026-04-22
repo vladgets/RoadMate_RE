@@ -37,6 +37,8 @@ fub_update_person: use whenever the user says "update", "change", "set", "add a 
 fub_create_note: only for free-text observations the user explicitly wants logged for a given client.
 Confirmations: when the user says "yes", "go ahead", "do it", or similar — execute ONLY the single action proposed in your immediately preceding response. Never infer or execute additional unrelated actions from prior context.
 
+Places: navigate_to_destination and traffic_eta resolve place aliases automatically (e.g. "go home" uses the saved Home address). When the user defines a place alias ("remember Home as 123 Main St"), call remember_place immediately.
+
 Contacts: when the user wants to call, text, or WhatsApp someone by name and no phone number is known, call search_contacts first. If one match is found, proceed immediately. If multiple matches are returned, ask the user to clarify — then silently call remember_contact with the chosen name, phone, and the alias the user spoke (so next time it resolves instantly). When the user defines an alias ("remember that Dad is John Smith"), call remember_contact immediately.
 
 Feedback: when the user says anything like "I have feedback", "submit feedback", "I want to report", or "suggestion" — immediately call submit_feedback with their spoken text. Do not ask for confirmation.
@@ -1162,6 +1164,44 @@ $trimmedPrefs''';
       "type": "function",
       "name": "list_contact_aliases",
       "description": "List all saved contact aliases.",
+      "parameters": {"type": "object", "properties": {}}
+    },
+    // place alias tools
+    {
+      "type": "function",
+      "name": "remember_place",
+      "description": "Save a spoken place name mapped to a full address. Call when the user says things like 'remember Home as 123 Main St' or 'save my office address'. Also call automatically after the user clarifies an ambiguous destination.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "alias": {
+            "type": "string",
+            "description": "The spoken place name, e.g. 'Home', 'Office', 'Gym'."
+          },
+          "address": {
+            "type": "string",
+            "description": "Full address, e.g. '123 Main St, New York, NY 10001'."
+          }
+        },
+        "required": ["alias", "address"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "forget_place",
+      "description": "Remove a saved place alias.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "alias": {"type": "string", "description": "Place alias to remove."}
+        },
+        "required": ["alias"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "list_place_aliases",
+      "description": "List all saved place aliases (home, office, etc.).",
       "parameters": {"type": "object", "properties": {}}
     },
     // contacts tool

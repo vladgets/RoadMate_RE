@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../config.dart';
 import 'geo_time_tools.dart';
+import 'place_alias_store.dart';
 
 
 /// Replace this with YOUR existing function.
@@ -60,16 +61,20 @@ Future<Map<String, dynamic>> callTrafficEtaServer({
   return data;
 }
 
+/// Resolves a destination string through the place alias store.
+Future<String> _resolveDestination(String destination) async {
+  final resolved = await PlaceAliasStore.lookup(destination);
+  return resolved ?? destination;
+}
+
 /// Handles a call to the Traffic ETA tool.
 Future<Map<String, dynamic>> handleTrafficEtaToolCall(Map<String, dynamic> args) async {
-  final destination = (args["destination"] as String?)?.trim();
-  if (destination == null || destination.isEmpty) {
-    return {
-      "ok": false,
-      "error": "Missing required parameter: destination",
-    };
+  final raw = (args["destination"] as String?)?.trim();
+  if (raw == null || raw.isEmpty) {
+    return {"ok": false, "error": "Missing required parameter: destination"};
   }
 
+  final destination = await _resolveDestination(raw);
   final routeType = (args["route_type"] as String?) ?? "by_car";
   final units = (args["units"] as String?) ?? "imperial";
 
@@ -80,17 +85,17 @@ Future<Map<String, dynamic>> handleTrafficEtaToolCall(Map<String, dynamic> args)
     units: units,
   );
 
-  // Your server already returns a nice voice summary
-  // (and structured fields like distanceMeters/baseSeconds/liveSeconds).
   return data;
 }
 
 /// Handles a call to the Open Maps Route tool.
 Future<Map<String, dynamic>> handleOpenMapsRouteToolCall(Map<String, dynamic> args) async {
-  final destination = (args["destination"] as String?)?.trim();
-  if (destination == null || destination.isEmpty) {
+  final raw = (args["destination"] as String?)?.trim();
+  if (raw == null || raw.isEmpty) {
     return {"ok": false, "error": "Missing required parameter: destination"};
   }
+
+  final destination = await _resolveDestination(raw);
 
   final routeType = (args["route_type"] as String?) ?? "by_car";
   // Optional: choose which navigation app to open for iOS.

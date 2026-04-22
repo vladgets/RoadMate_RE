@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'memory_settings_screen.dart';
+import 'contact_aliases_screen.dart';
+import 'place_aliases_screen.dart';
 import 'reminders_screen.dart';
 class MyDataScreen extends StatelessWidget {
   const MyDataScreen({super.key});
@@ -27,6 +29,26 @@ class MyDataScreen extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const MemorySettingsScreen()),
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.contacts_outlined),
+            title: const Text('Contact Aliases'),
+            subtitle: const Text('Spoken names mapped to phone contacts'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ContactAliasesScreen()),
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.place_outlined),
+            title: const Text('Place Aliases'),
+            subtitle: const Text('Spoken place names mapped to addresses'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PlaceAliasesScreen()),
             ),
           ),
           const Divider(),
