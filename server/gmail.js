@@ -783,13 +783,22 @@ export function registerGmailRoutes(app) {
       });
 
       const token = loadToken(clientId);
-      saveToken(clientId, {
+      const updated = {
         ...token,
         history_id: String(result.data.historyId),
         watch_expiry: Number(result.data.expiration),
-      });
+      };
 
-      console.log(`[gmail/watch] Registered for client_id=${clientId}, historyId=${result.data.historyId}`);
+      // Backfill email_address if missing — needed for webhook routing.
+      if (!updated.email_address) {
+        try {
+          const profile = await gmail.users.getProfile({ userId: "me" });
+          if (profile.data.emailAddress) updated.email_address = profile.data.emailAddress;
+        } catch {}
+      }
+
+      saveToken(clientId, updated);
+      console.log(`[gmail/watch] Registered for client_id=${clientId}, historyId=${result.data.historyId}, email=${updated.email_address || "unknown"}`);
       return res.json({
         ok: true,
         historyId: result.data.historyId,
@@ -841,12 +850,20 @@ export function registerGmailRoutes(app) {
       const auth = await getAuthorizedClient(clientId);
       const gmail = google.gmail({ version: "v1", auth });
 
-      const historyRes = await gmail.users.history.list({
-        userId: "me",
-        startHistoryId: lastHistoryId,
-        historyTypes: ["messageAdded"],
-        labelId: "INBOX",
-      });
+      let historyRes;
+      try {
+        historyRes = await gmail.users.history.list({
+          userId: "me",
+          startHistoryId: lastHistoryId,
+          historyTypes: ["messageAdded"],
+          labelId: "INBOX",
+        });
+      } catch (e) {
+        // historyId too old or invalid — reset cursor and skip this notification.
+        console.warn(`[gmail/webhook] history.list failed for client_id=${clientId}, resetting cursor: ${e.message}`);
+        saveToken(clientId, { ...token, history_id: newHistoryId });
+        return;
+      }
 
       // Always advance the cursor.
       saveToken(clientId, { ...token, history_id: newHistoryId });
