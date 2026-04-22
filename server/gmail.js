@@ -8,6 +8,9 @@ const SCOPES = [
   "https://www.googleapis.com/auth/drive",
 ];
 const TOKEN_DIR = process.env.GOOGLE_TOKEN_DIR || "/data/gmail_tokens";
+const PUBSUB_TOPIC = process.env.PUBSUB_TOPIC;
+const SHOWINGTIME_SENDER = "callcenter@showingtime.com";
+const SHOWINGTIME_FORWARD_TO = process.env.SHOWINGTIME_FORWARD_TO || "vladgets@gmail.com";
 
 // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, BASE_URL
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -290,6 +293,57 @@ function buildRawEmailWithBuffer({ to, subject, bodyText, attachmentBuffer, atta
   return Buffer.from(mime).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
+function findClientIdByEmail(email) {
+  ensureTokenDir();
+  try {
+    const files = fs.readdirSync(TOKEN_DIR);
+    for (const file of files) {
+      if (!file.endsWith(".json")) continue;
+      try {
+        const data = JSON.parse(fs.readFileSync(`${TOKEN_DIR}/${file}`, "utf-8"));
+        if (data.email_address && data.email_address.toLowerCase() === email.toLowerCase()) {
+          return file.replace(".json", "");
+        }
+      } catch {}
+    }
+  } catch {}
+  return null;
+}
+
+async function forwardEmail(gmail, msg, to) {
+  const h = headerMap(msg);
+  const originalSubject = h["subject"] || "(no subject)";
+  const bodyText = extractBodyTextFromMessage(msg);
+
+  const fwdBody = [
+    "---------- Forwarded message ----------",
+    `From: ${h["from"] || ""}`,
+    `Date: ${h["date"] || ""}`,
+    `Subject: ${originalSubject}`,
+    "",
+    bodyText,
+  ].join("\n");
+
+  const raw = buildRawEmail({ to, subject: `Fwd: ${originalSubject}`, bodyText: fwdBody });
+  await gmail.users.messages.send({ userId: "me", requestBody: { raw } });
+}
+
+async function renewWatchIfNeeded(clientId, gmail) {
+  if (!PUBSUB_TOPIC) return;
+  const token = loadToken(clientId);
+  if (!token) return;
+  const expiry = Number(token.watch_expiry || 0);
+  const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+  if (expiry && Date.now() < expiry - twoDaysMs) return;
+
+  const result = await gmail.users.watch({
+    userId: "me",
+    requestBody: { topicName: PUBSUB_TOPIC, labelIds: ["INBOX"] },
+  });
+  saveToken(clientId, { ...token, watch_expiry: Number(result.data.expiration) });
+  console.log(`[gmail/watch] Renewed for client_id=${clientId}, expires=${new Date(Number(result.data.expiration)).toISOString()}`);
+}
+
 // Shared helpers exported for use by other Google service modules.
 export { loadToken, getAuthorizedClient, sanitizeClientId, getClientIdFromReq, TOKEN_DIR, buildRawEmailWithBuffer };
 
@@ -359,6 +413,26 @@ export function registerGmailRoutes(app) {
         }
       } catch (profileErr) {
         console.warn(`[google] Could not fetch profile email: ${profileErr.message}`);
+      }
+
+      // Auto-register Gmail push watch if Pub/Sub is configured.
+      if (PUBSUB_TOPIC) {
+        try {
+          const gmailForWatch = google.gmail({ version: "v1", auth: oauth2 });
+          const watchResult = await gmailForWatch.users.watch({
+            userId: "me",
+            requestBody: { topicName: PUBSUB_TOPIC, labelIds: ["INBOX"] },
+          });
+          const savedToken = loadToken(clientId);
+          saveToken(clientId, {
+            ...savedToken,
+            history_id: String(watchResult.data.historyId),
+            watch_expiry: Number(watchResult.data.expiration),
+          });
+          console.log(`[gmail/watch] Auto-registered for client_id=${clientId}, historyId=${watchResult.data.historyId}`);
+        } catch (watchErr) {
+          console.warn(`[gmail/watch] Auto-register failed: ${watchErr.message}`);
+        }
       }
 
       return res.send("<p>Google account connected successfully. You can close this tab and return to RoadMate.</p>");
@@ -688,6 +762,117 @@ export function registerGmailRoutes(app) {
       return res.json({ ok: true, message_id: result.data.id, to, subject });
     } catch (e) {
       return res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  // Register Gmail push notifications for a client.
+  app.post("/gmail/watch", async (req, res) => {
+    try {
+      if (!PUBSUB_TOPIC) {
+        return res.status(500).json({ ok: false, error: "PUBSUB_TOPIC env var not set on server" });
+      }
+      const clientId = getClientIdFromReq(req);
+      if (!clientId) return res.status(400).json({ ok: false, error: "Missing client_id" });
+
+      const auth = await getAuthorizedClient(clientId);
+      const gmail = google.gmail({ version: "v1", auth });
+
+      const result = await gmail.users.watch({
+        userId: "me",
+        requestBody: { topicName: PUBSUB_TOPIC, labelIds: ["INBOX"] },
+      });
+
+      const token = loadToken(clientId);
+      saveToken(clientId, {
+        ...token,
+        history_id: String(result.data.historyId),
+        watch_expiry: Number(result.data.expiration),
+      });
+
+      console.log(`[gmail/watch] Registered for client_id=${clientId}, historyId=${result.data.historyId}`);
+      return res.json({
+        ok: true,
+        historyId: result.data.historyId,
+        expiration: result.data.expiration,
+        expires_at: new Date(Number(result.data.expiration)).toISOString(),
+      });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  // Gmail Pub/Sub push webhook — called by Google when new mail arrives.
+  app.post("/gmail/webhook", async (req, res) => {
+    // Respond 200 immediately so Pub/Sub doesn't retry.
+    res.sendStatus(200);
+
+    try {
+      const message = req.body?.message;
+      if (!message?.data) return;
+
+      let decoded;
+      try {
+        decoded = JSON.parse(Buffer.from(message.data, "base64").toString("utf-8"));
+      } catch {
+        console.warn("[gmail/webhook] Failed to decode Pub/Sub message");
+        return;
+      }
+
+      const emailAddress = decoded.emailAddress;
+      const newHistoryId = decoded.historyId ? String(decoded.historyId) : null;
+      if (!emailAddress || !newHistoryId) return;
+
+      const clientId = findClientIdByEmail(emailAddress);
+      if (!clientId) {
+        console.warn(`[gmail/webhook] No client found for email: ${emailAddress}`);
+        return;
+      }
+
+      const token = loadToken(clientId);
+      const lastHistoryId = token?.history_id;
+
+      if (!lastHistoryId) {
+        // No baseline yet — save newHistoryId so next notification works.
+        saveToken(clientId, { ...token, history_id: newHistoryId });
+        console.warn(`[gmail/webhook] No history_id for client_id=${clientId}, saved baseline`);
+        return;
+      }
+
+      const auth = await getAuthorizedClient(clientId);
+      const gmail = google.gmail({ version: "v1", auth });
+
+      const historyRes = await gmail.users.history.list({
+        userId: "me",
+        startHistoryId: lastHistoryId,
+        historyTypes: ["messageAdded"],
+        labelId: "INBOX",
+      });
+
+      // Always advance the cursor.
+      saveToken(clientId, { ...token, history_id: newHistoryId });
+
+      const records = historyRes.data.history || [];
+      for (const record of records) {
+        for (const added of (record.messagesAdded || [])) {
+          const msgId = added.message?.id;
+          if (!msgId) continue;
+
+          const msgRes = await gmail.users.messages.get({ userId: "me", id: msgId, format: "full" });
+          const msg = msgRes.data;
+          const from = (headerMap(msg)["from"] || "").toLowerCase();
+
+          if (from.includes(SHOWINGTIME_SENDER)) {
+            await forwardEmail(gmail, msg, SHOWINGTIME_FORWARD_TO);
+            console.log(`[showingtime] Forwarded "${headerMap(msg)["subject"]}" → ${SHOWINGTIME_FORWARD_TO}`);
+          }
+        }
+      }
+
+      // Renew watch subscription if close to expiry (auto-maintains the 7-day window).
+      await renewWatchIfNeeded(clientId, gmail);
+
+    } catch (e) {
+      console.error("[gmail/webhook] Error:", e.message);
     }
   });
 
