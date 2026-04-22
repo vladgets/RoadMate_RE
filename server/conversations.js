@@ -234,15 +234,14 @@ export function registerConversationRoutes(app) {
   .empty { text-align: center; padding: 48px; color: #6e6e73; }
   .del-btn { background: none; border: none; cursor: pointer; font-size: 1rem; opacity: 0.4; padding: 4px 8px; border-radius: 6px; }
   .del-btn:hover { opacity: 1; background: #fee2e2; }
-  .export-btn { display: inline-block; margin: 0 32px 16px; padding: 8px 18px; background: #007aff; color: #fff; border-radius: 8px; text-decoration: none; font-size: 0.88rem; font-weight: 600; }
+  .export-btn { display: inline-block; padding: 7px 16px; background: #007aff; color: #fff; border-radius: 8px; text-decoration: none; font-size: 0.85rem; font-weight: 600; }
   .export-btn:hover { background: #0062cc; }
 </style>
 </head>
 <body>
 <h1>RoadMate</h1>
 <p class="subtitle">${files.length} session${files.length !== 1 ? "s" : ""} — click any row to view transcript</p>
-${adminTabBar("conversations")}
-<a class="export-btn" href="/admin/conversations/export">⬇ Download All</a>
+${adminTabBar("conversations", '<a class="export-btn" href="/admin/conversations/export">⬇ Download All</a>')}
 <div class="container">
 <table>
   <thead><tr>

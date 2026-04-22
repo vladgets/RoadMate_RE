@@ -48,21 +48,23 @@ function escapeHtml(str) {
     .replace(/\n/g, "<br>");
 }
 
-/** Shared tab navigation bar HTML */
-function adminTabBar(active) {
+/** Shared tab navigation bar HTML. Pass optional rightHtml to render at the right end. */
+function adminTabBar(active, rightHtml = "") {
   return `
 <nav class="tab-bar">
   <a href="/admin/conversations" class="tab${active === "conversations" ? " active" : ""}">💬 Conversations</a>
   <a href="/admin/feedback" class="tab${active === "feedback" ? " active" : ""}">📣 Feedback</a>
+  ${rightHtml ? `<div class="tab-bar-right">${rightHtml}</div>` : ""}
 </nav>`;
 }
 
 /** Shared tab bar CSS */
 const tabBarCss = `
-  .tab-bar { display: flex; gap: 4px; padding: 20px 32px 0; }
+  .tab-bar { display: flex; align-items: flex-end; gap: 4px; padding: 20px 32px 0; }
   .tab { padding: 8px 18px; border-radius: 8px 8px 0 0; font-size: 0.88rem; font-weight: 600; text-decoration: none; color: #6e6e73; background: #e5e5ea; border: 1px solid #e5e5ea; border-bottom: none; }
   .tab.active { background: #fff; color: #1d1d1f; border-color: #e5e5ea; }
   .tab:hover:not(.active) { background: #d1d1d6; }
+  .tab-bar-right { margin-left: auto; padding-bottom: 4px; }
   .tab-content { background: #fff; border-top: 1px solid #e5e5ea; }
 `;
 
