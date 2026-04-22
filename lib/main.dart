@@ -1075,6 +1075,20 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     }
     return result;
   },
+  // Native SMS tool
+  'send_sms': (args) async {
+    final phone = args is Map ? (args['phone_number'] as String?) ?? '' : '';
+    final message = args is Map ? (args['message'] as String?) ?? '' : '';
+    final name = args is Map ? (args['contact_name'] as String?) ?? '' : '';
+    if (phone.isEmpty) return {'ok': false, 'error': 'phone_number is required'};
+    if (message.isEmpty) return {'ok': false, 'error': 'message is required'};
+    final clean = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    final smsUri = Uri(scheme: 'sms', path: clean, queryParameters: {'body': message});
+    final launched = await canLaunchUrl(smsUri) && await launchUrl(smsUri, mode: LaunchMode.externalApplication);
+    return launched
+        ? {'ok': true, 'status': 'SMS app opened', 'to': name.isNotEmpty ? name : phone}
+        : {'ok': false, 'error': 'Could not open SMS app'};
+  },
   // Device contacts tool
   'search_contacts': (args) async {
     return await ContactsService.searchContacts(args);

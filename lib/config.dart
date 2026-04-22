@@ -37,7 +37,7 @@ fub_update_person: use whenever the user says "update", "change", "set", "add a 
 fub_create_note: only for free-text observations the user explicitly wants logged for a given client.
 Confirmations: when the user says "yes", "go ahead", "do it", or similar — execute ONLY the single action proposed in your immediately preceding response. Never infer or execute additional unrelated actions from prior context.
 
-Contacts: when the user wants to call or message someone by name and no phone number is known, call search_contacts first to resolve the number, then proceed with call_phone or send_whatsapp_message. If multiple matches are returned, ask the user to clarify.
+Contacts: when the user wants to call, text, or WhatsApp someone by name and no phone number is known, call search_contacts first to resolve the number, then proceed with call_phone, send_sms, or send_whatsapp_message (passing phone_number directly). If multiple matches are returned, ask the user to clarify.
 
 Feedback: when the user says anything like "I have feedback", "submit feedback", "I want to report", or "suggestion" — immediately call submit_feedback with their spoken text. Do not ask for confirmation.
 
@@ -661,17 +661,21 @@ $trimmedPrefs''';
     {
       "type": "function",
       "name": "send_whatsapp_message",
-      "description": "Send WhatsApp message (contact must be in memory). Can include photos.",
+      "description": "Send WhatsApp message. Looks up number from memory by contact_name. If phone_number is provided (e.g. from search_contacts), it is used directly. Can include photos.",
       "parameters": {
         "type": "object",
         "properties": {
           "contact_name": {
             "type": "string",
-            "description": "Contact name (looked up in memory)."
+            "description": "Contact name."
           },
           "message": {
             "type": "string",
             "description": "Text message."
+          },
+          "phone_number": {
+            "type": "string",
+            "description": "Phone number (e.g. from search_contacts). Skips memory lookup when provided."
           },
           "photo_location": {
             "type": "string",
@@ -691,6 +695,29 @@ $trimmedPrefs''';
           },
         },
         "required": ["contact_name", "message"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "send_sms",
+      "description": "Send a native SMS text message. Use after search_contacts to get the phone number, or when the user provides one directly.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "description": "Recipient phone number, e.g. +14085551234."
+          },
+          "message": {
+            "type": "string",
+            "description": "Text message body."
+          },
+          "contact_name": {
+            "type": "string",
+            "description": "Contact name for confirmation feedback."
+          }
+        },
+        "required": ["phone_number", "message"]
       }
     },
     {

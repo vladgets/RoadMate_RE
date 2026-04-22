@@ -38,13 +38,22 @@ class WhatsAppService {
         };
       }
 
-      // Find contact in memory
-      final contact = await _findContact(contactName);
+      // Accept a phone number passed directly (e.g. resolved via search_contacts)
+      final directPhone = args['phone_number'] as String?;
+
+      // Find contact: prefer direct phone number, then memory lookup
+      WhatsAppContact? contact;
+      if (directPhone != null && directPhone.isNotEmpty) {
+        contact = WhatsAppContact(name: contactName, phoneNumber: directPhone);
+      } else {
+        contact = await _findContact(contactName);
+      }
       if (contact == null) {
         return {
           'status': 'error',
-          'message': 'Could not find $contactName\'s WhatsApp in memory. '
-              'Please save it first by saying "remember $contactName\'s WhatsApp is +[phone number]"',
+          'message': 'Could not find $contactName\'s WhatsApp number. '
+              'Try saying "search contacts for $contactName" first, or save the number by saying '
+              '"remember $contactName\'s WhatsApp is +[phone number]"',
         };
       }
 
