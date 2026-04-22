@@ -1070,9 +1070,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
           path: clean,
           queryParameters: {'body': message},
         );
-        if (await canLaunchUrl(smsUri)) {
-          await launchUrl(smsUri, mode: LaunchMode.externalApplication);
-        }
+        try { await launchUrl(smsUri, mode: LaunchMode.externalApplication); } catch (_) {}
       }
     }
     return result;
@@ -1085,11 +1083,15 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     if (phone.isEmpty) return {'ok': false, 'error': 'phone_number is required'};
     if (message.isEmpty) return {'ok': false, 'error': 'message is required'};
     final clean = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    // sms: is a built-in system scheme — launch directly without canLaunchUrl guard
+    // (canLaunchUrl requires LSApplicationQueriesSchemes on iOS but launchUrl works regardless)
     final smsUri = Uri(scheme: 'sms', path: clean, queryParameters: {'body': message});
-    final launched = await canLaunchUrl(smsUri) && await launchUrl(smsUri, mode: LaunchMode.externalApplication);
-    return launched
-        ? {'ok': true, 'status': 'SMS app opened', 'to': name.isNotEmpty ? name : phone}
-        : {'ok': false, 'error': 'Could not open SMS app'};
+    try {
+      await launchUrl(smsUri, mode: LaunchMode.externalApplication);
+      return {'ok': true, 'status': 'SMS app opened', 'to': name.isNotEmpty ? name : phone};
+    } catch (e) {
+      return {'ok': false, 'error': 'Could not open SMS app: $e'};
+    }
   },
   // Place alias tools
   'remember_place': (args) async {
