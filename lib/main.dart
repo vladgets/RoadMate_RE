@@ -1279,7 +1279,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
 
   /// Activate session (if needed) then inject the feedback prompt.
   Future<void> _startFeedback() async {
-    const prompt = 'I want to provide feedback about the app.';
+    const prompt = 'Can I submit a feedback to developers?';
     if (_connected && _dc?.state == RTCDataChannelState.RTCDataChannelOpen) {
       _injectUserMessage(prompt);
     } else {
@@ -1384,7 +1384,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
           );
           _navigatedAway = false;
         },
-        child: const Icon(Icons.chat_bubble_outline),
+        child: const Icon(Icons.keyboard_outlined),
       ),
       body: SafeArea(
         child: Stack(
