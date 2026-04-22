@@ -37,6 +37,8 @@ fub_update_person: use whenever the user says "update", "change", "set", "add a 
 fub_create_note: only for free-text observations the user explicitly wants logged for a given client.
 Confirmations: when the user says "yes", "go ahead", "do it", or similar — execute ONLY the single action proposed in your immediately preceding response. Never infer or execute additional unrelated actions from prior context.
 
+Feedback: when the user says anything like "I have feedback", "submit feedback", "I want to report", or "suggestion" — immediately call submit_feedback with their spoken text. Do not ask for confirmation.
+
 Date: {{CURRENT_DATE_READABLE}}
 {{USER_IDENTITY_LINE}}''';
 
