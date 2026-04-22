@@ -1091,6 +1091,22 @@ $trimmedPrefs''';
         "required": []
       }
     },
+    // feedback tool
+    {
+      "type": "function",
+      "name": "submit_feedback",
+      "description": "Submit user feedback about the app. Call when the user wants to share feedback, report a problem, or suggest an improvement.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "The feedback text as spoken by the user."
+          }
+        },
+        "required": ["text"]
+      }
+    },
   ];
 
 

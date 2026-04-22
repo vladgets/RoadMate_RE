@@ -7,7 +7,7 @@ import '../config.dart';
 import '../models/chat_message.dart';
 
 class ConversationLogger {
-  static String get _platform {
+  static String get platformName {
     if (kIsWeb) return 'web';
     try {
       if (Platform.isIOS) return 'ios';
@@ -43,7 +43,7 @@ class ConversationLogger {
       final uri = Uri.parse('$base/conversation/save');
       final body = jsonEncode({
         'client_id': cid,
-        'platform': _platform,
+        'platform': platformName,
         'session_start': sessionStart,
         'agent_name': agentName,
         'messages': messages.map((m) => m.toJson()).toList(),

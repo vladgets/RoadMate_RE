@@ -8,6 +8,7 @@
 
 import fs from "fs";
 import path from "path";
+import { adminTabBar, tabBarCss } from "./feedback.js";
 
 const CONV_DIR = process.env.CONVERSATIONS_DIR || "/data/conversations";
 
@@ -221,9 +222,10 @@ export function registerConversationRoutes(app) {
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1d1d1f; }
   h1 { font-size: 1.6rem; font-weight: 700; padding: 24px 32px 0; }
-  .subtitle { color: #6e6e73; font-size: 0.9rem; padding: 4px 32px 24px; }
+  .subtitle { color: #6e6e73; font-size: 0.9rem; padding: 4px 32px 16px; }
+  ${tabBarCss}
   .container { padding: 0 24px 40px; }
-  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 0 12px 12px 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
   thead { background: #f5f5f7; }
   th { padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #6e6e73; border-bottom: 1px solid #e5e5ea; }
   td { padding: 12px 16px; font-size: 0.9rem; border-bottom: 1px solid #f2f2f7; }
@@ -232,13 +234,14 @@ export function registerConversationRoutes(app) {
   .empty { text-align: center; padding: 48px; color: #6e6e73; }
   .del-btn { background: none; border: none; cursor: pointer; font-size: 1rem; opacity: 0.4; padding: 4px 8px; border-radius: 6px; }
   .del-btn:hover { opacity: 1; background: #fee2e2; }
-  .export-btn { display: inline-block; margin: 0 32px 20px; padding: 8px 18px; background: #007aff; color: #fff; border-radius: 8px; text-decoration: none; font-size: 0.88rem; font-weight: 600; }
+  .export-btn { display: inline-block; margin: 0 32px 16px; padding: 8px 18px; background: #007aff; color: #fff; border-radius: 8px; text-decoration: none; font-size: 0.88rem; font-weight: 600; }
   .export-btn:hover { background: #0062cc; }
 </style>
 </head>
 <body>
-<h1>RoadMate Conversations</h1>
+<h1>RoadMate</h1>
 <p class="subtitle">${files.length} session${files.length !== 1 ? "s" : ""} — click any row to view transcript</p>
+${adminTabBar("conversations")}
 <a class="export-btn" href="/admin/conversations/export">⬇ Download All</a>
 <div class="container">
 <table>

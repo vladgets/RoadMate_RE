@@ -1074,6 +1074,31 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     }
     return result;
   },
+  // Feedback tool
+  'submit_feedback': (args) async {
+    final text = args is Map ? (args['text'] as String?) ?? '' : '';
+    if (text.isEmpty) return {'ok': false, 'error': 'No feedback text provided'};
+    try {
+      final base = Config.serverUrl.isNotEmpty
+          ? Config.serverUrl
+          : '${Uri.base.scheme}://${Uri.base.host}${Uri.base.port != 80 && Uri.base.port != 443 ? ":${Uri.base.port}" : ""}';
+      final uri = Uri.parse('$base/feedback');
+      final platform = ConversationLogger.platformName;
+      final resp = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'client_id': _clientId ?? '',
+          'platform': platform,
+          'text': text,
+        }),
+      );
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      return body;
+    } catch (e) {
+      return {'ok': false, 'error': e.toString()};
+    }
+  },
 };
 
   /// Extracts tool name + arguments from an event, runs the handler,
