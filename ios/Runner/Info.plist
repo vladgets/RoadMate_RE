@@ -45,6 +45,8 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSContactsUsageDescription</key>
+	<string>RoadMate needs access to your contacts to call or message people by name.</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>RoadMate needs calendar access to help you manage your schedule and answer questions about your events.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>

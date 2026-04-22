@@ -31,6 +31,7 @@ import 'services/conversation_store.dart';
 import 'services/whatsapp_service.dart';
 import 'services/fub_client.dart';
 import 'services/conversation_logger.dart';
+import 'services/contacts.dart';
 
 
 
@@ -1073,6 +1074,10 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       }
     }
     return result;
+  },
+  // Device contacts tool
+  'search_contacts': (args) async {
+    return await ContactsService.searchContacts(args);
   },
   // Feedback tool
   'submit_feedback': (args) async {
