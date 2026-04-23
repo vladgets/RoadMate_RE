@@ -888,7 +888,16 @@ export function registerGmailRoutes(app) {
         return;
       }
 
-      const auth = await getAuthorizedClient(clientId);
+      let auth;
+      try {
+        auth = await getAuthorizedClient(clientId);
+      } catch (e) {
+        if (e.message?.includes("invalid_grant")) {
+          console.log(`[gmail/webhook] Skipping client_id=${clientId}: token expired, needs reconnect`);
+          return;
+        }
+        throw e;
+      }
       const gmail = google.gmail({ version: "v1", auth });
 
       let historyRes;
