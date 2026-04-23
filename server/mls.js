@@ -1065,49 +1065,44 @@ export async function mlsSearchAndCapturePdf(address) {
                 }
               }
 
-              // Check "Detail" checkbox
-              const detailCb = overlayFrame.locator('input[type="checkbox"]').filter({ hasText: /detail/i }).first();
-              if (await detailCb.count() === 0) {
-                // Try by label text
-                const label = overlayFrame.locator('label').filter({ hasText: /^Detail$/i }).first();
+              // Check "Detail" checkbox by label text
+              for (const labelText of ["Detail", "Photos"]) {
+                const label = overlayFrame.locator(`label:has-text("${labelText}")`).first();
                 if (await label.count() > 0) {
-                  await label.locator('input[type="checkbox"]').click({ force: true }).catch(() => {});
+                  const cb = label.locator('input[type="checkbox"]');
+                  const checked = await cb.isChecked().catch(() => false);
+                  if (!checked) await cb.click({ force: true }).catch(() => {});
+                  console.log(`[MLS] Checked: ${labelText}`);
                 }
+              }
+
+              // Click "Preview and Print in a new window" link — opens clean print output as new tab
+              const previewLink = overlayFrame.locator('a:has-text("Preview"), a:has-text("new window"), a[target="_blank"]').first();
+              if (await previewLink.count() > 0) {
+                console.log("[MLS] Clicking Preview/Print in new window...");
+                const [printPage] = await Promise.all([
+                  context.waitForEvent("page", { timeout: 20_000 }),
+                  previewLink.click({ force: true, noWaitAfter: true }),
+                ]);
+                await printPage.waitForLoadState("networkidle", { timeout: 30_000 });
+                pdfBuffer = await printPage.pdf({ format: "A4", printBackground: true });
+                await printPage.close();
+                console.log(`[MLS] Preview window PDF captured, ${pdfBuffer.length} bytes`);
               } else {
-                await detailCb.click({ force: true }).catch(() => {});
-              }
-
-              // Also check "Photos"
-              const photoLabel = overlayFrame.locator('label').filter({ hasText: /^Photos$/i }).first();
-              if (await photoLabel.count() > 0) {
-                await photoLabel.locator('input[type="checkbox"]').click({ force: true }).catch(() => {});
-              }
-
-              // Submit the form
-              const submitBtn = overlayFrame.locator('input[type="submit"], button[type="submit"], button:has-text("Print"), input[value*="Print"]').first();
-              if (await submitBtn.count() > 0) {
-                console.log("[MLS] Submitting print form...");
-                // After submit, overlay navigates to the actual print output
-                const printOutputPromise = page.waitForEvent("framenavigated", {
-                  predicate: f => f.name() === "overlayframe",
-                  timeout: 20_000,
-                });
-                await submitBtn.click({ force: true, noWaitAfter: true });
-                await printOutputPromise.catch(() => {});
-                await page.waitForTimeout(2000);
-
-                // Capture the print output from the overlay frame URL in a clean page
-                const printOutputUrl = page.frames().find(f => f.name() === "overlayframe")?.url();
-                if (printOutputUrl && !printOutputUrl.includes("print.html")) {
-                  const printPage = await context.newPage();
-                  await printPage.goto(printOutputUrl, { waitUntil: "networkidle", timeout: 30_000 });
-                  pdfBuffer = await printPage.pdf({ format: "A4", printBackground: true });
-                  await printPage.close();
-                  console.log(`[MLS] Print output PDF captured, ${pdfBuffer.length} bytes`);
-                } else {
-                  // Capture overlay frame content directly via page screenshot area
-                  pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
-                  console.log(`[MLS] Overlay PDF captured from page, ${pdfBuffer.length} bytes`);
+                // Fallback: submit the form and wait for new tab
+                const submitBtn = overlayFrame.locator('input[type="submit"], button[type="submit"], input[value*="Print"], button:has-text("Print")').first();
+                if (await submitBtn.count() > 0) {
+                  console.log("[MLS] Submitting print form...");
+                  const [printPage] = await Promise.all([
+                    context.waitForEvent("page", { timeout: 20_000 }),
+                    submitBtn.click({ force: true, noWaitAfter: true }),
+                  ]).catch(() => [null]);
+                  if (printPage) {
+                    await printPage.waitForLoadState("networkidle", { timeout: 30_000 });
+                    pdfBuffer = await printPage.pdf({ format: "A4", printBackground: true });
+                    await printPage.close();
+                    console.log(`[MLS] Submit new tab PDF captured, ${pdfBuffer.length} bytes`);
+                  }
                 }
               }
             }
