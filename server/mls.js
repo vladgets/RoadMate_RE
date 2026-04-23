@@ -980,9 +980,38 @@ export async function mlsSearchAndCapturePdf(address) {
         await searchAddress(page, address);
         const r = await extractListingData(page, context);
 
+        // If we landed on a results list (no stable listing URL yet), click the first result
+        // to navigate into the detail page before capturing the PDF.
+        if (!page._listingIdUrl) {
+          const viewFrame = page.frames().find(f => f.name() === "view_frame");
+          if (viewFrame) {
+            try {
+              // First result row link in the list view
+              const firstRow = viewFrame.locator("table.grid tr.row a, tr.row td a, .listing-row a").first();
+              const count = await firstRow.count();
+              if (count > 0) {
+                console.log("[MLS] Clicking first result to open detail page...");
+                await firstRow.click({ timeout: 8000, force: true, noWaitAfter: true });
+                // Wait for the listing ID URL to be captured via framenavigated
+                await page.waitForFunction(
+                  () => !!page._listingIdUrl,
+                  { timeout: 15_000 }
+                ).catch(() => {});
+                // Also wait a moment for the detail frame to settle
+                await page.waitForTimeout(2000);
+                // Re-extract data now that we're on the detail page
+                const detail = await extractListingData(page, context);
+                Object.assign(r, detail);
+              }
+            } catch (e) {
+              console.warn("[MLS] Could not click first result:", e.message);
+            }
+          }
+        }
+
         // Capture PDF of the listing detail page using session cookies.
         let pdfBuffer = null;
-        const targetUrl = r.listingPageUrl || r.viewFrameUrl;
+        const targetUrl = page._listingIdUrl || r.listingPageUrl || r.viewFrameUrl;
         if (targetUrl) {
           try {
             const pdfPage = await context.newPage();
