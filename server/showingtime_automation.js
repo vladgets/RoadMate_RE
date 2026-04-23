@@ -116,6 +116,32 @@ async function upsertCalendarEvent(calApi, showing, driveFileId, driveWebViewLin
     }];
   }
 
+  // If not in local state, search Calendar for an existing event at the same time + location.
+  if (!existing?.calendarEventId) {
+    try {
+      const startDt = new Date(showing.start_time_iso);
+      const windowStart = new Date(startDt.getTime() - 60_000).toISOString();
+      const windowEnd = new Date(startDt.getTime() + 60_000).toISOString();
+      const search = await calApi.events.list({
+        calendarId: "primary",
+        timeMin: windowStart,
+        timeMax: windowEnd,
+        singleEvents: true,
+        q: showing.address,
+      });
+      const match = (search.data.items || []).find(e =>
+        (e.summary || "").includes("Showing") && (e.location || "").includes(showing.address.split(",")[0])
+      );
+      if (match) {
+        console.log(`[showingtime] Found existing calendar event ${match.id}, will update`);
+        existing = { calendarEventId: match.id };
+        eventsMap[key] = existing;
+      }
+    } catch (e) {
+      console.warn(`[showingtime] Calendar search failed: ${e.message}`);
+    }
+  }
+
   let eventId;
   if (existing?.calendarEventId) {
     try {
@@ -128,7 +154,6 @@ async function upsertCalendarEvent(calApi, showing, driveFileId, driveWebViewLin
       eventId = resp.data.id;
       console.log(`[showingtime] Updated calendar event ${eventId}`);
     } catch (e) {
-      // Event may have been deleted — fall through to create a new one.
       console.warn(`[showingtime] Patch failed (${e.message}), creating new event`);
       existing = null;
     }
