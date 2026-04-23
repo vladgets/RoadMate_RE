@@ -1009,19 +1009,14 @@ export async function mlsSearchAndCapturePdf(address) {
           }
         }
 
-        // Capture PDF of the listing detail page using session cookies.
+        // Capture PDF directly from the current page — it already has the listing loaded
+        // with all session cookies and frames. Opening a new page loses the frame context.
         let pdfBuffer = null;
-        const targetUrl = page._listingIdUrl || r.listingPageUrl || r.viewFrameUrl;
-        if (targetUrl) {
-          try {
-            const pdfPage = await context.newPage();
-            await pdfPage.goto(targetUrl, { waitUntil: "networkidle", timeout: 30_000 });
-            pdfBuffer = await pdfPage.pdf({ format: "A4", printBackground: true });
-            await pdfPage.close();
-            console.log(`[MLS] PDF captured, ${pdfBuffer.length} bytes`);
-          } catch (e) {
-            console.warn("[MLS] PDF capture failed:", e.message);
-          }
+        try {
+          pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
+          console.log(`[MLS] PDF captured, ${pdfBuffer.length} bytes`);
+        } catch (e) {
+          console.warn("[MLS] PDF capture failed:", e.message);
         }
 
         await saveSession(context);
