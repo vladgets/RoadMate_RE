@@ -1039,17 +1039,44 @@ export async function mlsSearchAndCapturePdf(address) {
 
           if (printBtn) {
             console.log("[MLS] Clicking Print button...");
-            const [popup] = await Promise.all([
-              context.waitForEvent("page", { timeout: 15_000 }),
-              printBtn.click({ force: true, noWaitAfter: true }),
-            ]);
-            await popup.waitForLoadState("networkidle", { timeout: 30_000 });
-            pdfBuffer = await popup.pdf({ format: "A4", printBackground: true });
-            await popup.close();
-            console.log(`[MLS] Print popup PDF captured, ${pdfBuffer.length} bytes`);
-          } else {
-            // Fallback: capture current page as-is
-            console.warn("[MLS] Print button not found, falling back to page.pdf()");
+            // FlexMLS opens print view in an overlay frame, not a new tab.
+            // Wait for the overlayframe to load the print URL, then navigate to it.
+            const overlayNavPromise = page.waitForEvent("framenavigated", {
+              predicate: f => f.name() === "overlayframe" && f.url().includes("print"),
+              timeout: 15_000,
+            });
+            await printBtn.click({ force: true, noWaitAfter: true });
+
+            let printUrl = null;
+            try {
+              const overlayFrame = await overlayNavPromise;
+              printUrl = overlayFrame.url();
+              console.log("[MLS] Print overlay URL:", printUrl);
+            } catch (e) {
+              console.warn("[MLS] Overlay frame not detected:", e.message);
+            }
+
+            if (printUrl) {
+              const printPage = await context.newPage();
+              await printPage.goto(printUrl, { waitUntil: "networkidle", timeout: 30_000 });
+              pdfBuffer = await printPage.pdf({ format: "A4", printBackground: true });
+              await printPage.close();
+              console.log(`[MLS] Print page PDF captured, ${pdfBuffer.length} bytes`);
+            } else {
+              // Fallback: capture the overlay frame directly
+              const overlayFrame = page.frames().find(f => f.name() === "overlayframe");
+              if (overlayFrame) {
+                const overlayPage = await context.newPage();
+                await overlayPage.goto(overlayFrame.url(), { waitUntil: "networkidle", timeout: 20_000 });
+                pdfBuffer = await overlayPage.pdf({ format: "A4", printBackground: true });
+                await overlayPage.close();
+                console.log(`[MLS] Overlay frame PDF captured, ${pdfBuffer.length} bytes`);
+              }
+            }
+          }
+
+          if (!pdfBuffer) {
+            console.warn("[MLS] Print approach failed, falling back to page.pdf()");
             pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
             console.log(`[MLS] Fallback PDF captured, ${pdfBuffer.length} bytes`);
           }
