@@ -1,5 +1,6 @@
 import fs from "fs";
 import { google } from "googleapis";
+import { processShowingTimeEmail } from "./showingtime_automation.js";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
@@ -921,6 +922,13 @@ export function registerGmailRoutes(app) {
           if (from.includes(SHOWINGTIME_SENDER)) {
             await forwardEmail(gmail, msg, SHOWINGTIME_FORWARD_TO);
             console.log(`[showingtime] Forwarded "${headerMap(msg)["subject"]}" → ${SHOWINGTIME_FORWARD_TO}`);
+
+            // Async: parse email, fetch MLS PDF, create/update Calendar event.
+            const bodyText = extractBodyTextFromMessage(msg);
+            const clientAuth = await getAuthorizedClient(clientId);
+            processShowingTimeEmail(clientAuth, bodyText).catch((e) =>
+              console.error("[showingtime] Automation error:", e.message)
+            );
           }
         }
       }

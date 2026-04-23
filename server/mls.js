@@ -959,6 +959,56 @@ export async function mlsSearchProperty(address) {
   }
 }
 
+// Like mlsSearchProperty but also returns a PDF buffer of the listing detail page.
+export async function mlsSearchAndCapturePdf(address) {
+  const browser = await getBrowser();
+  const context = await browser.newContext({
+    userAgent:
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    viewport: { width: 1280, height: 900 },
+  });
+
+  const page = await context.newPage();
+  const hardTimeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("mlsSearchAndCapturePdf hard timeout (4min)")), 240_000)
+  );
+
+  try {
+    const result = await Promise.race([
+      (async () => {
+        await ensureAuthenticated(page, context);
+        await searchAddress(page, address);
+        const r = await extractListingData(page, context);
+
+        // Capture PDF of the listing detail page using session cookies.
+        let pdfBuffer = null;
+        const targetUrl = r.listingPageUrl || r.viewFrameUrl;
+        if (targetUrl) {
+          try {
+            const pdfPage = await context.newPage();
+            await pdfPage.goto(targetUrl, { waitUntil: "networkidle", timeout: 30_000 });
+            pdfBuffer = await pdfPage.pdf({ format: "A4", printBackground: true });
+            await pdfPage.close();
+            console.log(`[MLS] PDF captured, ${pdfBuffer.length} bytes`);
+          } catch (e) {
+            console.warn("[MLS] PDF capture failed:", e.message);
+          }
+        }
+
+        await saveSession(context);
+        return { ok: true, ...r, pdfBuffer };
+      })(),
+      hardTimeout,
+    ]);
+    return result;
+  } catch (err) {
+    console.error("[MLS] mlsSearchAndCapturePdf error:", err.message);
+    return { ok: false, error: err.message, pdfBuffer: null };
+  } finally {
+    await context.close();
+  }
+}
+
 // ─── Express routes ───────────────────────────────────────────────────────────
 
 export function registerMlsRoutes(app) {
