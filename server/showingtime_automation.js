@@ -151,6 +151,107 @@ async function upsertCalendarEvent(calApi, showing, driveFileId) {
   return eventId;
 }
 
+// ─── Test routes ─────────────────────────────────────────────────────────────
+
+export function registerShowingTimeTestRoutes(app, getAuthorizedClientFn) {
+  // Step 1: Parse a ShowingTime email body → structured JSON
+  app.post("/showingtime/test_parse", async (req, res) => {
+    const { body_text } = req.body || {};
+    if (!body_text) return res.status(400).json({ ok: false, error: "Missing body_text" });
+    try {
+      const result = await parseShowingTimeEmail(body_text);
+      return res.json({ ok: true, parsed: result });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  // Step 2: Search MLS for an address and capture PDF
+  app.post("/showingtime/test_mls_pdf", async (req, res) => {
+    const { address } = req.body || {};
+    if (!address) return res.status(400).json({ ok: false, error: "Missing address" });
+    try {
+      const result = await mlsSearchAndCapturePdf(address);
+      return res.json({
+        ok: result.ok,
+        error: result.error || null,
+        address: result.structured?.address || null,
+        pdf_bytes: result.pdfBuffer ? result.pdfBuffer.length : 0,
+        raw_text_preview: result.rawText?.slice(0, 500) || null,
+      });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  // Step 3: Upload a dummy PDF to Google Drive
+  app.post("/showingtime/test_drive_upload", async (req, res) => {
+    const { getClientIdFromReq } = await import("./gmail.js");
+    const clientId = getClientIdFromReq(req);
+    if (!clientId) return res.status(400).json({ ok: false, error: "Missing client_id" });
+    try {
+      const auth = await getAuthorizedClientFn(clientId);
+      const drive = google.drive({ version: "v3", auth });
+      const dummyPdf = Buffer.from("%PDF-1.4 test");
+      const uploaded = await uploadToDrive(drive, dummyPdf, "showingtime_test_upload.pdf");
+      return res.json({ ok: true, file_id: uploaded.fileId, web_view_link: uploaded.webViewLink });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  // Step 4: Create a test Calendar event with optional Drive file attachment
+  app.post("/showingtime/test_calendar", async (req, res) => {
+    const { getClientIdFromReq } = await import("./gmail.js");
+    const clientId = getClientIdFromReq(req);
+    if (!clientId) return res.status(400).json({ ok: false, error: "Missing client_id" });
+    const { drive_file_id } = req.body || {};
+    try {
+      const auth = await getAuthorizedClientFn(clientId);
+      const calApi = google.calendar({ version: "v3", auth });
+      const start = new Date(Date.now() + 24 * 60 * 60_000); // tomorrow
+      const end = new Date(start.getTime() + 30 * 60_000);
+      const showing = {
+        address: "123 Test St, Springfield NJ 07081",
+        date_iso: start.toISOString().split("T")[0],
+        start_time_iso: start.toISOString(),
+        end_time_iso: end.toISOString(),
+        buyer_agent: "Test Agent",
+        status: "confirmed",
+      };
+      const eventId = await upsertCalendarEvent(calApi, showing, drive_file_id || null);
+      return res.json({ ok: true, event_id: eventId, showing });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  // Full pipeline with a fake email body
+  app.post("/showingtime/test_full", async (req, res) => {
+    const { getClientIdFromReq } = await import("./gmail.js");
+    const clientId = getClientIdFromReq(req);
+    if (!clientId) return res.status(400).json({ ok: false, error: "Missing client_id" });
+    const { address, date, time } = req.body || {};
+    const fakeEmail = [
+      "Your showing has been confirmed.",
+      `Property: ${address || "456 Oak Ave, Maplewood NJ 07040"}`,
+      `Date: ${date || "Friday, May 2, 2026"}`,
+      `Time: ${time || "2:00 PM - 2:30 PM"} Eastern`,
+      "Buyer Agent: John Smith",
+      "Status: Confirmed",
+    ].join("\n");
+    try {
+      const auth = await getAuthorizedClientFn(clientId);
+      res.json({ ok: true, message: "Pipeline started async, check Render logs", fake_email: fakeEmail });
+      processShowingTimeEmail(auth, fakeEmail).catch((e) =>
+        console.error("[showingtime/test_full] Error:", e.message)
+      );
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+}
+
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
 export async function processShowingTimeEmail(auth, emailBodyText) {

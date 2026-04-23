@@ -1,5 +1,5 @@
 import express from "express";
-import { registerGmailRoutes } from "./gmail.js";
+import { registerGmailRoutes, getAuthorizedClient } from "./gmail.js";
 import { registerGoogleMapsRoutes } from "./google_maps.js";
 import { registerNominatimRoutes } from "./nominatim.js";
 import { registerFollowUpBossRoutes } from "./followupboss.js";
@@ -8,6 +8,7 @@ import { registerFeedbackRoutes } from "./feedback.js";
 import { registerCalendarRoutes } from "./google_calendar.js";
 import { registerDriveRoutes } from "./google_drive.js";
 import { registerMlsRoutes } from "./mls.js";
+import { registerShowingTimeTestRoutes } from "./showingtime_automation.js";
 import { fileURLToPath } from "url";
 import path from "path";
 
@@ -25,6 +26,7 @@ registerFeedbackRoutes(app);
 registerCalendarRoutes(app);
 registerDriveRoutes(app);
 registerMlsRoutes(app);
+registerShowingTimeTestRoutes(app, getAuthorizedClient);
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 

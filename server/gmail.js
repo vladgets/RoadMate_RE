@@ -346,7 +346,7 @@ async function renewWatchIfNeeded(clientId, gmail) {
 }
 
 // Shared helpers exported for use by other Google service modules.
-export { loadToken, getAuthorizedClient, sanitizeClientId, getClientIdFromReq, TOKEN_DIR, buildRawEmailWithBuffer };
+export { loadToken, getAuthorizedClient, sanitizeClientId, getClientIdFromReq, TOKEN_DIR, buildRawEmailWithBuffer, findClientIdByEmail };
 
 //
 // Exposed APIs
