@@ -104,10 +104,13 @@ async function upsertCalendarEvent(calApi, showing, driveFileId, driveWebViewLin
     end: { dateTime: endTime },
   };
 
-  if (driveFileId && driveWebViewLink) {
+  if (driveFileId) {
+    // Calendar API requires fileUrl in the format drive.google.com/open?id=...
+    const fileUrl = `https://drive.google.com/open?id=${driveFileId}`;
+    console.log(`[showingtime] Attaching Drive file: ${driveFileId}, url: ${fileUrl}`);
     eventBody.attachments = [{
       fileId: driveFileId,
-      fileUrl: driveWebViewLink,
+      fileUrl,
       title: "MLS Listing.pdf",
       mimeType: "application/pdf",
     }];
@@ -222,6 +225,16 @@ export function registerShowingTimeTestRoutes(app, getAuthorizedClientFn) {
       };
       const eventId = await upsertCalendarEvent(calApi, showing, drive_file_id || null, drive_web_view_link || null);
       return res.json({ ok: true, event_id: eventId, showing });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  // Clear cached event state (forces next test_full to create a new event)
+  app.post("/showingtime/reset_state", (req, res) => {
+    try {
+      if (fs.existsSync(EVENTS_FILE)) fs.unlinkSync(EVENTS_FILE);
+      return res.json({ ok: true, message: "State cleared" });
     } catch (e) {
       return res.status(500).json({ ok: false, error: e.message });
     }
