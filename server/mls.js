@@ -1009,12 +1009,50 @@ export async function mlsSearchAndCapturePdf(address) {
           }
         }
 
-        // Capture PDF directly from the current page — it already has the listing loaded
-        // with all session cookies and frames. Opening a new page loses the frame context.
+        // Click the Print button — FlexMLS opens a clean print-friendly popup.
+        // Capture that popup as PDF for a clean listing document.
         let pdfBuffer = null;
         try {
-          pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
-          console.log(`[MLS] PDF captured, ${pdfBuffer.length} bytes`);
+          // Print button lives in the action toolbar (view_frame or main page).
+          const printSelectors = [
+            'a:has-text("Print")',
+            'button:has-text("Print")',
+            '[title="Print"]',
+            'a[href*="print"]',
+          ];
+
+          let printBtn = null;
+          const searchFrames = [
+            page.frames().find(f => f.name() === "view_frame"),
+            page.mainFrame(),
+          ].filter(Boolean);
+
+          for (const frame of searchFrames) {
+            for (const sel of printSelectors) {
+              try {
+                const loc = frame.locator(sel).first();
+                if (await loc.count() > 0) { printBtn = loc; break; }
+              } catch {}
+            }
+            if (printBtn) break;
+          }
+
+          if (printBtn) {
+            console.log("[MLS] Clicking Print button...");
+            const [popup] = await Promise.all([
+              context.waitForEvent("page", { timeout: 15_000 }),
+              printBtn.click({ force: true, noWaitAfter: true }),
+            ]);
+            await popup.waitForLoadState("networkidle", { timeout: 30_000 });
+            pdfBuffer = await popup.pdf({ format: "A4", printBackground: true });
+            await popup.close();
+            console.log(`[MLS] Print popup PDF captured, ${pdfBuffer.length} bytes`);
+          } else {
+            // Fallback: capture current page as-is
+            console.warn("[MLS] Print button not found, falling back to page.pdf()");
+            pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
+            console.log(`[MLS] Fallback PDF captured, ${pdfBuffer.length} bytes`);
+          }
         } catch (e) {
           console.warn("[MLS] PDF capture failed:", e.message);
         }
