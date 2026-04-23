@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'my_data_screen.dart';
 import 'app_configuration_screen.dart';
 import 'extensions_settings_screen.dart';
-import 'fub_identity_screen.dart';
+import 'crm_identity_menu_screen.dart';
 import '../config.dart';
 
 
@@ -72,7 +72,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right),
             onTap: () async {
               await Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const FubIdentityScreen(standalone: true)),
+                MaterialPageRoute(builder: (_) => const CrmIdentityMenuScreen()),
               );
               setState(() => _fubAgentName = Config.fubAgentName);
             },

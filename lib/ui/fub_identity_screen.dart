@@ -85,7 +85,10 @@ class _FubIdentityScreenState extends State<FubIdentityScreen> {
     });
     try {
       final uri = Uri.parse('${Config.serverUrl}/fub/users');
-      final resp = await http.get(uri);
+      final headers = <String, String>{
+        if (Config.clientId != null) 'x-client-id': Config.clientId!,
+      };
+      final resp = await http.get(uri, headers: headers);
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
       if (body['ok'] == true) {
         final list = (body['users'] as List).map((u) => _FubUser(

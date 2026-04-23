@@ -61,6 +61,22 @@ Date: {{CURRENT_DATE_READABLE}}
   static const prefKeyLastClientName = 'fub_last_client_name';
   static const prefKeyLastClientTs = 'fub_last_client_ts';
   static const prefKeyFubAuthenticated = 'fub_authenticated';
+  static const prefKeyCustomFubApiKey = 'custom_fub_api_key';
+  static const prefKeyCustomFubSubdomain = 'custom_fub_subdomain';
+
+  /// The device's unique client ID, set after startup. Used for per-client
+  /// OAuth tokens and custom FUB API keys.
+  static String? clientId;
+
+  /// Custom FUB API key entered by the user (non-RB brokerage agents).
+  static String? customFubApiKey;
+
+  /// Custom FUB subdomain (e.g. 'smithrealty') for non-RB brokerage agents.
+  static String? customFubSubdomain;
+
+  /// Returns the subdomain to use for FUB deep links.
+  /// Prefers the custom subdomain if set, falls back to the default RB one.
+  static String get activeFubSubdomain => customFubSubdomain ?? fubSubdomain;
 
   /// Whether the user has passed the FUB access passcode (in-memory, loaded at startup).
   static bool fubAuthenticated = false;
@@ -163,6 +179,37 @@ Date: {{CURRENT_DATE_READABLE}}
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(prefKeyFubAgentName);
       await prefs.remove(prefKeyFubAgentId);
+    } catch (_) {}
+  }
+
+  /// Load custom FUB credentials from SharedPreferences.
+  static Future<void> loadCustomFub() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      customFubApiKey = prefs.getString(prefKeyCustomFubApiKey);
+      customFubSubdomain = prefs.getString(prefKeyCustomFubSubdomain);
+    } catch (_) {}
+  }
+
+  /// Persist custom FUB credentials.
+  static Future<void> setCustomFub(String apiKey, String subdomain) async {
+    customFubApiKey = apiKey;
+    customFubSubdomain = subdomain;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(prefKeyCustomFubApiKey, apiKey);
+      await prefs.setString(prefKeyCustomFubSubdomain, subdomain);
+    } catch (_) {}
+  }
+
+  /// Remove custom FUB credentials (revert to default RB key).
+  static Future<void> clearCustomFub() async {
+    customFubApiKey = null;
+    customFubSubdomain = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(prefKeyCustomFubApiKey);
+      await prefs.remove(prefKeyCustomFubSubdomain);
     } catch (_) {}
   }
 

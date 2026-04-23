@@ -53,6 +53,7 @@ Future<void> main() async {
   await Config.loadFubAgent();
   await Config.loadLastClient();
   await Config.loadFubAuthenticated();
+  await Config.loadCustomFub();
 
   // Initialize reminders service
   await RemindersService.instance.init();
@@ -233,6 +234,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     // Ensure we have a stable client id for Gmail/Calendar token storage on the server.
     ClientIdStore.getOrCreate().then((cid) async {
       _clientId = cid;
+      Config.clientId = cid;
       gmailClient = GmailClient(baseUrl: Config.serverUrl, clientId: cid);
       gCalendarClient = GCalendarClient(baseUrl: Config.serverUrl, clientId: cid);
       gDriveClient = GDriveClient(baseUrl: Config.serverUrl, clientId: cid);
@@ -832,7 +834,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     if (personId != null) {
       // FUB contact — open FUB app via universal link for calling with transcription
       final uri = Uri.parse(
-        'https://${Config.fubSubdomain}.followupboss.com/2/people/view/$personId',
+        'https://${Config.activeFubSubdomain}.followupboss.com/2/people/view/$personId',
       );
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -1047,7 +1049,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       return {'ok': false, 'error': 'person_id is required'};
     }
     final uri = Uri.parse(
-      'https://${Config.fubSubdomain}.followupboss.com/2/people/view/$personId',
+      'https://${Config.activeFubSubdomain}.followupboss.com/2/people/view/$personId',
     );
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);

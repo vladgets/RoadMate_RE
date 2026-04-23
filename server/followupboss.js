@@ -5,12 +5,73 @@
  *
  * NOTE: FUB API ignores dueDateFrom/dueDateTo and isCompleted filters silently.
  * All date filtering and completion filtering is done server-side.
+ *
+ * Multi-client support: custom FUB API keys are stored per client_id in
+ * /data/fub_custom_keys.json. Send x-client-id header to use a custom key.
+ * Falls back to FUB_API_KEY env var if no custom key is registered.
  */
 
+import fs from 'fs';
+import { AsyncLocalStorage } from 'async_hooks';
+
 const FUB_BASE = "https://api.followupboss.com/v1";
+const CUSTOM_KEYS_FILE = "/data/fub_custom_keys.json";
+
+// AsyncLocalStorage stores the active API key for the current request context.
+// This lets all helper functions transparently use the right key without
+// threading it through every call.
+const _requestApiKey = new AsyncLocalStorage();
+
+// ── Custom key storage ────────────────────────────────────────────────────────
+
+function _loadCustomKeys() {
+  try {
+    if (fs.existsSync(CUSTOM_KEYS_FILE)) {
+      return JSON.parse(fs.readFileSync(CUSTOM_KEYS_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.warn('[FUB] could not load custom keys:', e.message);
+  }
+  return {};
+}
+
+function _saveCustomKeys(data) {
+  try {
+    fs.mkdirSync('/data', { recursive: true });
+    fs.writeFileSync(CUSTOM_KEYS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('[FUB] could not save custom keys:', e.message);
+  }
+}
+
+/**
+ * Resolve the FUB API key for a given client_id.
+ * Returns the custom key if registered, otherwise the default env var key.
+ */
+function getApiKeyForClient(clientId) {
+  if (clientId) {
+    const keys = _loadCustomKeys();
+    if (keys[clientId]?.api_key) return keys[clientId].api_key;
+  }
+  return process.env.FUB_API_KEY || null;
+}
+
+/**
+ * Get the FUB subdomain for a given client_id (used for deep links).
+ * Returns the custom subdomain if registered, otherwise null.
+ */
+function getFubSubdomainForClient(clientId) {
+  if (clientId) {
+    const keys = _loadCustomKeys();
+    if (keys[clientId]?.subdomain) return keys[clientId].subdomain;
+  }
+  return null;
+}
+
+// ── FUB HTTP headers ──────────────────────────────────────────────────────────
 
 function fubHeaders() {
-  const key = process.env.FUB_API_KEY;
+  const key = _requestApiKey.getStore() || process.env.FUB_API_KEY;
   if (!key) throw new Error("FUB_API_KEY environment variable not set");
   const encoded = Buffer.from(`${key}:`).toString("base64");
   const headers = {
@@ -24,24 +85,29 @@ function fubHeaders() {
   return headers;
 }
 
+// ── Per-key in-memory caches ──────────────────────────────────────────────────
+
+const _fromNumberCache = new Map(); // apiKey → { value, ts }
+const _sourcesCache = new Map();    // apiKey → { data, ts }
+const _usersCache = new Map();      // apiKey → { data, ts }
+const _meCache = new Map();         // apiKey → { data, ts }
+
 /**
  * Fetch the account's default outbound SMS number dynamically.
  * Looks at the most recent outbound text message's fromNumber.
  * Cached in memory for 1 hour. Falls back to FUB_FROM_NUMBER env var.
  */
-let _fromNumberCache = null;
-let _fromNumberCacheTs = 0;
-
 async function getFubFromNumber() {
+  const apiKey = _requestApiKey.getStore() || process.env.FUB_API_KEY;
+  const cached = _fromNumberCache.get(apiKey);
   const now = Date.now();
-  if (_fromNumberCache && now - _fromNumberCacheTs < 60 * 60 * 1000) {
-    return _fromNumberCache;
-  }
+  if (cached && now - cached.ts < 60 * 60 * 1000) return cached.value;
+
   // Env var override (useful for new accounts with no sent texts yet)
   if (process.env.FUB_FROM_NUMBER) {
-    _fromNumberCache = process.env.FUB_FROM_NUMBER.replace(/\D/g, '');
-    _fromNumberCacheTs = now;
-    return _fromNumberCache;
+    const value = process.env.FUB_FROM_NUMBER.replace(/\D/g, '');
+    _fromNumberCache.set(apiKey, { value, ts: now });
+    return value;
   }
   try {
     const r = await fetch(`${FUB_BASE}/textMessages?limit=25&isIncoming=false`, { headers: fubHeaders() });
@@ -49,10 +115,10 @@ async function getFubFromNumber() {
     const messages = data.textMessages || [];
     const outbound = messages.find(m => !m.isIncoming && m.fromNumber);
     if (outbound) {
-      _fromNumberCache = outbound.fromNumber.replace(/\D/g, '');
-      _fromNumberCacheTs = now;
-      console.log(`[FUB] from number auto-detected: ${_fromNumberCache}`);
-      return _fromNumberCache;
+      const value = outbound.fromNumber.replace(/\D/g, '');
+      _fromNumberCache.set(apiKey, { value, ts: now });
+      console.log(`[FUB] from number auto-detected: ${value}`);
+      return value;
     }
   } catch (e) {
     console.warn('[FUB] could not auto-detect fromNumber:', e.message);
@@ -65,14 +131,11 @@ async function getFubFromNumber() {
  * Cached in memory for 1 week — sources rarely change.
  * Returns { names: string[], map: { [lowerName]: { name, id } } }
  */
-let _sourcesCache = null;
-let _sourcesCacheAt = 0;
-
 async function getFubSources() {
+  const apiKey = _requestApiKey.getStore() || process.env.FUB_API_KEY;
+  const cached = _sourcesCache.get(apiKey);
   const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
-  if (_sourcesCache && Date.now() - _sourcesCacheAt < ONE_WEEK) {
-    return _sourcesCache;
-  }
+  if (cached && Date.now() - cached.ts < ONE_WEEK) return cached.data;
 
   const allPeople = [];
   let offset = 0;
@@ -99,23 +162,21 @@ async function getFubSources() {
   }
   const names = Object.values(map).map(s => s.name).sort();
 
-  _sourcesCache = { names, map };
-  _sourcesCacheAt = Date.now();
+  const result = { names, map };
+  _sourcesCache.set(apiKey, { data: result, ts: Date.now() });
   console.log(`[FUB] sources scanned ${allPeople.length} contacts, found ${names.length} unique sources`);
-  return _sourcesCache;
+  return result;
 }
 
 /**
  * Fetch all FUB users and return a map of lowercase-name → { id, name }.
  * Cached in memory for 5 minutes.
  */
-let _usersCache = null;
-let _usersCacheAt = 0;
-
 async function getFubUsers() {
-  if (_usersCache && Date.now() - _usersCacheAt < 5 * 60 * 1000) {
-    return _usersCache;
-  }
+  const apiKey = _requestApiKey.getStore() || process.env.FUB_API_KEY;
+  const cached = _usersCache.get(apiKey);
+  if (cached && Date.now() - cached.ts < 5 * 60 * 1000) return cached.data;
+
   const r = await fetch(`${FUB_BASE}/users?limit=200`, { headers: fubHeaders() });
   const data = await r.json();
   if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
@@ -125,8 +186,7 @@ async function getFubUsers() {
   for (const u of users) {
     if (u.name) map[u.name.toLowerCase()] = { id: u.id, name: u.name };
   }
-  _usersCache = map;
-  _usersCacheAt = Date.now();
+  _usersCache.set(apiKey, { data: map, ts: Date.now() });
   console.log(`[FUB] loaded ${users.length} users`);
   return map;
 }
@@ -135,16 +195,15 @@ async function getFubUsers() {
  * Fetch the authenticated user's profile from FUB (/me).
  * Cached in memory for 5 minutes.
  */
-let _meCache = null;
-let _meCacheAt = 0;
-
 async function getFubMe() {
-  if (_meCache && Date.now() - _meCacheAt < 5 * 60 * 1000) return _meCache;
+  const apiKey = _requestApiKey.getStore() || process.env.FUB_API_KEY;
+  const cached = _meCache.get(apiKey);
+  if (cached && Date.now() - cached.ts < 5 * 60 * 1000) return cached.data;
+
   const r = await fetch(`${FUB_BASE}/me`, { headers: fubHeaders() });
   const data = await r.json();
   if (!r.ok) throw new Error(data?.message || `FUB error ${r.status}`);
-  _meCache = data;
-  _meCacheAt = Date.now();
+  _meCache.set(apiKey, { data, ts: Date.now() });
   return data;
 }
 
@@ -270,6 +329,85 @@ async function fetchIncompleteTasks({ assignedUserId } = {}) {
 }
 
 export function registerFollowUpBossRoutes(app) {
+  /**
+   * Middleware: resolve the FUB API key for this request based on x-client-id
+   * header and store it in AsyncLocalStorage so all helpers use the right key.
+   * Skips /fub/register_custom_key itself (it validates the key independently).
+   */
+  app.use('/fub/', (req, res, next) => {
+    if (req.path === '/register_custom_key') return next();
+    const clientId = req.headers['x-client-id'];
+    const apiKey = getApiKeyForClient(clientId);
+    if (!apiKey) {
+      return res.status(503).json({ ok: false, error: 'FUB API key not configured' });
+    }
+    _requestApiKey.run(apiKey, next);
+  });
+
+  /**
+   * POST /fub/register_custom_key
+   * Register a custom FUB API key for a client device.
+   * Body: { api_key: string, subdomain: string }
+   * Header: x-client-id (required)
+   * Validates the key by calling /me before saving.
+   */
+  app.post("/fub/register_custom_key", async (req, res) => {
+    const clientId = req.headers['x-client-id'];
+    if (!clientId) return res.status(400).json({ ok: false, error: 'x-client-id header is required' });
+
+    const { api_key, subdomain } = req.body || {};
+    if (!api_key?.trim()) return res.status(400).json({ ok: false, error: 'api_key is required' });
+    if (!subdomain?.trim()) return res.status(400).json({ ok: false, error: 'subdomain is required' });
+
+    // Validate the key by calling FUB /me
+    try {
+      const encoded = Buffer.from(`${api_key.trim()}:`).toString("base64");
+      const r = await fetch(`${FUB_BASE}/me`, {
+        headers: {
+          "Authorization": `Basic ${encoded}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "X-System": "RoadMate.ai_app",
+        },
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        return res.status(401).json({ ok: false, error: `FUB rejected the API key: ${data?.message || r.status}` });
+      }
+
+      const keys = _loadCustomKeys();
+      keys[clientId] = { api_key: api_key.trim(), subdomain: subdomain.trim() };
+      _saveCustomKeys(keys);
+
+      // Invalidate caches for this key
+      _usersCache.delete(api_key.trim());
+      _meCache.delete(api_key.trim());
+
+      console.log(`[FUB] custom key registered for client ${clientId}, subdomain=${subdomain.trim()}, user=${data.name}`);
+      res.json({ ok: true, name: data.name, email: data.email });
+    } catch (e) {
+      console.error('[FUB] register_custom_key error:', e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
+   * DELETE /fub/register_custom_key
+   * Remove the custom FUB API key for this client, reverting to the default key.
+   */
+  app.delete("/fub/register_custom_key", (req, res) => {
+    const clientId = req.headers['x-client-id'];
+    if (!clientId) return res.status(400).json({ ok: false, error: 'x-client-id header is required' });
+
+    const keys = _loadCustomKeys();
+    if (keys[clientId]) {
+      delete keys[clientId];
+      _saveCustomKeys(keys);
+      console.log(`[FUB] custom key removed for client ${clientId}`);
+    }
+    res.json({ ok: true });
+  });
+
   /**
    * POST /fub/verify-passcode
    * Checks a submitted passcode against the FUB_ACCESS_CODE env var.

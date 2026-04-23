@@ -6,6 +6,16 @@ class FubClient {
   final String baseUrl;
   FubClient() : baseUrl = Config.serverUrl;
 
+  /// Headers sent with every request so the server resolves the right FUB key.
+  Map<String, String> get _baseHeaders => {
+    'Content-Type': 'application/json',
+    if (Config.clientId != null) 'x-client-id': Config.clientId!,
+  };
+
+  Map<String, String> get _getHeaders => {
+    if (Config.clientId != null) 'x-client-id': Config.clientId!,
+  };
+
   /// Returns an error map if no agent is configured, null otherwise.
   Map<String, dynamic>? _noAgentError() {
     if (Config.fubAgentId == null) {
@@ -57,7 +67,7 @@ class FubClient {
     _addAgentToBody(body, agentId: agentId, agentName: agentName);
     final resp = await http.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: _baseHeaders,
       body: jsonEncode(body),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -80,7 +90,7 @@ class FubClient {
     };
     final resp = await http.put(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: _baseHeaders,
       body: jsonEncode(body),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -99,7 +109,7 @@ class FubClient {
     if (clientName != null) params['client_name'] = clientName;
     _addAgent(params, agentId: agentId, agentName: agentName);
     final uri = Uri.parse('$baseUrl/fub/person-tasks').replace(queryParameters: params);
-    final resp = await http.get(uri);
+    final resp = await http.get(uri, headers: _getHeaders);
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
@@ -115,7 +125,7 @@ class FubClient {
     final uri = Uri.parse('$baseUrl/fub/tasks').replace(
       queryParameters: params.isEmpty ? null : params,
     );
-    final resp = await http.get(uri);
+    final resp = await http.get(uri, headers: _getHeaders);
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
@@ -131,7 +141,7 @@ class FubClient {
     final uri = Uri.parse('$baseUrl/fub/contacts/search').replace(
       queryParameters: params,
     );
-    final resp = await http.get(uri);
+    final resp = await http.get(uri, headers: _getHeaders);
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
@@ -148,7 +158,7 @@ class FubClient {
     final uri = Uri.parse('$baseUrl/fub/contacts/recent').replace(
       queryParameters: params,
     );
-    final resp = await http.get(uri);
+    final resp = await http.get(uri, headers: _getHeaders);
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
@@ -169,7 +179,7 @@ class FubClient {
     _addAgentToBody(payload, agentId: agentId, agentName: agentName);
     final resp = await http.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: _baseHeaders,
       body: jsonEncode(payload),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -212,7 +222,7 @@ class FubClient {
     _addAgentToBody(body, agentId: agentId, agentName: agentName);
     final resp = await http.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: _baseHeaders,
       body: jsonEncode(body),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -230,13 +240,13 @@ class FubClient {
     if (clientName != null) params['client_name'] = clientName;
     _addAgent(params, agentId: agentId, agentName: agentName);
     final uri = Uri.parse('$baseUrl/fub/contact/details').replace(queryParameters: params.isEmpty ? null : params);
-    final resp = await http.get(uri);
+    final resp = await http.get(uri, headers: _getHeaders);
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> getSources() async {
     final uri = Uri.parse('$baseUrl/fub/sources');
-    final resp = await http.get(uri);
+    final resp = await http.get(uri, headers: _getHeaders);
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
@@ -259,7 +269,7 @@ class FubClient {
     _addAgentToBody(body, agentId: agentId, agentName: agentName);
     final resp = await http.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: _baseHeaders,
       body: jsonEncode(body),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -267,13 +277,13 @@ class FubClient {
 
   Future<Map<String, dynamic>> getLenders() async {
     final uri = Uri.parse('$baseUrl/fub/lenders');
-    final resp = await http.get(uri);
+    final resp = await http.get(uri, headers: _getHeaders);
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> getStages() async {
     final uri = Uri.parse('$baseUrl/fub/stages');
-    final resp = await http.get(uri);
+    final resp = await http.get(uri, headers: _getHeaders);
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
@@ -294,7 +304,7 @@ class FubClient {
     _addAgentToBody(body, agentId: agentId, agentName: agentName);
     final resp = await http.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: _baseHeaders,
       body: jsonEncode(body),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -325,7 +335,7 @@ class FubClient {
     _addAgentToBody(body, agentId: agentId, agentName: agentName);
     final resp = await http.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: _baseHeaders,
       body: jsonEncode(body),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -348,7 +358,7 @@ class FubClient {
     _addAgentToBody(body, agentId: agentId, agentName: agentName);
     final resp = await http.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: _baseHeaders,
       body: jsonEncode(body),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
