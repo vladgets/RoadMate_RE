@@ -84,7 +84,7 @@ async function uploadToDrive(drive, pdfBuffer, filename) {
 
 // ─── Create or update Google Calendar event ───────────────────────────────────
 
-async function upsertCalendarEvent(calApi, showing, driveFileId) {
+async function upsertCalendarEvent(calApi, showing, driveFileId, driveWebViewLink) {
   const eventsMap = loadEventsMap();
   const key = eventKey(showing.address, showing.date_iso);
   let existing = eventsMap[key];
@@ -104,9 +104,10 @@ async function upsertCalendarEvent(calApi, showing, driveFileId) {
     end: { dateTime: endTime },
   };
 
-  if (driveFileId) {
+  if (driveFileId && driveWebViewLink) {
     eventBody.attachments = [{
       fileId: driveFileId,
+      fileUrl: driveWebViewLink,
       title: "MLS Listing.pdf",
       mimeType: "application/pdf",
     }];
@@ -205,7 +206,7 @@ export function registerShowingTimeTestRoutes(app, getAuthorizedClientFn) {
     const { getClientIdFromReq } = await import("./gmail.js");
     const clientId = getClientIdFromReq(req);
     if (!clientId) return res.status(400).json({ ok: false, error: "Missing client_id" });
-    const { drive_file_id } = req.body || {};
+    const { drive_file_id, drive_web_view_link } = req.body || {};
     try {
       const auth = await getAuthorizedClientFn(clientId);
       const calApi = google.calendar({ version: "v3", auth });
@@ -219,7 +220,7 @@ export function registerShowingTimeTestRoutes(app, getAuthorizedClientFn) {
         buyer_agent: "Test Agent",
         status: "confirmed",
       };
-      const eventId = await upsertCalendarEvent(calApi, showing, drive_file_id || null);
+      const eventId = await upsertCalendarEvent(calApi, showing, drive_file_id || null, drive_web_view_link || null);
       return res.json({ ok: true, event_id: eventId, showing });
     } catch (e) {
       return res.status(500).json({ ok: false, error: e.message });
@@ -281,6 +282,7 @@ export async function processShowingTimeEmail(auth, emailBodyText) {
 
   // 2. Search MLS and capture PDF
   let driveFileId = null;
+  let driveWebViewLink = null;
   try {
     console.log(`[showingtime] Searching MLS for: ${showing.address}`);
     const mls = await mlsSearchAndCapturePdf(showing.address);
@@ -289,6 +291,7 @@ export async function processShowingTimeEmail(auth, emailBodyText) {
       const filename = `Listing_${safeName}_${showing.date_iso}.pdf`;
       const uploaded = await uploadToDrive(drive, mls.pdfBuffer, filename);
       driveFileId = uploaded.fileId;
+      driveWebViewLink = uploaded.webViewLink;
       console.log(`[showingtime] PDF uploaded to Drive: ${driveFileId}`);
     } else {
       console.warn(`[showingtime] MLS search returned no PDF: ${mls.error || "no pdfBuffer"}`);
@@ -299,7 +302,7 @@ export async function processShowingTimeEmail(auth, emailBodyText) {
 
   // 3. Create or update Calendar event
   try {
-    await upsertCalendarEvent(calApi, showing, driveFileId);
+    await upsertCalendarEvent(calApi, showing, driveFileId, driveWebViewLink);
   } catch (e) {
     console.error(`[showingtime] Calendar upsert failed: ${e.message}`);
   }
