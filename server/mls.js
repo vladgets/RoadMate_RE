@@ -980,26 +980,32 @@ export async function mlsSearchAndCapturePdf(address) {
         await searchAddress(page, address);
         const r = await extractListingData(page, context);
 
-        // If we landed on a results list (no stable listing URL yet), click the first result
-        // to navigate into the detail page before capturing the PDF.
+        // If we landed on a results list, navigate into the first specific listing.
         if (!page._listingIdUrl) {
           const viewFrame = page.frames().find(f => f.name() === "view_frame");
           if (viewFrame) {
             try {
-              // First result row link in the list view
-              const firstRow = viewFrame.locator("table.grid tr.row a, tr.row td a, .listing-row a").first();
-              const count = await firstRow.count();
-              if (count > 0) {
-                console.log("[MLS] Clicking first result to open detail page...");
-                await firstRow.click({ timeout: 8000, force: true, noWaitAfter: true });
-                // Wait for the listing ID URL to be captured via framenavigated
-                await page.waitForFunction(
-                  () => !!page._listingIdUrl,
-                  { timeout: 15_000 }
-                ).catch(() => {});
-                // Also wait a moment for the detail frame to settle
-                await page.waitForTimeout(2000);
-                // Re-extract data now that we're on the detail page
+              // Try multiple selectors — FlexMLS list rows vary by search type
+              const rowSelectors = [
+                'td.c-table__cell a',
+                'tr.c-table__row td a',
+                '.c-table__row a',
+                'table tr td a[href]',
+                'a[href*="listing"]',
+                'a[href*="step2"]',
+              ];
+              let clicked = false;
+              for (const sel of rowSelectors) {
+                const loc = viewFrame.locator(sel).first();
+                if (await loc.count() > 0) {
+                  console.log(`[MLS] Clicking first listing row (${sel})...`);
+                  await loc.click({ force: true, noWaitAfter: true });
+                  await page.waitForTimeout(3000);
+                  clicked = true;
+                  break;
+                }
+              }
+              if (clicked) {
                 const detail = await extractListingData(page, context);
                 Object.assign(r, detail);
               }
@@ -1009,68 +1015,100 @@ export async function mlsSearchAndCapturePdf(address) {
           }
         }
 
-        // Click the Print button — FlexMLS opens a clean print-friendly popup.
-        // Capture that popup as PDF for a clean listing document.
+        // Click Print button → fills and submits the print form overlay → capture output as PDF.
         let pdfBuffer = null;
         try {
-          // Print button lives in the action toolbar (view_frame or main page).
-          const printSelectors = [
-            'a:has-text("Print")',
-            'button:has-text("Print")',
-            '[title="Print"]',
-            'a[href*="print"]',
-          ];
-
+          // Find Print button across all relevant frames
+          const printSelectors = ['a:has-text("Print")', 'button:has-text("Print")', '[title="Print"]'];
           let printBtn = null;
-          const searchFrames = [
-            page.frames().find(f => f.name() === "view_frame"),
-            page.mainFrame(),
-          ].filter(Boolean);
-
-          for (const frame of searchFrames) {
+          for (const frame of [page.frames().find(f => f.name() === "view_frame"), page.mainFrame()].filter(Boolean)) {
             for (const sel of printSelectors) {
-              try {
-                const loc = frame.locator(sel).first();
-                if (await loc.count() > 0) { printBtn = loc; break; }
-              } catch {}
+              const loc = frame.locator(sel).first();
+              if (await loc.count() > 0) { printBtn = loc; break; }
             }
             if (printBtn) break;
           }
 
           if (printBtn) {
             console.log("[MLS] Clicking Print button...");
-            // FlexMLS opens print view in an overlay frame, not a new tab.
-            // Wait for the overlayframe to load the print URL, then navigate to it.
             const overlayNavPromise = page.waitForEvent("framenavigated", {
               predicate: f => f.name() === "overlayframe" && f.url().includes("print"),
               timeout: 15_000,
             });
             await printBtn.click({ force: true, noWaitAfter: true });
 
-            let printUrl = null;
+            let overlayFrame = null;
             try {
-              const overlayFrame = await overlayNavPromise;
-              printUrl = overlayFrame.url();
-              console.log("[MLS] Print overlay URL:", printUrl);
+              await overlayNavPromise;
+              overlayFrame = page.frames().find(f => f.name() === "overlayframe");
+              console.log("[MLS] Print overlay loaded:", overlayFrame?.url()?.slice(0, 80));
             } catch (e) {
               console.warn("[MLS] Overlay frame not detected:", e.message);
             }
 
-            if (printUrl) {
-              const printPage = await context.newPage();
-              await printPage.goto(printUrl, { waitUntil: "networkidle", timeout: 30_000 });
-              pdfBuffer = await printPage.pdf({ format: "A4", printBackground: true });
-              await printPage.close();
-              console.log(`[MLS] Print page PDF captured, ${pdfBuffer.length} bytes`);
-            } else {
-              // Fallback: capture the overlay frame directly
-              const overlayFrame = page.frames().find(f => f.name() === "overlayframe");
-              if (overlayFrame) {
-                const overlayPage = await context.newPage();
-                await overlayPage.goto(overlayFrame.url(), { waitUntil: "networkidle", timeout: 20_000 });
-                pdfBuffer = await overlayPage.pdf({ format: "A4", printBackground: true });
-                await overlayPage.close();
-                console.log(`[MLS] Overlay frame PDF captured, ${pdfBuffer.length} bytes`);
+            if (overlayFrame) {
+              await page.waitForTimeout(1000);
+
+              // Select "Current Listing" radio if enabled, else use first enabled radio
+              const radios = overlayFrame.locator('input[type="radio"]');
+              const radioCount = await radios.count();
+              let selectedRadio = false;
+              for (let i = 0; i < radioCount; i++) {
+                const radio = radios.nth(i);
+                const isDisabled = await radio.isDisabled().catch(() => true);
+                const val = await radio.getAttribute("value").catch(() => "");
+                if (!isDisabled && (val?.includes("current") || i === 0)) {
+                  await radio.click({ force: true }).catch(() => {});
+                  console.log(`[MLS] Selected radio: ${val}`);
+                  selectedRadio = true;
+                  break;
+                }
+              }
+
+              // Check "Detail" checkbox
+              const detailCb = overlayFrame.locator('input[type="checkbox"]').filter({ hasText: /detail/i }).first();
+              if (await detailCb.count() === 0) {
+                // Try by label text
+                const label = overlayFrame.locator('label').filter({ hasText: /^Detail$/i }).first();
+                if (await label.count() > 0) {
+                  await label.locator('input[type="checkbox"]').click({ force: true }).catch(() => {});
+                }
+              } else {
+                await detailCb.click({ force: true }).catch(() => {});
+              }
+
+              // Also check "Photos"
+              const photoLabel = overlayFrame.locator('label').filter({ hasText: /^Photos$/i }).first();
+              if (await photoLabel.count() > 0) {
+                await photoLabel.locator('input[type="checkbox"]').click({ force: true }).catch(() => {});
+              }
+
+              // Submit the form
+              const submitBtn = overlayFrame.locator('input[type="submit"], button[type="submit"], button:has-text("Print"), input[value*="Print"]').first();
+              if (await submitBtn.count() > 0) {
+                console.log("[MLS] Submitting print form...");
+                // After submit, overlay navigates to the actual print output
+                const printOutputPromise = page.waitForEvent("framenavigated", {
+                  predicate: f => f.name() === "overlayframe",
+                  timeout: 20_000,
+                });
+                await submitBtn.click({ force: true, noWaitAfter: true });
+                await printOutputPromise.catch(() => {});
+                await page.waitForTimeout(2000);
+
+                // Capture the print output from the overlay frame URL in a clean page
+                const printOutputUrl = page.frames().find(f => f.name() === "overlayframe")?.url();
+                if (printOutputUrl && !printOutputUrl.includes("print.html")) {
+                  const printPage = await context.newPage();
+                  await printPage.goto(printOutputUrl, { waitUntil: "networkidle", timeout: 30_000 });
+                  pdfBuffer = await printPage.pdf({ format: "A4", printBackground: true });
+                  await printPage.close();
+                  console.log(`[MLS] Print output PDF captured, ${pdfBuffer.length} bytes`);
+                } else {
+                  // Capture overlay frame content directly via page screenshot area
+                  pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
+                  console.log(`[MLS] Overlay PDF captured from page, ${pdfBuffer.length} bytes`);
+                }
               }
             }
           }
