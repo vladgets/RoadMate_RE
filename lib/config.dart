@@ -63,6 +63,7 @@ Date: {{CURRENT_DATE_READABLE}}
   static const prefKeyFubAuthenticated = 'fub_authenticated';
   static const prefKeyCustomFubApiKey = 'custom_fub_api_key';
   static const prefKeyCustomFubSubdomain = 'custom_fub_subdomain';
+  static const prefKeyCustomFubUserName = 'custom_fub_user_name';
 
   /// The device's unique client ID, set after startup. Used for per-client
   /// OAuth tokens and custom FUB API keys.
@@ -73,6 +74,9 @@ Date: {{CURRENT_DATE_READABLE}}
 
   /// Custom FUB subdomain (e.g. 'smithrealty') for non-RB brokerage agents.
   static String? customFubSubdomain;
+
+  /// Display name of the FUB user associated with the custom API key.
+  static String? customFubUserName;
 
   /// Returns the subdomain to use for FUB deep links.
   /// Prefers the custom subdomain if set, falls back to the default RB one.
@@ -188,17 +192,24 @@ Date: {{CURRENT_DATE_READABLE}}
       final prefs = await SharedPreferences.getInstance();
       customFubApiKey = prefs.getString(prefKeyCustomFubApiKey);
       customFubSubdomain = prefs.getString(prefKeyCustomFubSubdomain);
+      customFubUserName = prefs.getString(prefKeyCustomFubUserName);
     } catch (_) {}
   }
 
-  /// Persist custom FUB credentials.
-  static Future<void> setCustomFub(String apiKey, String subdomain) async {
+  /// Persist custom FUB credentials and the resolved user name.
+  static Future<void> setCustomFub(String apiKey, String subdomain, {String? userName}) async {
     customFubApiKey = apiKey;
     customFubSubdomain = subdomain;
+    customFubUserName = userName;
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(prefKeyCustomFubApiKey, apiKey);
       await prefs.setString(prefKeyCustomFubSubdomain, subdomain);
+      if (userName != null) {
+        await prefs.setString(prefKeyCustomFubUserName, userName);
+      } else {
+        await prefs.remove(prefKeyCustomFubUserName);
+      }
     } catch (_) {}
   }
 
@@ -206,10 +217,12 @@ Date: {{CURRENT_DATE_READABLE}}
   static Future<void> clearCustomFub() async {
     customFubApiKey = null;
     customFubSubdomain = null;
+    customFubUserName = null;
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(prefKeyCustomFubApiKey);
       await prefs.remove(prefKeyCustomFubSubdomain);
+      await prefs.remove(prefKeyCustomFubUserName);
     } catch (_) {}
   }
 

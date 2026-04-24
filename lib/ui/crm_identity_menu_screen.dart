@@ -71,7 +71,7 @@ class _CrmIdentityMenuScreenState extends State<CrmIdentityMenuScreen> {
             title: const Text('Custom Brokerage'),
             subtitle: Text(
               hasCustomKey
-                  ? 'Active — connected to ${_customSubdomain ?? 'custom FUB account'}'
+                  ? 'Active — ${Config.customFubUserName ?? _customSubdomain ?? 'custom FUB account'}'
                   : 'Connect your own Follow Up Boss account',
             ),
             trailing: Row(

@@ -88,14 +88,15 @@ class _CustomBrokerageScreenState extends State<CustomBrokerageScreen> {
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
 
       if (body['ok'] == true) {
-        await Config.setCustomFub(apiKey, subdomain);
+        final userName = body['name'] as String?;
+        await Config.setCustomFub(apiKey, subdomain, userName: userName);
         if (!mounted) return;
         setState(() {
           _saving = false;
           _error = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Connected as ${body['name'] ?? subdomain}')),
+          SnackBar(content: Text('Connected as ${userName ?? subdomain}')),
         );
       } else {
         setState(() {
@@ -180,7 +181,9 @@ class _CustomBrokerageScreenState extends State<CustomBrokerageScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Connected',
+                            Config.customFubUserName != null
+                                ? 'Connected as ${Config.customFubUserName}'
+                                : 'Connected',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.green.shade800,
