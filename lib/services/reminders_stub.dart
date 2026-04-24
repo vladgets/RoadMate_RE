@@ -46,6 +46,8 @@ class RemindersService {
       {'ok': false, 'error': 'Reminders are not available on web.'};
 
   Future<List<Reminder>> listUpcoming() async => [];
+  Future<Reminder> createReminder({required String text, required DateTime whenLocal}) async =>
+      throw UnsupportedError('Reminders are not available on web.');
   Future<void> cancelReminder(int id) async {}
   Future<void> updateAiPrompt(int id, String newAiPrompt) async {}
   Future<void> updateReminderText(int id, String newText) async {}
