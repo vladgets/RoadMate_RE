@@ -1329,12 +1329,12 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
         backgroundColor: Colors.black,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: (Config.fubAgentName ?? Config.customFubUserName) != null
+        title: Config.fubAgentName != null
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    (Config.fubAgentName ?? Config.customFubUserName)!,
+                    Config.fubAgentName!,
                     style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const Text(

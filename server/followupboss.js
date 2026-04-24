@@ -384,7 +384,7 @@ export function registerFollowUpBossRoutes(app) {
       _meCache.delete(api_key.trim());
 
       console.log(`[FUB] custom key registered for client ${clientId}, subdomain=${subdomain.trim()}, user=${data.name}`);
-      res.json({ ok: true, name: data.name, email: data.email });
+      res.json({ ok: true, id: data.id, name: data.name, email: data.email });
     } catch (e) {
       console.error('[FUB] register_custom_key error:', e);
       res.status(500).json({ ok: false, error: String(e) });

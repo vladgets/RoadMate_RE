@@ -89,8 +89,11 @@ class _CustomBrokerageScreenState extends State<CustomBrokerageScreen> {
 
       if (body['ok'] == true) {
         final userName = body['name'] as String?;
-        await Config.setCustomFub(apiKey, subdomain, userName: userName);
-        await Config.clearFubAgent(); // remove any previously selected RB Brokerage identity
+        final userId = body['id'] as int?;
+        await Config.setCustomFub(apiKey, subdomain);
+        if (userName != null && userId != null) {
+          await Config.setFubAgent(userName, userId);
+        }
         if (!mounted) return;
         setState(() {
           _saving = false;
@@ -182,8 +185,8 @@ class _CustomBrokerageScreenState extends State<CustomBrokerageScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            Config.customFubUserName != null
-                                ? 'Connected as ${Config.customFubUserName}'
+                            Config.fubAgentName != null
+                                ? 'Connected as ${Config.fubAgentName}'
                                 : 'Connected',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
