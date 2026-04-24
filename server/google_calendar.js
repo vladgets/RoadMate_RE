@@ -101,10 +101,12 @@ export function registerCalendarRoutes(app) {
           is_primary: c.primary === true,
         }));
 
-      const today = new Date();
+      // Compute local "today" date using the client's tz_offset so the model
+      // has the correct date string regardless of the server's timezone.
+      const todayLocal = new Date(new Date().getTime() + tzOffset * 60_000);
       res.json({
         ok: true,
-        today: today.toISOString().split("T")[0],
+        today: todayLocal.toISOString().split("T")[0],
         events: allEvents,
         count: allEvents.length,
         date_range: {
