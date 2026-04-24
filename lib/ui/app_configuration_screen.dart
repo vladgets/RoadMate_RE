@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
 import 'flic_settings_screen.dart';
-import 'onboarding_screen.dart';
+import 'examples_screen.dart';
 
 class AppConfigurationScreen extends StatefulWidget {
   const AppConfigurationScreen({super.key});
@@ -110,15 +110,15 @@ class _AppConfigurationScreenState extends State<AppConfigurationScreen> {
           ),
           const Divider(),
 
-          // Tutorial
+          // Examples
           ListTile(
-            leading: const Icon(Icons.help_outline),
-            title: const Text('Tutorial'),
-            subtitle: const Text('View getting started guide'),
+            leading: const Icon(Icons.lightbulb_outline),
+            title: const Text('Example Commands'),
+            subtitle: const Text('Things you can ask RoadMate'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                MaterialPageRoute(builder: (_) => const ExamplesScreen()),
               );
             },
           ),

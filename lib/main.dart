@@ -34,6 +34,7 @@ import 'services/conversation_logger.dart';
 import 'services/contacts.dart';
 import 'services/contact_alias_store.dart';
 import 'services/place_alias_store.dart';
+import 'services/tip_of_day.dart';
 
 
 
@@ -57,6 +58,9 @@ Future<void> main() async {
 
   // Initialize reminders service
   await RemindersService.instance.init();
+
+  // Schedule daily tip-of-the-day notification (mobile only, respects user toggle).
+  await TipOfDayService.ensureScheduled();
 
   if (!kIsWeb) {
     await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
