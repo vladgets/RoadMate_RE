@@ -77,6 +77,9 @@ class TipOfDayService {
       // Already scheduled for this date — nothing to do.
       if (lastScheduled == targetDate) return;
 
+      // Ensure notification permission is granted (best-effort, non-blocking).
+      await RemindersService.instance.requestPermissions();
+
       // Cancel previous tip reminder if any.
       final oldId = prefs.getInt(_idKey);
       if (oldId != null) {
