@@ -5,14 +5,41 @@ import '../services/reminders.dart';
 
 const _categories = [
   _Category(
+    icon: Icons.people_rounded,
+    color: Color(0xFFEF5350),
+    label: 'Follow Up Boss — Leads',
+    tips: [
+      "Show me my hot leads in Follow Up Boss",
+      "What leads came in today?",
+      "Who are my leads with no activity this week?",
+      "Show me leads from Zillow",
+      "Find leads tagged as buyer in FUB",
+      "What's the status of my pipeline?",
+      "Search for lead Maria Garcia in FUB",
+      "Add a note to John Smith's contact in FUB",
+    ],
+  ),
+  _Category(
     icon: Icons.calendar_today_rounded,
     color: Color(0xFF5C6BC0),
-    label: 'Calendar & Reminders',
+    label: 'Showings & Calendar',
     tips: [
-      "What's on my calendar today?",
-      "What's my next meeting?",
-      "Add a reminder for tomorrow at 9am",
+      "What showings do I have today?",
+      "What's my next appointment?",
+      "What appointments do I have with leads this week?",
+      "Add a showing reminder for tomorrow at 2pm",
       "What are my upcoming reminders?",
+    ],
+  ),
+  _Category(
+    icon: Icons.phone_rounded,
+    color: Color(0xFF66BB6A),
+    label: 'Calls & Client Messages',
+    tips: [
+      "Call John",
+      "Text Sarah I'm running 10 minutes late",
+      "Text my client that I'm on my way to the showing",
+      "Call the listing agent",
     ],
   ),
   _Category(
@@ -21,8 +48,9 @@ const _categories = [
     label: 'Email',
     tips: [
       "Read my latest emails",
+      "Any new emails from clients today?",
       "Read me the email from Sarah",
-      "Find emails from my boss this week",
+      "Find emails from my broker this week",
     ],
   ),
   _Category(
@@ -30,32 +58,23 @@ const _categories = [
     color: Color(0xFF42A5F5),
     label: 'Navigation & Traffic',
     tips: [
-      "How long to get to work?",
-      "Navigate to the nearest gas station",
+      "Navigate to 123 Oak Street",
+      "How long to get to my next showing?",
       "What's the traffic like on my route?",
+      "Navigate to the nearest gas station",
       "Navigate home",
     ],
   ),
   _Category(
-    icon: Icons.people_rounded,
-    color: Color(0xFFEF5350),
-    label: 'Follow Up Boss',
+    icon: Icons.search_rounded,
+    color: Color(0xFFAB47BC),
+    label: 'Market Research & Web',
     tips: [
-      "Show me my hot leads in Follow Up Boss",
-      "What leads came in today?",
-      "Add a note to John Smith's contact in FUB",
-      "Who are my leads with no activity this week?",
-      "What's the status of my pipeline?",
-      "Search for lead Maria Garcia in FUB",
-    ],
-  ),
-  _Category(
-    icon: Icons.phone_rounded,
-    color: Color(0xFF66BB6A),
-    label: 'Calls & Messages',
-    tips: [
-      "Call John",
-      "Text Sarah I'm on my way",
+      "Search the web for latest mortgage rates",
+      "What are home prices trending in this zip code?",
+      "Search for recent sales near 456 Maple Ave",
+      "What's the weather like today?",
+      "What time is it in New York?",
     ],
   ),
   _Category(
@@ -63,19 +82,10 @@ const _categories = [
     color: Color(0xFFFF7043),
     label: 'Memory & Preferences',
     tips: [
-      "Remember that I prefer highway routes",
+      "Remember that my client John prefers ranch-style homes",
+      "Remember I have a listing appointment Friday at 3pm",
       "What did you remember about me?",
-    ],
-  ),
-  _Category(
-    icon: Icons.search_rounded,
-    color: Color(0xFFAB47BC),
-    label: 'Web & YouTube',
-    tips: [
-      "Search the web for latest mortgage rates",
-      "Open YouTube and play jazz music",
-      "What's the weather like today?",
-      "What time is it in New York?",
+      "Remember that I prefer highway routes",
     ],
   ),
 ];
@@ -257,7 +267,7 @@ class _TipRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -270,10 +280,10 @@ class _TipRow extends StatelessWidget {
             child: Text(
               '"$tip"',
               style: TextStyle(
-                fontSize: 13.5,
+                fontSize: 15.5,
                 color: Colors.black87,
                 fontStyle: FontStyle.italic,
-                height: 1.4,
+                height: 1.45,
               ),
             ),
           ),
