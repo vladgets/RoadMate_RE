@@ -90,6 +90,7 @@ class _CustomBrokerageScreenState extends State<CustomBrokerageScreen> {
       if (body['ok'] == true) {
         final userName = body['name'] as String?;
         await Config.setCustomFub(apiKey, subdomain, userName: userName);
+        await Config.clearFubAgent(); // remove any previously selected RB Brokerage identity
         if (!mounted) return;
         setState(() {
           _saving = false;
