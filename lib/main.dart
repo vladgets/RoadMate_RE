@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:audio_session/audio_session.dart';
 import 'platform/background_services.dart';
 import 'platform/web_audio_player.dart';
 import 'config.dart';
@@ -387,25 +388,56 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
 
       setState(() => _status = "Creating peer connection…");
 
+      // Configure AVAudioSession on iOS before touching WebRTC.
+      // Without this the mic input may not trigger server VAD and the
+      // response audio routes to the earpiece instead of the speaker.
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+        final audioSession = await AudioSession.instance;
+        await audioSession.configure(const AudioSessionConfiguration(
+          avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+          avAudioSessionCategoryOptions:
+              AVAudioSessionCategoryOptions.defaultToSpeaker |
+              AVAudioSessionCategoryOptions.allowBluetooth,
+          avAudioSessionMode: AVAudioSessionMode.voiceChat,
+          avAudioSessionRouteSharingPolicy:
+              AVAudioSessionRouteSharingPolicy.defaultPolicy,
+          avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
+        ));
+        await audioSession.setActive(true);
+      }
+
       // 2) Create PeerConnection
       _pc = await createPeerConnection({
-        // Start minimal. If you see ICE failures on some networks,
-        // add a STUN server:
-        // 'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]
+        'iceServers': [
+          {'urls': 'stun:stun.l.google.com:19302'},
+        ],
       });
 
+      _pc!.onConnectionState = (RTCPeerConnectionState state) {
+        debugPrint('PeerConnection state: $state');
+        if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed &&
+            mounted) {
+          setState(() => _status = 'Connection failed — please reconnect');
+        }
+      };
+
+      _pc!.onIceConnectionState = (RTCIceConnectionState state) {
+        debugPrint('ICE state: $state');
+      };
+
       // 3) Remote audio track will arrive here.
-      // On mobile, WebRTC audio generally plays via native audio output automatically.
       _pc!.onTrack = (RTCTrackEvent e) async {
-        if (e.track.kind == 'audio') {
-          if (kIsWeb) {
-            // On web, browser doesn't auto-play remote tracks — attach to <audio>.
-            attachRemoteAudio(e.streams.isNotEmpty ? e.streams.first : null);
-          } else {
-            // Force loudspeaker on iOS.
-            await Helper.setSpeakerphoneOn(true);
+        try {
+          if (e.track.kind == 'audio') {
+            if (kIsWeb) {
+              attachRemoteAudio(e.streams.isNotEmpty ? e.streams.first : null);
+            } else {
+              await Helper.setSpeakerphoneOn(true);
+            }
+            if (mounted) setState(() => _status = "Assistant connected. Talk!");
           }
-          setState(() => _status = "Assistant connected. Talk!");
+        } catch (err, st) {
+          debugPrint('onTrack error: $err\n$st');
         }
       };
 
@@ -571,6 +603,14 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
 
       // Stop foreground service
       if (!kIsWeb) await stopForegroundService();
+
+      // Release iOS audio session so other apps can use the mic/speaker.
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+        try {
+          final audioSession = await AudioSession.instance;
+          await audioSession.setActive(false);
+        } catch (_) {}
+      }
 
       _dc = null;
       _pc = null;
