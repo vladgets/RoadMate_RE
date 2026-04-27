@@ -2,7 +2,7 @@
  * Conversation logging routes.
  * Saves full chat transcripts to disk and serves an admin UI to browse them.
  *
- * Files stored as: {CONV_DIR}/{client_id}_{platform}_{session_start}.json
+ * Files stored as: {CONV_DIR}/{client_id}_{platform}_{date}.json  (one per day)
  * Default dir: /data/conversations (override with CONVERSATIONS_DIR env var)
  */
 
@@ -18,7 +18,6 @@ function ensureDir() {
 
 async function getLocationFromIp(ip) {
   try {
-    // Strip IPv6 prefix if present (e.g. "::ffff:1.2.3.4" → "1.2.3.4")
     const cleanIp = ip.replace(/^::ffff:/, "");
     if (cleanIp === "127.0.0.1" || cleanIp === "::1") return null;
     const r = await fetch(`http://ip-api.com/json/${cleanIp}?fields=city,regionName,country,status`);
@@ -30,12 +29,9 @@ async function getLocationFromIp(ip) {
   }
 }
 
-function safeTs(iso) {
-  return iso.replace(/[:.]/g, "-").replace("T", "_").replace("Z", "").substring(0, 19);
-}
-
 function buildFilename(clientId, platform, sessionStart) {
-  return `${clientId}_${platform}_${safeTs(sessionStart)}.json`;
+  const date = (sessionStart || new Date().toISOString()).substring(0, 10); // YYYY-MM-DD
+  return `${clientId}_${platform}_${date}.json`;
 }
 
 function platformIcon(platform) {
@@ -45,16 +41,6 @@ function platformIcon(platform) {
   return "💻";
 }
 
-function formatDate(iso) {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString("en-US", {
-      month: "short", day: "numeric", year: "numeric",
-      hour: "2-digit", minute: "2-digit",
-    });
-  } catch { return iso; }
-}
-
 function escapeHtml(str) {
   return String(str || "")
     .replace(/&/g, "&amp;")
@@ -62,6 +48,14 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/\n/g, "<br>");
+}
+
+function formatDayHeader(dateStr) {
+  // dateStr: "YYYY-MM-DD"
+  try {
+    const d = new Date(dateStr + "T12:00:00Z");
+    return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  } catch { return dateStr; }
 }
 
 export function registerConversationRoutes(app) {
@@ -79,6 +73,10 @@ export function registerConversationRoutes(app) {
    * POST /conversation/save
    * Flutter app calls this to save/update the current session transcript.
    * Body: { client_id, platform, session_start, agent_name?, messages[] }
+   *
+   * Files are keyed by date (one per client per day). Messages are merged by ID
+   * so multiple sessions on the same day accumulate. Location is refreshed on
+   * every save so it stays current if the user is in a different place.
    */
   app.post("/conversation/save", async (req, res) => {
     try {
@@ -91,30 +89,40 @@ export function registerConversationRoutes(app) {
       const fname = buildFilename(client_id, platform || "unknown", session_start);
       const fpath = path.join(CONV_DIR, fname);
 
-      // Read existing location if file already exists (avoid re-fetching on every update)
-      let location = null;
+      // Merge with existing messages for the day (dedup by message id)
+      let existingMessages = [];
+      let firstSessionStart = session_start;
       if (fs.existsSync(fpath)) {
-        try { location = JSON.parse(fs.readFileSync(fpath, "utf8")).location || null; } catch {}
+        try {
+          const existing = JSON.parse(fs.readFileSync(fpath, "utf8"));
+          existingMessages = existing.messages || [];
+          firstSessionStart = existing.session_start || session_start;
+        } catch {}
       }
-      if (!location) {
-        const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-        location = await getLocationFromIp(ip);
-      }
+      const existingIds = new Set(existingMessages.map(m => m.id).filter(Boolean));
+      const merged = [
+        ...existingMessages,
+        ...messages.filter(m => !existingIds.has(m.id)),
+      ].sort((a, b) => (a.timestamp || "").localeCompare(b.timestamp || ""));
+
+      // Always refresh location so it stays current (user may be in a different place)
+      const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+      const location = await getLocationFromIp(ip);
 
       const data = {
         client_id,
         platform: platform || "unknown",
         agent_name: agent_name || null,
         location: location || null,
-        session_start,
+        session_start: firstSessionStart,
         last_updated: new Date().toISOString(),
-        message_count: messages.length,
-        messages,
+        message_count: merged.length,
+        messages: merged,
       };
 
       fs.writeFileSync(fpath, JSON.stringify(data, null, 2), "utf8");
       const written = fs.existsSync(fpath);
-      console.log(`[Conv] saved ${fname} to ${fpath}, exists=${written}, messages=${messages.length}`);
+      console.log(`[Conv] saved ${fname} to ${fpath}, exists=${written}, messages=${merged.length}`);
       res.json({ ok: true, filename: fname, path: fpath, written });
     } catch (e) {
       console.error("[Conversations] save error:", e);
@@ -171,7 +179,7 @@ export function registerConversationRoutes(app) {
 
   /**
    * GET /admin/conversations
-   * Lists all saved conversation files, newest first.
+   * Lists all saved conversation files, grouped by day, newest first.
    */
   app.get("/admin/conversations", (req, res) => {
     try {
@@ -198,7 +206,17 @@ export function registerConversationRoutes(app) {
         })
         .sort((a, b) => (b.last_updated || "").localeCompare(a.last_updated || ""));
 
-      const rows = files.map(f => `
+      // Group by date (YYYY-MM-DD from session_start or filename)
+      const groups = new Map();
+      for (const f of files) {
+        const dateKey = (f.session_start || f.filename || "").substring(0, 10) || "unknown";
+        if (!groups.has(dateKey)) groups.set(dateKey, []);
+        groups.get(dateKey).push(f);
+      }
+      // Dates are already sorted descending because files are sorted by last_updated
+      const sortedDates = [...groups.keys()].sort().reverse();
+
+      const makeRow = f => `
         <tr onclick="location.href='/admin/conversation/${encodeURIComponent(f.filename)}'" style="cursor:pointer">
           <td>${platformIcon(f.platform)} ${escapeHtml(f.platform)}</td>
           <td>${escapeHtml(f.agent_name)}</td>
@@ -210,7 +228,16 @@ export function registerConversationRoutes(app) {
           <td style="text-align:center">
             <button class="del-btn" onclick="event.stopPropagation(); deleteConv('${escapeHtml(f.filename)}')" title="Delete">🗑</button>
           </td>
-        </tr>`).join("");
+        </tr>`;
+
+      const tableBody = sortedDates.map(dateKey => {
+        const dayFiles = groups.get(dateKey);
+        const headerRow = `
+        <tr class="day-header-row">
+          <td colspan="8"><span class="day-label" data-date="${escapeHtml(dateKey)}">${escapeHtml(dateKey)}</span></td>
+        </tr>`;
+        return headerRow + dayFiles.map(makeRow).join("");
+      }).join("");
 
       res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -231,6 +258,9 @@ export function registerConversationRoutes(app) {
   td { padding: 12px 16px; font-size: 0.9rem; border-bottom: 1px solid #f2f2f7; }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: #f5f5f7; }
+  tr.day-header-row td { background: #f0f0f5; padding: 8px 16px; border-bottom: 1px solid #e5e5ea; cursor: default; }
+  tr.day-header-row:hover td { background: #f0f0f5; }
+  .day-label { font-size: 0.78rem; font-weight: 700; color: #6e6e73; text-transform: uppercase; letter-spacing: 0.06em; }
   .empty { text-align: center; padding: 48px; color: #6e6e73; }
   .del-btn { background: none; border: none; cursor: pointer; font-size: 1rem; opacity: 0.4; padding: 4px 8px; border-radius: 6px; }
   .del-btn:hover { opacity: 1; background: #fee2e2; }
@@ -248,7 +278,7 @@ ${adminTabBar("conversations", '<a class="export-btn" href="/admin/conversations
     <th>Platform</th><th>Agent</th><th>Client ID</th><th>Location</th>
     <th>Started</th><th>Last Active</th><th>Messages</th><th></th>
   </tr></thead>
-  <tbody>${rows || '<tr><td colspan="8" class="empty">No conversations yet</td></tr>'}</tbody>
+  <tbody>${tableBody || '<tr><td colspan="8" class="empty">No conversations yet</td></tr>'}</tbody>
 </table>
 </div>
 <script>
@@ -266,6 +296,15 @@ document.querySelectorAll('.ts[data-ts]').forEach(el => {
       month: 'short', day: 'numeric', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
     });
+  } catch {}
+});
+document.querySelectorAll('.day-label[data-date]').forEach(el => {
+  const d = el.dataset.date;
+  if (!d || d.length < 10) return;
+  try {
+    // Parse as noon UTC to avoid timezone shifting the date
+    const date = new Date(d + 'T12:00:00Z');
+    el.textContent = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   } catch {}
 });
 </script>
@@ -354,7 +393,6 @@ document.querySelectorAll('.ts[data-ts]').forEach(el => {
   };
   var dayKey = function(ts) { return new Date(ts).toDateString(); };
 
-  // Format header session start
   document.querySelectorAll('.ts[data-ts]').forEach(function(el) {
     var ts = el.dataset.ts;
     if (!ts) return;
@@ -366,7 +404,6 @@ document.querySelectorAll('.ts[data-ts]').forEach(el => {
     } catch {}
   });
 
-  // Format message times and insert day separators
   var msgs = document.querySelectorAll('.msg[data-ts]');
   var lastDay = null;
   msgs.forEach(function(msg) {
