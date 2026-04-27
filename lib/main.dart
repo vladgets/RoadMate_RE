@@ -393,7 +393,7 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
       // response audio routes to the earpiece instead of the speaker.
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
         final audioSession = await AudioSession.instance;
-        await audioSession.configure(const AudioSessionConfiguration(
+        await audioSession.configure(AudioSessionConfiguration(
           avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
           avAudioSessionCategoryOptions:
               AVAudioSessionCategoryOptions.defaultToSpeaker |
