@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/tip_of_day.dart';
+
 import '../services/reminders.dart';
 
 const _categories = [
@@ -151,7 +151,7 @@ class _ExamplesScreenState extends State<ExamplesScreen> {
           // Daily tip toggle card
           Card(
             elevation: 0,
-            color: scheme.surfaceContainerHighest.withOpacity(0.5),
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: SwitchListTile(
               secondary: Icon(Icons.lightbulb_rounded,
@@ -217,7 +217,7 @@ class _CategoryCardState extends State<_CategoryCard> {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: cat.color.withOpacity(0.12),
+                        color: cat.color.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(cat.icon, color: cat.color, size: 20),
@@ -273,7 +273,7 @@ class _TipRow extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 3),
-            child: Icon(Icons.mic_rounded, size: 14, color: color.withOpacity(0.7)),
+            child: Icon(Icons.mic_rounded, size: 14, color: color.withValues(alpha: 0.7)),
           ),
           const SizedBox(width: 10),
           Expanded(

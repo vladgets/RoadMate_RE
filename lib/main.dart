@@ -56,6 +56,7 @@ Future<void> main() async {
   await Config.loadLastClient();
   await Config.loadFubAuthenticated();
   await Config.loadCustomFub();
+  await Config.loadRegisteredPhone();
 
   // Initialize reminders service
   await RemindersService.instance.init();

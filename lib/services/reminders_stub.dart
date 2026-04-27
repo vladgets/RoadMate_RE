@@ -45,6 +45,8 @@ class RemindersService {
   Future<Map<String, dynamic>> toolCancel(dynamic args) async =>
       {'ok': false, 'error': 'Reminders are not available on web.'};
 
+  Future<bool> requestPermissions() async => false;
+
   Future<List<Reminder>> listUpcoming() async => [];
   Future<Reminder> createReminder({required String text, required DateTime whenLocal}) async =>
       throw UnsupportedError('Reminders are not available on web.');

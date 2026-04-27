@@ -63,6 +63,7 @@ Date: {{CURRENT_DATE_READABLE}}
   static const prefKeyFubAuthenticated = 'fub_authenticated';
   static const prefKeyCustomFubApiKey = 'custom_fub_api_key';
   static const prefKeyCustomFubSubdomain = 'custom_fub_subdomain';
+  static const prefKeyPhoneNumber = 'registered_phone_number';
 
   /// The device's unique client ID, set after startup. Used for per-client
   /// OAuth tokens and custom FUB API keys.
@@ -210,6 +211,28 @@ Date: {{CURRENT_DATE_READABLE}}
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(prefKeyCustomFubApiKey);
       await prefs.remove(prefKeyCustomFubSubdomain);
+    } catch (_) {}
+  }
+
+  /// Phone number the user registered for inbound call identification.
+  static String? registeredPhoneNumber;
+
+  static Future<void> loadRegisteredPhone() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      registeredPhoneNumber = prefs.getString(prefKeyPhoneNumber);
+    } catch (_) {}
+  }
+
+  static Future<void> setRegisteredPhone(String? number) async {
+    registeredPhoneNumber = number;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (number != null && number.isNotEmpty) {
+        await prefs.setString(prefKeyPhoneNumber, number);
+      } else {
+        await prefs.remove(prefKeyPhoneNumber);
+      }
     } catch (_) {}
   }
 
