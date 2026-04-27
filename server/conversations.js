@@ -30,7 +30,7 @@ async function getLocationFromIp(ip) {
 }
 
 function buildFilename(clientId, platform, sessionStart) {
-  const date = (sessionStart || new Date().toISOString()).substring(0, 10); // YYYY-MM-DD
+  const date = new Date().toISOString().substring(0, 10); // YYYY-MM-DD — always today
   return `${clientId}_${platform}_${date}.json`;
 }
 
@@ -209,7 +209,7 @@ export function registerConversationRoutes(app) {
       // Group by date (YYYY-MM-DD from session_start or filename)
       const groups = new Map();
       for (const f of files) {
-        const dateKey = (f.session_start || f.filename || "").substring(0, 10) || "unknown";
+        const dateKey = (f.last_updated || f.session_start || f.filename || "").substring(0, 10) || "unknown";
         if (!groups.has(dateKey)) groups.set(dateKey, []);
         groups.get(dateKey).push(f);
       }
