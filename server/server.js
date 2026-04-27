@@ -9,6 +9,7 @@ import { registerCalendarRoutes } from "./google_calendar.js";
 import { registerDriveRoutes } from "./google_drive.js";
 import { registerMlsRoutes } from "./mls.js";
 import { registerShowingTimeTestRoutes } from "./showingtime_automation.js";
+import { registerPhoneBridgeRoutes } from "./phone_bridge.js";
 import { fileURLToPath } from "url";
 import path from "path";
 
@@ -225,4 +226,5 @@ app.get("/{*splat}", (_req, res) => {
   res.sendFile(path.join(webBuildPath, "index.html"));
 });
 
-app.listen(3000, () => console.log("Token server on :3000"));
+const httpServer = app.listen(3000, () => console.log("Token server on :3000"));
+registerPhoneBridgeRoutes(app, httpServer);
