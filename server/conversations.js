@@ -206,18 +206,9 @@ export function registerConversationRoutes(app) {
         })
         .sort((a, b) => (b.last_updated || "").localeCompare(a.last_updated || ""));
 
-      // Group by date (YYYY-MM-DD from session_start or filename)
-      const groups = new Map();
-      for (const f of files) {
-        const dateKey = (f.last_updated || f.session_start || f.filename || "").substring(0, 10) || "unknown";
-        if (!groups.has(dateKey)) groups.set(dateKey, []);
-        groups.get(dateKey).push(f);
-      }
-      // Dates are already sorted descending because files are sorted by last_updated
-      const sortedDates = [...groups.keys()].sort().reverse();
-
-      const makeRow = f => `
-        <tr onclick="location.href='/admin/conversation/${encodeURIComponent(f.filename)}'" style="cursor:pointer">
+      // Rows sorted by last_updated desc — client JS will insert day headers in local time
+      const tableBody = files.map(f => `
+        <tr onclick="location.href='/admin/conversation/${encodeURIComponent(f.filename)}'" style="cursor:pointer" data-last-updated="${escapeHtml(f.last_updated || "")}">
           <td>${platformIcon(f.platform)} ${escapeHtml(f.platform)}</td>
           <td>${escapeHtml(f.agent_name)}</td>
           <td title="${escapeHtml(f.client_id)}">${escapeHtml(f.client_id.substring(0, 8))}…</td>
@@ -228,16 +219,7 @@ export function registerConversationRoutes(app) {
           <td style="text-align:center">
             <button class="del-btn" onclick="event.stopPropagation(); deleteConv('${escapeHtml(f.filename)}')" title="Delete">🗑</button>
           </td>
-        </tr>`;
-
-      const tableBody = sortedDates.map(dateKey => {
-        const dayFiles = groups.get(dateKey);
-        const headerRow = `
-        <tr class="day-header-row">
-          <td colspan="8"><span class="day-label" data-date="${escapeHtml(dateKey)}">${escapeHtml(dateKey)}</span></td>
-        </tr>`;
-        return headerRow + dayFiles.map(makeRow).join("");
-      }).join("");
+        </tr>`).join("");
 
       res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -288,6 +270,7 @@ async function deleteConv(filename) {
   if (res.ok) location.reload();
   else alert('Delete failed');
 }
+// Format all timestamps in local time
 document.querySelectorAll('.ts[data-ts]').forEach(el => {
   const ts = el.dataset.ts;
   if (!ts) return;
@@ -298,15 +281,32 @@ document.querySelectorAll('.ts[data-ts]').forEach(el => {
     });
   } catch {}
 });
-document.querySelectorAll('.day-label[data-date]').forEach(el => {
-  const d = el.dataset.date;
-  if (!d || d.length < 10) return;
-  try {
-    // Parse as noon UTC to avoid timezone shifting the date
-    const date = new Date(d + 'T12:00:00Z');
-    el.textContent = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  } catch {}
-});
+
+// Insert day-header rows grouped by local date of last_updated
+(function() {
+  var fmtDay = function(ts) {
+    return new Date(ts).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  };
+  var localDateKey = function(ts) {
+    var d = new Date(ts);
+    return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+  };
+  var tbody = document.querySelector('tbody');
+  var rows = Array.from(tbody.querySelectorAll('tr[data-last-updated]'));
+  var lastKey = null;
+  rows.forEach(function(row) {
+    var ts = row.dataset.lastUpdated;
+    if (!ts) return;
+    var key = localDateKey(ts);
+    if (key !== lastKey) {
+      var hdr = document.createElement('tr');
+      hdr.className = 'day-header-row';
+      hdr.innerHTML = '<td colspan="8"><span class="day-label">' + fmtDay(ts) + '</span></td>';
+      tbody.insertBefore(hdr, row);
+      lastKey = key;
+    }
+  });
+})();
 </script>
 </body>
 </html>`);
