@@ -190,6 +190,8 @@ export function registerConversationRoutes(app) {
           try {
             const raw = fs.readFileSync(path.join(CONV_DIR, f), "utf8");
             const d = JSON.parse(raw);
+            const msgs = d.messages || [];
+            const lastMsgTs = msgs.length ? (msgs[msgs.length - 1].timestamp || null) : null;
             return {
               filename: f,
               client_id: d.client_id || "—",
@@ -198,7 +200,8 @@ export function registerConversationRoutes(app) {
               location: d.location || null,
               session_start: d.session_start || null,
               last_updated: d.last_updated || null,
-              message_count: d.message_count || d.messages?.length || 0,
+              last_msg_ts: lastMsgTs,
+              message_count: msgs.length || d.message_count || 0,
             };
           } catch {
             return { filename: f, error: true, client_id: "—", platform: "—", agent_name: "—", location: null, session_start: null, last_updated: null, message_count: 0 };
@@ -208,7 +211,7 @@ export function registerConversationRoutes(app) {
 
       // Rows sorted by last_updated desc — client JS will insert day headers in local time
       const tableBody = files.map(f => `
-        <tr onclick="location.href='/admin/conversation/${encodeURIComponent(f.filename)}'" style="cursor:pointer" data-last-updated="${escapeHtml(f.last_updated || "")}">
+        <tr onclick="location.href='/admin/conversation/${encodeURIComponent(f.filename)}'" style="cursor:pointer" data-last-updated="${escapeHtml(f.last_msg_ts || f.last_updated || "")}">
           <td>${platformIcon(f.platform)} ${escapeHtml(f.platform)}</td>
           <td>${escapeHtml(f.agent_name)}</td>
           <td title="${escapeHtml(f.client_id)}">${escapeHtml(f.client_id.substring(0, 8))}…</td>
