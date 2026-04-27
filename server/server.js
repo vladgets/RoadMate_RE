@@ -225,4 +225,5 @@ app.get("/{*splat}", (_req, res) => {
   res.sendFile(path.join(webBuildPath, "index.html"));
 });
 
-app.listen(3000, () => console.log("Token server on :3000"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Token server on :${PORT}`));
