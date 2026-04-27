@@ -200,8 +200,55 @@ const PHONE_TOOLS = [
         agent_name: { type: "string" }, person_id: { type: "number" }, client_name: { type: "string" },
         stage: { type: "string" }, name: { type: "string" }, background_info: { type: "string" },
         source: { type: "string" }, lender: { type: "string" }, assigned_to: { type: "string" },
-        collaborators: { type: "object" }, tags: { type: "object" }, phones: { type: "array" },
-        emails: { type: "array" }, address: { type: "object" }
+        collaborators: {
+          type: "object",
+          properties: {
+            mode: { type: "string", enum: ["add", "remove", "set"] },
+            agents: { type: "array", items: { type: "string" } }
+          },
+          required: ["mode", "agents"]
+        },
+        tags: {
+          type: "object",
+          properties: {
+            mode: { type: "string", enum: ["add", "remove", "set"] },
+            values: { type: "array", items: { type: "string" } }
+          },
+          required: ["mode", "values"]
+        },
+        phones: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              number: { type: "string" },
+              type: { type: "string", enum: ["mobile", "home", "work", "fax", "other"] },
+              action: { type: "string", enum: ["set", "remove"] }
+            },
+            required: ["type"]
+          }
+        },
+        emails: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              address: { type: "string" },
+              type: { type: "string", enum: ["personal", "work", "other"] },
+              action: { type: "string", enum: ["set", "remove"] }
+            },
+            required: ["type"]
+          }
+        },
+        address: {
+          type: "object",
+          properties: {
+            street: { type: "string" }, city: { type: "string" }, state: { type: "string" },
+            zip: { type: "string" }, country: { type: "string" },
+            type: { type: "string", enum: ["home", "work", "selling", "other"] },
+            action: { type: "string", enum: ["set", "remove"] }
+          }
+        }
       },
       required: ["agent_name"]
     }
@@ -334,18 +381,18 @@ async function executeTool(name, args, context) {
 
 // ── Call handler ───────────────────────────────────────────────────────────────
 
-async function handleCall(twilioWs, callerPhone) {
+async function handleCall(twilioWs) {
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-  // Identify caller and build context
-  const clientId = lookupClientId(callerPhone);
-  const callerInfo = clientId ? loadCallerInfo(clientId) : {};
-  const context = { clientId, stopRequested: false };
-
-  const identified = clientId
-    ? `Caller identified: ${callerPhone} → client_id=${clientId}`
-    : `Unknown caller: ${callerPhone} — no client_id registered`;
-  console.log(`[phone] ${identified}`);
+  // Both OpenAI "open" and Twilio "start" must fire before we configure the session.
+  // Either can arrive first — maybeConfigureSession() checks both gates.
+  let streamSid = null;
+  let callerPhone = null;   // set when Twilio "start" arrives
+  let openaiReady = false;  // set when OpenAI WS opens
+  let sessionConfigured = false;
+  const pendingAudio = [];
+  const pendingToolCalls = new Map();
+  const context = { clientId: null, stopRequested: false };
 
   const openaiWs = new WebSocket(
     "wss://api.openai.com/v1/realtime?model=gpt-realtime-mini-2025-12-15",
@@ -357,16 +404,19 @@ async function handleCall(twilioWs, callerPhone) {
     }
   );
 
-  let streamSid = null;
-  let openaiReady = false;
-  const pendingAudio = [];
-  const pendingToolCalls = new Map(); // callId → { name, args accumulated }
+  function maybeConfigureSession() {
+    // Wait until both OpenAI is open AND we have the caller phone from Twilio "start"
+    if (!openaiReady || sessionConfigured || callerPhone === null) return;
+    sessionConfigured = true;
 
-  openaiWs.on("open", () => {
-    console.log("[phone] Connected to OpenAI Realtime");
-    openaiReady = true;
+    const clientId = lookupClientId(callerPhone);
+    context.clientId = clientId;
+    const callerInfo = clientId ? loadCallerInfo(clientId) : {};
 
-    // Configure session — matches Flutter app (marin voice, gpt-realtime-mini)
+    console.log(`[phone] ${clientId
+      ? `Caller identified: ${callerPhone} → client_id=${clientId}`
+      : `Unknown caller: ${callerPhone} — no client_id registered`}`);
+
     openaiWs.send(JSON.stringify({
       type: "session.update",
       session: {
@@ -380,27 +430,26 @@ async function handleCall(twilioWs, callerPhone) {
       },
     }));
 
-    // Send greeting as the first assistant turn
     const greeting = clientId && callerInfo.fubAgentName
       ? `Hi ${callerInfo.fubAgentName}! RoadMate here. What can I help you with?`
       : "Hi! RoadMate here. How can I help you today?";
 
     openaiWs.send(JSON.stringify({
       type: "conversation.item.create",
-      item: {
-        type: "message",
-        role: "assistant",
-        content: [{ type: "text", text: greeting }],
-      },
+      item: { type: "message", role: "assistant", content: [{ type: "text", text: greeting }] },
     }));
-
     openaiWs.send(JSON.stringify({ type: "response.create" }));
 
-    // Flush buffered audio
     for (const payload of pendingAudio) {
       openaiWs.send(JSON.stringify({ type: "input_audio_buffer.append", audio: payload }));
     }
     pendingAudio.length = 0;
+  }
+
+  openaiWs.on("open", () => {
+    console.log("[phone] Connected to OpenAI Realtime");
+    openaiReady = true;
+    maybeConfigureSession();
   });
 
   // Twilio → OpenAI
@@ -410,7 +459,10 @@ async function handleCall(twilioWs, callerPhone) {
 
     if (msg.event === "start") {
       streamSid = msg.start.streamSid;
-      console.log(`[phone] Stream started: ${streamSid}`);
+      // Caller's number arrives here via the <Parameter name="from"> in TwiML
+      callerPhone = msg.start.customParameters?.from || "";
+      console.log(`[phone] Stream started: ${streamSid}, caller: ${callerPhone || "unknown"}`);
+      maybeConfigureSession();
     }
 
     if (msg.event === "media") {
@@ -524,12 +576,15 @@ export function registerPhoneBridgeRoutes(app, httpServer) {
   // TwiML webhook — Twilio POSTs here when someone dials the number
   app.post("/call/incoming", (req, res) => {
     const host = req.headers.host;
-    const from = encodeURIComponent(req.body?.From || "");
+    const from = req.body?.From || "";
     res.type("text/xml");
+    // Pass caller's number via <Parameter> — arrives in the "start" WS event
     res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <Stream url="wss://${host}/call/stream?from=${from}" />
+    <Stream url="wss://${host}/call/stream">
+      <Parameter name="from" value="${from}" />
+    </Stream>
   </Connect>
 </Response>`);
   });
@@ -569,11 +624,8 @@ export function registerPhoneBridgeRoutes(app, httpServer) {
     }
   });
 
-  wss.on("connection", (twilioWs, request) => {
-    // callerPhone is passed in the query string by Twilio (?From=+1...)
-    const url = new URL(request.url, `http://localhost`);
-    const callerPhone = url.searchParams.get("from") || null;
-    console.log(`[phone] Twilio Media Stream connected, caller: ${callerPhone || "unknown"}`);
-    handleCall(twilioWs, callerPhone);
+  wss.on("connection", (twilioWs) => {
+    console.log("[phone] Twilio Media Stream connected");
+    handleCall(twilioWs);
   });
 }
