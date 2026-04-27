@@ -2,8 +2,7 @@ import { WebSocketServer } from "ws";
 import WebSocket from "ws";
 import fs from "fs";
 
-const PORT = process.env.PORT || 3000;
-const INTERNAL = `http://localhost:${PORT}`;
+const INTERNAL = "http://localhost:3000"; // server always binds on 3000
 const PHONE_REG_FILE = "/data/phone_registrations.json";
 const PHONE_MEMORY_DIR = "/data/phone_memory";
 
@@ -21,9 +20,17 @@ function saveRegistrations(data) {
   fs.writeFileSync(PHONE_REG_FILE, JSON.stringify(data, null, 2), "utf8");
 }
 
-function lookupClientId(phoneNumber) {
+function lookupRegistration(phoneNumber) {
   if (!phoneNumber) return null;
-  return loadRegistrations()[phoneNumber] || null;
+  const entry = loadRegistrations()[phoneNumber];
+  if (!entry) return null;
+  // Support both old string format and new object format
+  if (typeof entry === "string") return { client_id: entry, agent_name: null };
+  return entry;
+}
+
+function lookupClientId(phoneNumber) {
+  return lookupRegistration(phoneNumber)?.client_id || null;
 }
 
 // ── Server-side memory (per clientId) ────────────────────────────────────────
@@ -394,6 +401,32 @@ async function handleCall(twilioWs) {
   const pendingToolCalls = new Map();
   const context = { clientId: null, stopRequested: false };
 
+  // Transcript collection for conversation logging
+  const sessionStart = new Date().toISOString();
+  const transcript = []; // { id, role, content, timestamp }
+  let msgSeq = 0;
+  function addTranscriptMsg(role, content) {
+    if (!content?.trim()) return;
+    transcript.push({ id: `phone_${++msgSeq}`, role, content: content.trim(), timestamp: new Date().toISOString() });
+  }
+
+  async function saveTranscript() {
+    if (transcript.length === 0 || !context.clientId) return;
+    try {
+      const reg = lookupRegistration(callerPhone);
+      await internalPost("/conversation/save", {
+        client_id: context.clientId,
+        platform: "phone",
+        agent_name: reg?.agent_name || null,
+        session_start: sessionStart,
+        messages: transcript,
+      }, null);
+      console.log(`[phone] Transcript saved: ${transcript.length} messages`);
+    } catch (e) {
+      console.error("[phone] Failed to save transcript:", e.message);
+    }
+  }
+
   const openaiWs = new WebSocket(
     "wss://api.openai.com/v1/realtime?model=gpt-realtime-mini-2025-12-15",
     {
@@ -411,10 +444,10 @@ async function handleCall(twilioWs) {
 
     const clientId = lookupClientId(callerPhone);
     context.clientId = clientId;
-    const callerInfo = clientId ? loadCallerInfo(clientId) : {};
+    const callerInfo = loadCallerInfo(callerPhone);
 
     console.log(`[phone] ${clientId
-      ? `Caller identified: ${callerPhone} → client_id=${clientId}`
+      ? `Caller identified: ${callerPhone} → client_id=${clientId}, agent: ${callerInfo.fubAgentName || "unknown"}`
       : `Unknown caller: ${callerPhone} — no client_id registered`}`);
 
     openaiWs.send(JSON.stringify({
@@ -427,18 +460,19 @@ async function handleCall(twilioWs) {
         instructions: buildSystemPrompt(callerInfo),
         modalities: ["text", "audio"],
         tools: PHONE_TOOLS,
+        input_audio_transcription: { model: "whisper-1" },
       },
     }));
 
-    const greeting = clientId && callerInfo.fubAgentName
-      ? `Hi ${callerInfo.fubAgentName}! RoadMate here. What can I help you with?`
-      : "Hi! RoadMate here. How can I help you today?";
+    // Trigger the AI to speak its greeting — the system prompt already says to greet the user
+    const greetInstruction = callerInfo.fubAgentName
+      ? `Greet ${callerInfo.fubAgentName} by name. Say you're RoadMate and ask how you can help.`
+      : "Greet the caller warmly. Say you're RoadMate and ask how you can help.";
 
     openaiWs.send(JSON.stringify({
-      type: "conversation.item.create",
-      item: { type: "message", role: "assistant", content: [{ type: "text", text: greeting }] },
+      type: "response.create",
+      response: { modalities: ["text", "audio"], instructions: greetInstruction },
     }));
-    openaiWs.send(JSON.stringify({ type: "response.create" }));
 
     for (const payload of pendingAudio) {
       openaiWs.send(JSON.stringify({ type: "input_audio_buffer.append", audio: payload }));
@@ -542,13 +576,31 @@ async function handleCall(twilioWs) {
       }
     }
 
+    // Collect user speech transcription
+    if (event.type === "conversation.item.input_audio_transcription.completed") {
+      addTranscriptMsg("user", event.transcript);
+    }
+
+    // Collect assistant text responses
+    if (event.type === "response.done") {
+      for (const item of event.response?.output || []) {
+        if (item.type !== "message" || item.role !== "assistant") continue;
+        const text = (item.content || [])
+          .filter(c => c.type === "text" || c.type === "audio")
+          .map(c => c.text || c.transcript || "")
+          .join(" ");
+        addTranscriptMsg("assistant", text);
+      }
+    }
+
     if (event.type === "error") {
       console.error("[phone] OpenAI error:", event.error);
     }
   });
 
-  twilioWs.on("close", () => {
+  twilioWs.on("close", async () => {
     console.log("[phone] Twilio disconnected");
+    await saveTranscript();
     openaiWs.close();
   });
 
@@ -560,13 +612,12 @@ async function handleCall(twilioWs) {
   openaiWs.on("error", (err) => console.error("[phone] OpenAI WS error:", err.message));
 }
 
-// ── Caller info (stored alongside FUB custom keys) ────────────────────────────
+// ── Caller info (from phone registrations) ────────────────────────────────────
 
-function loadCallerInfo(clientId) {
-  try {
-    const data = JSON.parse(fs.readFileSync("/data/fub_custom_keys.json", "utf8"));
-    return data[clientId] || {};
-  } catch { return {}; }
+function loadCallerInfo(callerPhone) {
+  const reg = lookupRegistration(callerPhone);
+  if (!reg) return {};
+  return { fubAgentName: reg.agent_name || null };
 }
 
 // ── Route registration ─────────────────────────────────────────────────────────
@@ -592,16 +643,16 @@ export function registerPhoneBridgeRoutes(app, httpServer) {
   // Register a phone number → client_id mapping
   // Called from the Flutter app after the user enables phone access
   app.post("/phone/register", (req, res) => {
-    const { client_id, phone_number } = req.body || {};
+    const { client_id, phone_number, agent_name } = req.body || {};
     if (!client_id || !phone_number) {
       return res.status(400).json({ ok: false, error: "Missing client_id or phone_number" });
     }
     const clean = phone_number.replace(/\s/g, "");
     const regs = loadRegistrations();
-    regs[clean] = client_id;
+    regs[clean] = { client_id, agent_name: agent_name || null };
     saveRegistrations(regs);
-    console.log(`[phone] Registered ${clean} → ${client_id}`);
-    return res.json({ ok: true, phone_number: clean, client_id });
+    console.log(`[phone] Registered ${clean} → ${client_id} (${agent_name || "no name"})`);
+    return res.json({ ok: true, phone_number: clean, client_id, agent_name: agent_name || null });
   });
 
   // Get the registered phone number for a client
@@ -609,8 +660,13 @@ export function registerPhoneBridgeRoutes(app, httpServer) {
     const clientId = req.query.client_id;
     if (!clientId) return res.status(400).json({ ok: false, error: "Missing client_id" });
     const regs = loadRegistrations();
-    const entry = Object.entries(regs).find(([, cid]) => cid === clientId);
-    return res.json({ ok: true, phone_number: entry ? entry[0] : null });
+    const entry = Object.entries(regs).find(([, val]) => {
+      const cid = typeof val === "string" ? val : val?.client_id;
+      return cid === clientId;
+    });
+    const phone = entry ? entry[0] : null;
+    const agentName = entry && typeof entry[1] === "object" ? entry[1].agent_name : null;
+    return res.json({ ok: true, phone_number: phone, agent_name: agentName });
   });
 
   // WebSocket server that Twilio Media Streams connects to

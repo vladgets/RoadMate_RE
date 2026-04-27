@@ -117,7 +117,11 @@ class _AppConfigurationScreenState extends State<AppConfigurationScreen> {
       final resp = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'client_id': clientId, 'phone_number': number}),
+        body: jsonEncode({
+          'client_id': clientId,
+          'phone_number': number,
+          if (Config.fubAgentName != null) 'agent_name': Config.fubAgentName,
+        }),
       );
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
       if (body['ok'] == true) {
