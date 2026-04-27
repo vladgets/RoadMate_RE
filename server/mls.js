@@ -74,7 +74,8 @@ function findChromiumExecutable() {
   return null;
 }
 
-ensureChromium();
+// ensureChromium() is called lazily inside getBrowser() to avoid blocking
+// the HTTP server from starting on Render (Chromium download can take 3-5 min).
 
 const BASE_URL = "https://mo.flexmls.com";
 const SESSION_FILE = process.env.MLS_SESSION_FILE ?? "/data/mls_session.json";
@@ -101,6 +102,7 @@ let _browser = null;
 
 async function getBrowser() {
   if (!_browser || !_browser.isConnected()) {
+    ensureChromium();
     const executablePath = findChromiumExecutable() ?? undefined;
     _browser = await chromium.launch({
       headless: true,
