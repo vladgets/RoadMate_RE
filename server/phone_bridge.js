@@ -411,13 +411,21 @@ async function handleCall(twilioWs) {
   }
 
   async function saveTranscript() {
-    if (transcript.length === 0 || !context.clientId) return;
+    if (!context.clientId) {
+      console.log("[phone] Transcript skipped — no client_id (unregistered caller)");
+      return;
+    }
+    if (transcript.length === 0) {
+      console.log("[phone] Transcript skipped — no messages collected");
+      return;
+    }
     try {
       const reg = lookupRegistration(callerPhone);
       await internalPost("/conversation/save", {
         client_id: context.clientId,
         platform: "phone",
         agent_name: reg?.agent_name || null,
+        location: callerPhone ? `📞 ${callerPhone}` : null,
         session_start: sessionStart,
         messages: transcript,
       }, null);
@@ -581,16 +589,9 @@ async function handleCall(twilioWs) {
       addTranscriptMsg("user", event.transcript);
     }
 
-    // Collect assistant text responses
-    if (event.type === "response.done") {
-      for (const item of event.response?.output || []) {
-        if (item.type !== "message" || item.role !== "assistant") continue;
-        const text = (item.content || [])
-          .filter(c => c.type === "text" || c.type === "audio")
-          .map(c => c.text || c.transcript || "")
-          .join(" ");
-        addTranscriptMsg("assistant", text);
-      }
+    // Collect assistant speech transcription (fires once per response turn with full text)
+    if (event.type === "response.audio_transcript.done") {
+      addTranscriptMsg("assistant", event.transcript);
     }
 
     if (event.type === "error") {
