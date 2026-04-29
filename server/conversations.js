@@ -30,6 +30,11 @@ async function getLocationFromIp(ip) {
 }
 
 function buildFilename(clientId, platform, sessionStart) {
+  // Phone calls always use the same server-side client_id, so include timestamp for uniqueness
+  if (platform === "phone") {
+    const ts = (sessionStart || new Date().toISOString()).replace(/[:.]/g, "-").substring(0, 19);
+    return `${clientId}_${platform}_${ts}.json`;
+  }
   const date = new Date().toISOString().substring(0, 10); // YYYY-MM-DD — always today
   return `${clientId}_${platform}_${date}.json`;
 }
@@ -81,7 +86,7 @@ export function registerConversationRoutes(app) {
   app.post("/conversation/save", async (req, res) => {
     try {
       ensureDir();
-      const { client_id, platform, session_start, agent_name, messages } = req.body || {};
+      const { client_id, platform, session_start, agent_name, location: bodyLocation, messages } = req.body || {};
       if (!client_id || !session_start || !Array.isArray(messages)) {
         return res.status(400).json({ ok: false, error: "client_id, session_start, messages required" });
       }
@@ -105,9 +110,14 @@ export function registerConversationRoutes(app) {
         ...messages.filter(m => !existingIds.has(m.id)),
       ].sort((a, b) => (a.timestamp || "").localeCompare(b.timestamp || ""));
 
-      // Always refresh location so it stays current (user may be in a different place)
-      const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-      const location = await getLocationFromIp(ip);
+      // Use caller-provided location (e.g. phone number for phone calls), fall back to IP geolocation
+      let location;
+      if (bodyLocation) {
+        location = bodyLocation;
+      } else {
+        const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
+        location = await getLocationFromIp(ip);
+      }
 
       const data = {
         client_id,
