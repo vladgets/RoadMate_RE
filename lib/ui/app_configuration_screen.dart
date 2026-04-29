@@ -17,6 +17,7 @@ class AppConfigurationScreen extends StatefulWidget {
 class _AppConfigurationScreenState extends State<AppConfigurationScreen> {
   bool _autoStartVoice = false;
   String? _phoneNumber;
+  bool _callingOutbound = false;
 
   @override
   void initState() {
@@ -145,6 +146,33 @@ class _AppConfigurationScreenState extends State<AppConfigurationScreen> {
     _showSnack('Phone number removed.');
   }
 
+  Future<void> _callYourself() async {
+    final number = _phoneNumber;
+    final clientId = Config.clientId;
+    if (number == null || clientId == null) return;
+
+    setState(() => _callingOutbound = true);
+    try {
+      final uri = Uri.parse('${Config.serverUrl}/call/outbound');
+      final resp = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'phone_number': number, 'client_id': clientId}),
+      );
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      if (!mounted) return;
+      if (body['ok'] == true) {
+        _showSnack('Calling $number — pick up in a few seconds…');
+      } else {
+        _showSnack('Error: ${body['error'] ?? 'Unknown error'}');
+      }
+    } catch (e) {
+      if (mounted) _showSnack('Could not reach server: $e');
+    } finally {
+      if (mounted) setState(() => _callingOutbound = false);
+    }
+  }
+
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
@@ -195,6 +223,19 @@ class _AppConfigurationScreenState extends State<AppConfigurationScreen> {
             trailing: const Icon(Icons.chevron_right),
             onTap: _editPhoneNumber,
           ),
+          if (_phoneNumber != null)
+            ListTile(
+              leading: _callingOutbound
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.call_outlined, color: Colors.green),
+              title: const Text('Call Yourself via RoadMate AI'),
+              subtitle: const Text('Initiate an outbound AI call to your number'),
+              onTap: _callingOutbound ? null : _callYourself,
+            ),
           const Divider(),
 
           // Examples

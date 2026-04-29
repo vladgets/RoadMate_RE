@@ -463,7 +463,15 @@ async function handleCall(twilioWs) {
         ? `caller identified: ${callerPhone} → client_id=${clientId}, agent: ${callerInfo.fubAgentName || "unknown"}`
         : `unknown caller: ${callerPhone} — no client_id registered`}`);
     } else {
-      console.log(`[phone] Outbound call to ${callerPhone}, client_id=${context.clientId || "anonymous"}`);
+      // For outbound, look up the called number — if it's registered we get full service access
+      const reg = lookupRegistration(callerPhone);
+      if (reg) {
+        context.clientId = reg.client_id;
+        callerInfo = { fubAgentName: reg.agent_name || null };
+        console.log(`[phone] Outbound to registered number ${callerPhone} → client_id=${context.clientId}, agent: ${callerInfo.fubAgentName || "unknown"}`);
+      } else {
+        console.log(`[phone] Outbound to unregistered number ${callerPhone}, client_id=${context.clientId || "anonymous"}`);
+      }
     }
 
     openaiWs.send(JSON.stringify({
