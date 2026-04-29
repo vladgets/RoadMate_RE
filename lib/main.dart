@@ -195,10 +195,8 @@ class _VoiceButtonPageState extends State<VoiceButtonPage> with WidgetsBindingOb
     // Initialize conversation store (SharedPreferences-based, works on all platforms)
     ConversationStore.create().then((store) async {
       _conversationStore = store;
-      // Create a new session on every app launch
-      if (!store.hasSessions) {
-        await store.createNewSession();
-      }
+      // Always start a fresh session on each app launch so session_start reflects today
+      await store.createNewSession();
 
       // Drain reminders that fired since last app open and add to chat.
       // This works even if the user never tapped the notification (e.g. while driving).

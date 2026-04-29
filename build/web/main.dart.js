@@ -100168,26 +100168,24 @@ a6S(a){var s=0,r=A.k(t.a),q,p=this,o,n,m,l,k,j,i,h,g,f,e
 var $async$$1=A.f(function(b,c){if(b===1)return A.h(c,r)
 for(;;)switch(s){case 0:f=p.a
 f.ch=a
-s=a.c.length===0?3:4
-break
-case 3:s=5
+s=3
 return A.e(a.oy(),$async$$1)
-case 5:case 4:e=J
-s=6
+case 3:e=J
+s=4
 return A.e($.nB().NS(),$async$$1)
-case 6:o=e.bD(c)
-case 7:if(!o.v()){s=8
+case 4:o=e.bD(c)
+case 5:if(!o.v()){s=6
 break}o.gP()
-s=A.aJX().length!==0?9:10
+s=A.aJX().length!==0?7:8
 break
-case 9:A.aJX()
+case 7:A.aJX()
 n=A.p(A.aJX())
 m=A.p(A.aJX())
-s=11
+s=9
 return A.e(a.mH(new A.fr(B.e.j(Date.now()),"assistant","\ud83d\udd14 "+n+"\n"+m,new A.bO(Date.now(),0,!1),"text","sent",null)),$async$$1)
-case 11:case 10:s=7
+case 9:case 8:s=5
 break
-case 8:if(f.c==null){s=1
+case 6:if(f.c==null){s=1
 break}f.M(new A.aIs())
 o=f.c
 o.toString
