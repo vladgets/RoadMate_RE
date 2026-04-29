@@ -39,10 +39,11 @@ function buildFilename(clientId, platform, sessionStart) {
   return `${clientId}_${platform}_${date}.json`;
 }
 
-function platformIcon(platform) {
+function platformIcon(platform, callDirection) {
   if (platform === "ios") return "🍎";
   if (platform === "android") return "🤖";
   if (platform === "web") return "🌐";
+  if (platform === "phone") return callDirection === "outbound" ? "📞⬆️" : "📞⬇️";
   return "💻";
 }
 
@@ -86,7 +87,7 @@ export function registerConversationRoutes(app) {
   app.post("/conversation/save", async (req, res) => {
     try {
       ensureDir();
-      const { client_id, platform, session_start, agent_name, location: bodyLocation, messages } = req.body || {};
+      const { client_id, platform, session_start, agent_name, call_direction, location: bodyLocation, messages } = req.body || {};
       if (!client_id || !session_start || !Array.isArray(messages)) {
         return res.status(400).json({ ok: false, error: "client_id, session_start, messages required" });
       }
@@ -122,6 +123,7 @@ export function registerConversationRoutes(app) {
       const data = {
         client_id,
         platform: platform || "unknown",
+        call_direction: call_direction || null,
         agent_name: agent_name || null,
         location: location || null,
         session_start: firstSessionStart,
@@ -206,6 +208,7 @@ export function registerConversationRoutes(app) {
               filename: f,
               client_id: d.client_id || "—",
               platform: d.platform || "unknown",
+              call_direction: d.call_direction || null,
               agent_name: d.agent_name || "—",
               location: d.location || null,
               session_start: d.session_start || null,
@@ -220,9 +223,14 @@ export function registerConversationRoutes(app) {
         .sort((a, b) => (b.last_updated || "").localeCompare(a.last_updated || ""));
 
       // Rows sorted by last_updated desc — client JS will insert day headers in local time
-      const tableBody = files.map(f => `
+      const tableBody = files.map(f => {
+        const icon = platformIcon(f.platform, f.call_direction);
+        const dirBadge = f.platform === "phone" && f.call_direction
+          ? ` <span style="font-size:0.7rem;font-weight:700;padding:2px 5px;border-radius:4px;background:${f.call_direction === "outbound" ? "#e8f4ff" : "#e8ffe8"};color:${f.call_direction === "outbound" ? "#0062cc" : "#1a7a1a"}">${f.call_direction.toUpperCase()}</span>`
+          : "";
+        return `
         <tr onclick="location.href='/admin/conversation/${encodeURIComponent(f.filename)}'" style="cursor:pointer" data-last-updated="${escapeHtml(f.last_msg_ts || f.last_updated || "")}">
-          <td>${platformIcon(f.platform)} ${escapeHtml(f.platform)}</td>
+          <td>${icon} ${escapeHtml(f.platform)}${dirBadge}</td>
           <td>${escapeHtml(f.agent_name)}</td>
           <td title="${escapeHtml(f.client_id)}">${escapeHtml(f.client_id.substring(0, 8))}…</td>
           <td>${escapeHtml(f.location || "—")}</td>
@@ -232,7 +240,8 @@ export function registerConversationRoutes(app) {
           <td style="text-align:center">
             <button class="del-btn" onclick="event.stopPropagation(); deleteConv('${escapeHtml(f.filename)}')" title="Delete">🗑</button>
           </td>
-        </tr>`).join("");
+        </tr>`;
+      }).join("");
 
       res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -340,6 +349,9 @@ document.querySelectorAll('.ts[data-ts]').forEach(el => {
 
       const d = JSON.parse(fs.readFileSync(fpath, "utf8"));
       const messages = d.messages || [];
+      const dirLabel = d.platform === "phone" && d.call_direction
+        ? ` &nbsp;<span style="font-size:0.75rem;font-weight:700;padding:2px 6px;border-radius:4px;background:${d.call_direction === "outbound" ? "#e8f4ff" : "#e8ffe8"};color:${d.call_direction === "outbound" ? "#0062cc" : "#1a7a1a"}">${d.call_direction.toUpperCase()}</span>`
+        : "";
 
       const bubbleParts = [];
       for (const m of messages) {
@@ -389,7 +401,7 @@ document.querySelectorAll('.ts[data-ts]').forEach(el => {
 <div class="header">
   <a class="back" href="/admin/conversations">← All Conversations</a>
   <div class="header-info">
-    <h2>${platformIcon(d.platform)} ${escapeHtml(d.agent_name || "Unknown agent")} &nbsp;·&nbsp; ${escapeHtml(d.platform)}</h2>
+    <h2>${platformIcon(d.platform, d.call_direction)} ${escapeHtml(d.agent_name || "Unknown agent")} &nbsp;·&nbsp; ${escapeHtml(d.platform)}${dirLabel}</h2>
     <p><span class="ts" data-ts="${escapeHtml(d.session_start || "")}">—</span> &nbsp;·&nbsp; ${messages.length} message${messages.length !== 1 ? "s" : ""}${d.location ? " &nbsp;·&nbsp; 📍 " + escapeHtml(d.location) : ""} &nbsp;·&nbsp; Client: ${escapeHtml(d.client_id)}</p>
   </div>
 </div>

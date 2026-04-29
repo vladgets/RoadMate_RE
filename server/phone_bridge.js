@@ -1,6 +1,7 @@
 import { WebSocketServer } from "ws";
 import WebSocket from "ws";
 import fs from "fs";
+import twilio from "twilio";
 
 const INTERNAL = "http://localhost:3000"; // server always binds on 3000
 const PHONE_REG_FILE = "/data/phone_registrations.json";
@@ -395,6 +396,7 @@ async function handleCall(twilioWs) {
   // Either can arrive first — maybeConfigureSession() checks both gates.
   let streamSid = null;
   let callerPhone = null;   // set when Twilio "start" arrives
+  let callDirection = null; // "inbound" or "outbound", set when Twilio "start" arrives
   let openaiReady = false;  // set when OpenAI WS opens
   let sessionConfigured = false;
   const pendingAudio = [];
@@ -411,7 +413,8 @@ async function handleCall(twilioWs) {
   }
 
   async function saveTranscript() {
-    if (!context.clientId) {
+    const effectiveClientId = context.clientId || (callDirection === "outbound" ? "outbound_anonymous" : null);
+    if (!effectiveClientId) {
       console.log("[phone] Transcript skipped — no client_id (unregistered caller)");
       return;
     }
@@ -420,16 +423,17 @@ async function handleCall(twilioWs) {
       return;
     }
     try {
-      const reg = lookupRegistration(callerPhone);
+      const reg = callDirection === "inbound" ? lookupRegistration(callerPhone) : null;
       await internalPost("/conversation/save", {
-        client_id: context.clientId,
+        client_id: effectiveClientId,
         platform: "phone",
+        call_direction: callDirection || "inbound",
         agent_name: reg?.agent_name || null,
         location: callerPhone ? `📞 ${callerPhone}` : null,
         session_start: sessionStart,
         messages: transcript,
       }, null);
-      console.log(`[phone] Transcript saved: ${transcript.length} messages`);
+      console.log(`[phone] Transcript saved (${callDirection}): ${transcript.length} messages`);
     } catch (e) {
       console.error("[phone] Failed to save transcript:", e.message);
     }
@@ -450,13 +454,17 @@ async function handleCall(twilioWs) {
     if (!openaiReady || sessionConfigured || callerPhone === null) return;
     sessionConfigured = true;
 
-    const clientId = lookupClientId(callerPhone);
-    context.clientId = clientId;
-    const callerInfo = loadCallerInfo(callerPhone);
-
-    console.log(`[phone] ${clientId
-      ? `Caller identified: ${callerPhone} → client_id=${clientId}, agent: ${callerInfo.fubAgentName || "unknown"}`
-      : `Unknown caller: ${callerPhone} — no client_id registered`}`);
+    let callerInfo = {};
+    if (callDirection === "inbound") {
+      const clientId = lookupClientId(callerPhone);
+      context.clientId = clientId;
+      callerInfo = loadCallerInfo(callerPhone);
+      console.log(`[phone] Inbound ${clientId
+        ? `caller identified: ${callerPhone} → client_id=${clientId}, agent: ${callerInfo.fubAgentName || "unknown"}`
+        : `unknown caller: ${callerPhone} — no client_id registered`}`);
+    } else {
+      console.log(`[phone] Outbound call to ${callerPhone}, client_id=${context.clientId || "anonymous"}`);
+    }
 
     openaiWs.send(JSON.stringify({
       type: "session.update",
@@ -472,10 +480,15 @@ async function handleCall(twilioWs) {
       },
     }));
 
-    // Trigger the AI to speak its greeting — the system prompt already says to greet the user
-    const greetInstruction = callerInfo.fubAgentName
-      ? `Greet ${callerInfo.fubAgentName} by name. Say you're RoadMate and ask how you can help.`
-      : "Greet the caller warmly. Say you're RoadMate and ask how you can help.";
+    // Trigger the AI to speak its greeting
+    let greetInstruction;
+    if (callDirection === "outbound") {
+      greetInstruction = "You are making an outbound test call. Introduce yourself as RoadMate, a voice AI assistant. Mention this is a test call and ask how you can help.";
+    } else if (callerInfo.fubAgentName) {
+      greetInstruction = `Greet ${callerInfo.fubAgentName} by name. Say you're RoadMate and ask how you can help.`;
+    } else {
+      greetInstruction = "Greet the caller warmly. Say you're RoadMate and ask how you can help.";
+    }
 
     openaiWs.send(JSON.stringify({
       type: "response.create",
@@ -501,9 +514,14 @@ async function handleCall(twilioWs) {
 
     if (msg.event === "start") {
       streamSid = msg.start.streamSid;
-      // Caller's number arrives here via the <Parameter name="from"> in TwiML
-      callerPhone = msg.start.customParameters?.from || "";
-      console.log(`[phone] Stream started: ${streamSid}, caller: ${callerPhone || "unknown"}`);
+      callDirection = msg.start.customParameters?.direction || "inbound";
+      if (callDirection === "outbound") {
+        callerPhone = msg.start.customParameters?.to || "";
+        context.clientId = msg.start.customParameters?.client_id || null;
+      } else {
+        callerPhone = msg.start.customParameters?.from || "";
+      }
+      console.log(`[phone] Stream started: ${streamSid}, direction: ${callDirection}, phone: ${callerPhone || "unknown"}`);
       maybeConfigureSession();
     }
 
@@ -630,15 +648,59 @@ export function registerPhoneBridgeRoutes(app, httpServer) {
     const host = req.headers.host;
     const from = req.body?.From || "";
     res.type("text/xml");
-    // Pass caller's number via <Parameter> — arrives in the "start" WS event
     res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
     <Stream url="wss://${host}/call/stream">
+      <Parameter name="direction" value="inbound" />
       <Parameter name="from" value="${from}" />
     </Stream>
   </Connect>
 </Response>`);
+  });
+
+  // TwiML served when outbound call is answered
+  app.get("/call/outbound/twiml", (req, res) => {
+    const host = req.headers.host;
+    const to = req.query.to || "";
+    const clientId = req.query.client_id || "";
+    res.type("text/xml");
+    res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Connect>
+    <Stream url="wss://${host}/call/stream">
+      <Parameter name="direction" value="outbound" />
+      <Parameter name="to" value="${to}" />
+      <Parameter name="client_id" value="${clientId}" />
+    </Stream>
+  </Connect>
+</Response>`);
+  });
+
+  // Initiate an outbound call via Twilio REST API
+  app.post("/call/outbound", async (req, res) => {
+    const { phone_number, client_id } = req.body || {};
+    if (!phone_number) return res.status(400).json({ ok: false, error: "phone_number required" });
+
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+
+    if (!accountSid || !authToken || !fromNumber) {
+      return res.status(500).json({ ok: false, error: "TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER env vars required" });
+    }
+
+    try {
+      const host = req.headers.host;
+      const twimlUrl = `https://${host}/call/outbound/twiml?to=${encodeURIComponent(phone_number)}&client_id=${encodeURIComponent(client_id || "")}`;
+      const client = twilio(accountSid, authToken);
+      const call = await client.calls.create({ to: phone_number, from: fromNumber, url: twimlUrl });
+      console.log(`[phone] Outbound call initiated to ${phone_number}, SID: ${call.sid}`);
+      res.json({ ok: true, call_sid: call.sid, to: phone_number });
+    } catch (e) {
+      console.error("[phone] Outbound call failed:", e.message);
+      res.status(500).json({ ok: false, error: e.message });
+    }
   });
 
   // Register a phone number → client_id mapping
