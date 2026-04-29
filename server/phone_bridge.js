@@ -659,11 +659,12 @@ export function registerPhoneBridgeRoutes(app, httpServer) {
 </Response>`);
   });
 
-  // TwiML served when outbound call is answered
-  app.get("/call/outbound/twiml", (req, res) => {
+  // TwiML served when outbound call is answered (Twilio POSTs by default)
+  app.all("/call/outbound/twiml", (req, res) => {
     const host = req.headers.host;
-    const to = req.query.to || "";
-    const clientId = req.query.client_id || "";
+    const to = req.query.to || req.body?.to || "";
+    const clientId = req.query.client_id || req.body?.client_id || "";
+    console.log(`[phone] Outbound TwiML requested — host: ${host}, to: ${to}`);
     res.type("text/xml");
     res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
