@@ -856,6 +856,9 @@ export function registerGmailRoutes(app) {
     // Respond 200 immediately so Pub/Sub doesn't retry.
     res.sendStatus(200);
 
+    // DISABLED for testing — remove this return to re-enable background processing.
+    return;
+
     try {
       const message = req.body?.message;
       if (!message?.data) return;
