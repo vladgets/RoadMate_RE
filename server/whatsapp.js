@@ -1,7 +1,7 @@
 import { getAuthorizedClient } from "./gmail.js";
 import { google } from "googleapis";
 
-const DOC_ID = "1lxQDNj49SQ-zBzN6SHo4t-WW9Xg7Mo0V";
+const DOC_ID = "1Sze4u4xxcWZfQ2cU3WW8YFGJ3EOYIi1R7twzT-70cc0";
 const CLIENT_ID = "mtCoxfJIzGRqWaxu1V-_CQ";
 
 const SYSTEM_PERSONA = `You are a helpful assistant for Roman Balandin Realty. \
