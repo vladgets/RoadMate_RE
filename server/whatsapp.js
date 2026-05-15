@@ -3,6 +3,7 @@ import { google } from "googleapis";
 
 const DOC_ID = "1Sze4u4xxcWZfQ2cU3WW8YFGJ3EOYIi1R7twzT-70cc0";
 const CLIENT_ID = "mtCoxfJIzGRqWaxu1V-_CQ";
+const INTERNAL = "http://localhost:3000";
 
 const SYSTEM_PERSONA = `You are a helpful assistant for Roman Balandin Realty. \
 Answer user questions based on the provided knowledge base document. \
@@ -13,6 +14,27 @@ If you don't know something, say so clearly and suggest the user contact the off
 // Doc cache
 let docContent = null;
 let docModifiedTime = null;
+
+function extractTextFromDocElements(elements) {
+  let text = "";
+  for (const el of elements ?? []) {
+    if (el.paragraph) {
+      for (const pe of el.paragraph.elements ?? []) {
+        text += pe.textRun?.content ?? "";
+      }
+    } else if (el.table) {
+      for (const row of el.table.tableRows ?? []) {
+        const cells = [];
+        for (const cell of row.tableCells ?? []) {
+          cells.push(extractTextFromDocElements(cell.content).trim());
+        }
+        text += cells.join(" | ") + "\n";
+      }
+      text += "\n";
+    }
+  }
+  return text;
+}
 
 async function fetchDocIfChanged() {
   try {
@@ -26,15 +48,7 @@ async function fetchDocIfChanged() {
     if (newModifiedTime === docModifiedTime && docContent !== null) return;
 
     const doc = await docs.documents.get({ documentId: DOC_ID });
-    const body = doc.data.body?.content ?? [];
-    let text = "";
-    for (const el of body) {
-      if (!el.paragraph) continue;
-      for (const pe of el.paragraph.elements ?? []) {
-        text += pe.textRun?.content ?? "";
-      }
-    }
-    docContent = text.trim();
+    docContent = extractTextFromDocElements(doc.data.body?.content).trim();
     docModifiedTime = newModifiedTime;
     console.log(`[whatsapp] Doc refreshed, modifiedTime=${newModifiedTime}, chars=${docContent.length}`);
   } catch (e) {
@@ -69,7 +83,32 @@ function twimlReply(message) {
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escapeTwiml(message)}</Message></Response>`;
 }
 
+async function saveConversation(from, messages) {
+  try {
+    const phone = from.replace(/^whatsapp:/, "");
+    const clientId = "wa_" + phone.replace(/\D/g, "");
+    const payload = {
+      client_id: clientId,
+      platform: "whatsapp",
+      agent_name: "Roman Balandin Realty",
+      location: phone,
+      session_start: messages[0]?.timestamp ?? new Date().toISOString(),
+      messages,
+    };
+    await fetch(`${INTERNAL}/conversation/save`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    console.error("[whatsapp] Failed to save conversation:", e.message);
+  }
+}
+
 export function registerWhatsAppRoutes(app) {
+  // Per-sender log of saved message objects (for conversation logging)
+  const messageLogs = new Map();
+
   app.post("/whatsapp", async (req, res) => {
     res.set("Content-Type", "text/xml");
 
@@ -84,7 +123,12 @@ export function registerWhatsAppRoutes(app) {
 
     const systemPrompt = `${SYSTEM_PERSONA}\n\n--- KNOWLEDGE BASE ---\n${docContent || "Knowledge base not available."}\n--- END ---`;
 
+    const now = new Date().toISOString();
     addToHistory(from, "user", userMessage);
+
+    if (!messageLogs.has(from)) messageLogs.set(from, []);
+    const log = messageLogs.get(from);
+    log.push({ id: `${from}-${log.length}-u`, role: "user", content: userMessage, timestamp: now });
 
     try {
       const r = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -107,6 +151,10 @@ export function registerWhatsAppRoutes(app) {
       const reply = data?.choices?.[0]?.message?.content ?? "Sorry, I couldn't process your request. Please try again.";
 
       addToHistory(from, "assistant", reply);
+      log.push({ id: `${from}-${log.length}-a`, role: "assistant", content: reply, timestamp: new Date().toISOString() });
+
+      await saveConversation(from, log);
+
       return res.send(twimlReply(reply));
     } catch (e) {
       console.error("[whatsapp] OpenAI error:", e.message);

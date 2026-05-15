@@ -44,6 +44,7 @@ function platformIcon(platform, callDirection) {
   if (platform === "android") return "🤖";
   if (platform === "web") return "🌐";
   if (platform === "phone") return callDirection === "outbound" ? "📞⬆️" : "📞⬇️";
+  if (platform === "whatsapp") return "💬";
   return "💻";
 }
 
