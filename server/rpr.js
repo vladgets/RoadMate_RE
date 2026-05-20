@@ -323,87 +323,84 @@ async function generateReport(page, address) {
 // ─── Wait for and download report PDF ────────────────────────────────────────
 
 async function downloadReport(page, context) {
-  // Step 1: Wait for "Generating live preview..." to disappear (report fully loaded)
+  // Step 1: Wait for "Generating live preview..." to disappear
   console.log("[RPR] Waiting for report preview to finish generating...");
   const previewDeadline = Date.now() + 120_000;
   while (Date.now() < previewDeadline) {
     const isGenerating = await page.locator('text="Generating live preview"').isVisible({ timeout: 1000 }).catch(() => false);
-    const spinnerVisible = await page.locator('.loading, [class*="spinner"], [class*="loading"]').isVisible({ timeout: 500 }).catch(() => false);
-    if (!isGenerating && !spinnerVisible) {
+    if (!isGenerating) {
       console.log("[RPR] Preview generation complete");
       break;
     }
     await page.waitForTimeout(2000);
   }
 
-  // Step 2: Click the Download button
+  // Step 2: Derive PDF URL directly from the editor URL.
+  // Editor URL pattern: /reports-v2/{uuid}/editor?...
+  // PDF URL pattern:    /reports-v2/{uuid}/pdf
+  // This is more reliable than intercepting download events across platforms.
+  const editorUrl = page.url();
+  const uuidMatch = editorUrl.match(/reports-v2\/([^/]+)\/editor/);
+  if (uuidMatch) {
+    const pdfUrl = `https://www.narrpr.com/reports-v2/${uuidMatch[1]}/pdf`;
+    console.log("[RPR] Fetching PDF from:", pdfUrl);
+
+    // Wait a moment for server-side PDF generation to complete
+    await page.waitForTimeout(3000);
+
+    const resp = await context.request.get(pdfUrl, {
+      headers: { Referer: "https://www.narrpr.com" },
+      timeout: 60_000,
+    });
+
+    if (resp.ok()) {
+      const pdfBuffer = await resp.body();
+      console.log(`[RPR] PDF fetched: ${pdfBuffer.length} bytes`);
+      return pdfBuffer;
+    }
+    console.warn(`[RPR] PDF URL returned ${resp.status()}, falling back to Download button`);
+  }
+
+  // Fallback: click the Download button and intercept
   console.log("[RPR] Clicking Download button...");
   const downloadBtn = page.locator('a:has-text("Download"), button:has-text("Download")').first();
   await downloadBtn.waitFor({ state: "visible", timeout: 15000 });
 
-  // Intercept download event — RPR generates a PDF server-side and triggers a file download
-  let pdfBuffer = null;
-  const [download] = await Promise.all([
-    page.waitForEvent("download", { timeout: 90_000 }),
-    downloadBtn.click({ timeout: 5000, noWaitAfter: true }),
-  ]).catch(() => [null]);
+  // Listen for new page (new tab) before clicking
+  const newPagePromise = context.waitForEvent("page", { timeout: 30_000 }).catch(() => null);
+  const downloadPromise = page.waitForEvent("download", { timeout: 30_000 }).catch(() => null);
+  await downloadBtn.click({ timeout: 5000, noWaitAfter: true });
+
+  const [newTab, download] = await Promise.all([newPagePromise, downloadPromise]);
+
+  if (newTab) {
+    await newTab.waitForLoadState("domcontentloaded", { timeout: 15000 }).catch(() => {});
+    const tabUrl = newTab.url();
+    console.log("[RPR] New tab URL:", tabUrl);
+    if (tabUrl.includes("/pdf") || tabUrl.includes(".pdf")) {
+      const resp = await context.request.get(tabUrl, { headers: { Referer: "https://www.narrpr.com" } });
+      if (resp.ok()) {
+        const buf = await resp.body();
+        console.log(`[RPR] PDF from new tab: ${buf.length} bytes`);
+        return buf;
+      }
+    }
+  }
 
   if (download) {
-    console.log("[RPR] Download triggered:", download.suggestedFilename());
     const stream = await download.createReadStream();
-    pdfBuffer = await new Promise((resolve, reject) => {
+    const buf = await new Promise((resolve, reject) => {
       const chunks = [];
       stream.on("data", c => chunks.push(c));
       stream.on("end", () => resolve(Buffer.concat(chunks)));
       stream.on("error", reject);
     });
-    console.log(`[RPR] PDF downloaded: ${pdfBuffer.length} bytes`);
-    return pdfBuffer;
+    console.log(`[RPR] PDF via download event: ${buf.length} bytes`);
+    return buf;
   }
 
-  // Download event didn't fire — check if a format picker appeared
-  await page.waitForTimeout(2000);
-
-  // Look for PDF option in a dropdown/modal
-  const pdfOption = page.locator('a:has-text("PDF"), button:has-text("PDF"), li:has-text("PDF")').first();
-  if (await pdfOption.isVisible({ timeout: 3000 }).catch(() => false)) {
-    console.log("[RPR] Clicking PDF option in format picker...");
-    const [download2] = await Promise.all([
-      page.waitForEvent("download", { timeout: 90_000 }),
-      pdfOption.click({ timeout: 5000, noWaitAfter: true }),
-    ]).catch(() => [null]);
-
-    if (download2) {
-      console.log("[RPR] PDF download triggered from format picker:", download2.suggestedFilename());
-      const stream = await download2.createReadStream();
-      pdfBuffer = await new Promise((resolve, reject) => {
-        const chunks = [];
-        stream.on("data", c => chunks.push(c));
-        stream.on("end", () => resolve(Buffer.concat(chunks)));
-        stream.on("error", reject);
-      });
-      console.log(`[RPR] PDF downloaded: ${pdfBuffer.length} bytes`);
-      return pdfBuffer;
-    }
-  }
-
-  // Check for a direct PDF link that opened in a new tab
-  const pages = context.pages();
-  for (const p of pages) {
-    if (p === page) continue;
-    const url = p.url();
-    if (url.includes(".pdf") || url.includes("download") || url.includes("report")) {
-      console.log("[RPR] Found PDF in new tab:", url);
-      const resp = await context.request.get(url, { headers: { Referer: "https://www.narrpr.com" } });
-      if (resp.ok()) {
-        pdfBuffer = await resp.body();
-        console.log(`[RPR] PDF fetched from new tab: ${pdfBuffer.length} bytes`);
-        return pdfBuffer;
-      }
-    }
-  }
-
-  throw new Error("Download did not produce a PDF file — check rpr_after_download_click.png");
+  await screenshot(page, "download_failed");
+  throw new Error("Could not obtain PDF — check download_failed.png");
 }
 
 // ─── Main exported function ───────────────────────────────────────────────────
