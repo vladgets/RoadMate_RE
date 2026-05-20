@@ -285,13 +285,14 @@ async function generateReport(page, address) {
     await page.waitForTimeout(1000);
   }
 
-  // Click Continue
+  // Click Continue and wait for navigation to editor page
   console.log("[RPR] Clicking Continue...");
   const continueBtn = page.locator('button:has-text("Continue")').first();
   await continueBtn.waitFor({ state: "visible", timeout: 8000 });
   await continueBtn.click({ timeout: 5000 });
 
-  await page.waitForTimeout(2000);
+  // Wait for navigation away from templates to the report editor
+  await page.waitForURL(/reports-v2\/.+\/editor/, { timeout: 30000 }).catch(() => {});
   console.log("[RPR] Report generation started, URL:", page.url());
 }
 
@@ -300,10 +301,18 @@ async function generateReport(page, address) {
 async function downloadReport(page, context) {
   // Step 1: Wait for Download button to appear — this is RPR's signal that
   // server-side PDF generation is complete (not just the live preview).
-  console.log("[RPR] Waiting for Download button (report fully generated)...");
+  console.log("[RPR] Waiting for Download button to be enabled...");
   const downloadBtn = page.locator('a:has-text("Download"), button:has-text("Download")').first();
   await downloadBtn.waitFor({ state: "visible", timeout: 120_000 });
-  console.log("[RPR] Download button appeared — report is ready");
+  // Wait for button to lose 'disabled'/'is-loading' classes (report fully generated)
+  await page.waitForFunction(
+    () => {
+      const btn = document.querySelector('a.download-button, button.download-button');
+      return btn && !btn.classList.contains("disabled") && !btn.classList.contains("is-loading");
+    },
+    { timeout: 120_000, polling: 2000 }
+  );
+  console.log("[RPR] Download button ready — report is fully generated");
 
   // Step 2: Click Download — this triggers server-side PDF generation on RPR.
   // After clicking, RPR opens a new tab at /reports-v2/{uuid}/pdf with the full PDF.
