@@ -327,20 +327,29 @@ async function downloadReport(page, context) {
   await downloadBtn.click({ timeout: 5000, noWaitAfter: true }).catch(() => {});
   await page.waitForTimeout(3000);
 
-  // Poll PDF URL up to 90s — RPR generates async so first few fetches may return a placeholder
+  // Poll PDF URL up to 90s — RPR generates async so first few fetches may return a placeholder.
+  // Follow the redirect to get the public S3 URL instead of downloading bytes.
   const deadline = Date.now() + 90_000;
   let attempt = 0;
   while (Date.now() < deadline) {
     attempt++;
-    const resp = await context.request.get(pdfUrl, {
-      headers: { Referer: "https://www.narrpr.com" },
-      timeout: 30_000,
+    // Use fetch (not Playwright request) so we can follow redirects and get the final URL
+    const resp = await fetch(pdfUrl, {
+      headers: { Referer: "https://www.narrpr.com", Cookie: (await context.cookies()).map(c => `${c.name}=${c.value}`).join("; ") },
+      redirect: "follow",
     }).catch(() => null);
 
-    if (resp?.ok()) {
-      const buf = await resp.body();
-      console.log(`[RPR] PDF attempt ${attempt}: ${buf.length} bytes`);
-      if (buf.length > 50_000) return buf;
+    if (resp?.ok) {
+      const finalUrl = resp.url;
+      if (finalUrl.includes("staticaws.narrpr.com")) {
+        // S3 URL appeared — HEAD it to confirm the file has content
+        const head = await fetch(finalUrl, { method: "HEAD" }).catch(() => null);
+        const size = parseInt(head?.headers?.get("content-length") ?? "0", 10);
+        console.log(`[RPR] PDF attempt ${attempt}: S3 URL ready, size=${size}`);
+        if (size > 50_000) return finalUrl;
+      } else {
+        console.log(`[RPR] PDF attempt ${attempt}: not S3 yet (${finalUrl})`);
+      }
     }
     console.log(`[RPR] PDF not ready yet (attempt ${attempt}), waiting 5s...`);
     await page.waitForTimeout(5000);
@@ -368,18 +377,18 @@ export async function generateRprReport(address) {
   );
 
   try {
-    const pdfBuffer = await Promise.race([
+    const pdfUrl = await Promise.race([
       (async () => {
         await ensureAuthenticated(page, context);
         await generateReport(page, address);
-        const pdf = await downloadReport(page, context);
+        const url = await downloadReport(page, context);
         await saveSession(context);
-        return pdf;
+        return url;
       })(),
       hardTimeout,
     ]);
 
-    return { ok: true, pdfBuffer };
+    return { ok: true, pdfUrl };
   } catch (err) {
     console.error("[RPR] Error:", err.message);
     await screenshot(page, "error").catch(() => {});
@@ -408,19 +417,12 @@ export function registerRprRoutes(app) {
     console.log(`[RPR] /rpr/report request for: ${address}`);
     const result = await generateRprReport(address.trim());
 
-    if (!result.ok || !result.pdfBuffer) {
+    if (!result.ok || !result.pdfUrl) {
       return res.status(500).json({ ok: false, error: result.error || "Failed to generate report" });
     }
 
-    const safeAddr = address.trim().replace(/[^a-zA-Z0-9\s]/g, "").replace(/\s+/g, "_");
-    const filename = `RPR_Seller_Report_${safeAddr}.pdf`;
-
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.setHeader("Content-Length", result.pdfBuffer.length);
-    res.send(result.pdfBuffer);
-
-    console.log(`[RPR] Served PDF: ${filename} (${result.pdfBuffer.length} bytes)`);
+    res.json({ ok: true, pdfUrl: result.pdfUrl });
+    console.log(`[RPR] Report ready: ${result.pdfUrl}`);
   });
 
   /**

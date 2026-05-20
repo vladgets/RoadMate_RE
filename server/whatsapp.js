@@ -1,5 +1,7 @@
 import { getAuthorizedClient } from "./gmail.js";
 import { google } from "googleapis";
+import { generateRprReport } from "./rpr.js";
+import twilio from "twilio";
 
 const DOC_ID = "1Sze4u4xxcWZfQ2cU3WW8YFGJ3EOYIi1R7twzT-70cc0";
 const CLIENT_ID = "mtCoxfJIzGRqWaxu1V-_CQ";
@@ -84,6 +86,36 @@ function twimlReply(message) {
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escapeTwiml(message)}</Message></Response>`;
 }
 
+function twimlReplyWithMedia(message, mediaUrl) {
+  return `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escapeTwiml(message)}<Media>${escapeTwiml(mediaUrl)}</Media></Message></Response>`;
+}
+
+async function sendOutboundWhatsApp(to, message, mediaUrl = null) {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_WHATSAPP_NUMBER ?? "whatsapp:+14155238886";
+  if (!accountSid || !authToken) return;
+  const client = twilio(accountSid, authToken);
+  const params = { from, to, body: message };
+  if (mediaUrl) params.mediaUrl = [mediaUrl];
+  await client.messages.create(params).catch(e => console.error("[whatsapp] Outbound send error:", e.message));
+}
+
+const RPR_TOOL = {
+  type: "function",
+  function: {
+    name: "generate_rpr_report",
+    description: "Generate an RPR market analysis / seller report PDF for a property address. Use this when the user asks for a market analysis, property report, RPR report, or seller report for a specific address.",
+    parameters: {
+      type: "object",
+      properties: {
+        address: { type: "string", description: "Full property address including city, state and zip" },
+      },
+      required: ["address"],
+    },
+  },
+};
+
 async function saveConversation(from, messages) {
   try {
     const phone = from.replace(/^whatsapp:/, "");
@@ -144,12 +176,41 @@ export function registerWhatsAppRoutes(app) {
             { role: "system", content: systemPrompt },
             ...getHistory(from),
           ],
+          tools: [RPR_TOOL],
+          tool_choice: "auto",
           temperature: 0.4,
         }),
       });
 
       const data = await r.json();
-      const reply = data?.choices?.[0]?.message?.content ?? "Sorry, I couldn't process your request. Please try again.";
+      const choice = data?.choices?.[0];
+
+      // Handle RPR tool call — reply immediately, generate async, send result via outbound message
+      if (choice?.finish_reason === "tool_calls") {
+        const toolCall = choice.message.tool_calls.find(tc => tc.function.name === "generate_rpr_report");
+        if (toolCall) {
+          const { address } = JSON.parse(toolCall.function.arguments);
+          console.log(`[whatsapp] RPR report requested for: ${address}`);
+
+          const ack = `Generating your RPR market analysis report for ${address}. This takes 1-2 minutes — I'll send you the link shortly.`;
+          addToHistory(from, "assistant", ack);
+          log.push({ id: `${from}-${log.length}-a`, role: "assistant", content: ack, timestamp: new Date().toISOString() });
+          await saveConversation(from, log);
+
+          // Generate report in background, send result via outbound Twilio message
+          generateRprReport(address).then(async result => {
+            if (result.ok) {
+              await sendOutboundWhatsApp(from, `Here is your RPR market analysis report for ${address}:`, result.pdfUrl);
+            } else {
+              await sendOutboundWhatsApp(from, `Sorry, I was unable to generate the RPR report for ${address}. Error: ${result.error}`);
+            }
+          }).catch(e => console.error("[whatsapp] RPR background error:", e.message));
+
+          return res.send(twimlReply(ack));
+        }
+      }
+
+      const reply = choice?.message?.content ?? "Sorry, I couldn't process your request. Please try again.";
 
       addToHistory(from, "assistant", reply);
       log.push({ id: `${from}-${log.length}-a`, role: "assistant", content: reply, timestamp: new Date().toISOString() });
