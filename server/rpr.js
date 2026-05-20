@@ -140,7 +140,8 @@ async function ensureAuthenticated(page, context) {
   if (!username || !password) throw new Error("RPR_USERNAME and RPR_PASSWORD env vars required");
 
   console.log("[RPR] Logging in as", username);
-  await page.goto(RPR_LOGIN_URL, { waitUntil: "networkidle", timeout: 30000 });
+  await page.goto(RPR_LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(2000);
 
   // Accept cookie consent if present (OneTrust / similar)
   for (const sel of ['button:has-text("Accept Optional")', 'button:has-text("Accept All")', 'button:has-text("Accept Cookies")', '#onetrust-accept-btn-handler']) {
