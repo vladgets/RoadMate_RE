@@ -188,7 +188,9 @@ async function ensureAuthenticated(page, context) {
 
   if (!isRprLoggedIn(page.url())) {
     await screenshot(page, "login_failed");
-    throw new Error(`RPR login failed. URL: ${page.url()}`);
+    const pageText = await page.evaluate(() => document.body?.innerText?.slice(0, 500) ?? "").catch(() => "");
+    console.log("[RPR] Login failed page text:", pageText);
+    throw new Error(`RPR login failed. URL: ${page.url()} | Page: ${pageText.slice(0, 200)}`);
   }
 
   console.log("[RPR] Logged in, URL:", page.url());
