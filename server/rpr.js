@@ -308,6 +308,7 @@ async function downloadReport(page, context) {
       const btn = document.querySelector('a.download-button, button.download-button');
       return btn && !btn.classList.contains("disabled") && !btn.classList.contains("is-loading");
     },
+    null,
     { timeout: 120_000, polling: 2000 }
   );
   const downloadBtn = page.locator('a.download-button, button.download-button').first();
