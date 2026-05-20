@@ -90,11 +90,10 @@ function twimlReplyWithMedia(message, mediaUrl) {
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escapeTwiml(message)}<Media>${escapeTwiml(mediaUrl)}</Media></Message></Response>`;
 }
 
-async function sendOutboundWhatsApp(to, message, mediaUrl = null) {
+async function sendOutboundWhatsApp(from, to, message, mediaUrl = null) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_WHATSAPP_NUMBER ?? "whatsapp:+14155238886";
-  if (!accountSid || !authToken) return;
+  if (!accountSid || !authToken) { console.warn("[whatsapp] Twilio creds missing, cannot send outbound"); return; }
   const client = twilio(accountSid, authToken);
   const params = { from, to, body: message };
   if (mediaUrl) params.mediaUrl = [mediaUrl];
@@ -146,6 +145,7 @@ export function registerWhatsAppRoutes(app) {
     res.set("Content-Type", "text/xml");
 
     const from = req.body?.From ?? "";
+    const toNumber = req.body?.To ?? process.env.TWILIO_WHATSAPP_NUMBER ?? "whatsapp:+14155238886";
     const userMessage = (req.body?.Body ?? "").trim();
 
     if (!from || !userMessage) {
@@ -200,9 +200,9 @@ export function registerWhatsAppRoutes(app) {
           // Generate report in background, send result via outbound Twilio message
           generateRprReport(address).then(async result => {
             if (result.ok) {
-              await sendOutboundWhatsApp(from, `Here is your RPR market analysis report for ${address}:`, result.pdfUrl);
+              await sendOutboundWhatsApp(toNumber, from, `Here is your RPR market analysis report for ${address}:`, result.pdfUrl);
             } else {
-              await sendOutboundWhatsApp(from, `Sorry, I was unable to generate the RPR report for ${address}. Error: ${result.error}`);
+              await sendOutboundWhatsApp(toNumber, from, `Sorry, I was unable to generate the RPR report for ${address}. Please try again later.`);
             }
           }).catch(e => console.error("[whatsapp] RPR background error:", e.message));
 
