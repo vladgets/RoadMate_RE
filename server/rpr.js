@@ -137,12 +137,17 @@ async function ensureAuthenticated(page, context) {
     }
   }
 
-  // Not logged in — should now be on auth.narrpr.com with OIDC params
+  // Not logged in — clear stale cookies before going to login page,
+  // otherwise expired tokens cause auto-redirect to sign-in-oidc.aspx.
   const username = process.env.RPR_USERNAME;
   const password = process.env.RPR_PASSWORD;
   if (!username || !password) throw new Error("RPR_USERNAME and RPR_PASSWORD env vars required");
 
-  console.log("[RPR] Logging in, current URL:", page.url());
+  await context.clearCookies();
+  console.log("[RPR] Cleared stale cookies, navigating to login...");
+  await page.goto(RPR_LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForLoadState("load", { timeout: 15000 }).catch(() => {});
+  console.log("[RPR] Login page URL:", page.url());
 
   // Accept cookie consent if present (OneTrust / similar)
   for (const sel of ['button:has-text("Accept Optional")', 'button:has-text("Accept All")', 'button:has-text("Accept Cookies")', '#onetrust-accept-btn-handler']) {
