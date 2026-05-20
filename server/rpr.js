@@ -2,16 +2,15 @@
  * RPR (Realtors Property Resource) automation via Playwright.
  *
  * Flow:
- *  1. Load saved RPR session (cookies) if available — skip login
- *  2. If not authenticated: login to Flexmls first, then click the RPR SSO link
- *     (RPR uses MLS SSO — direct login requires an email, but MLS SSO bypasses that)
- *  3. Search property by address
- *  4. Click "Create Report" → My Templates → "RB Seller Report Template"
- *  5. Wait for report generation → click "Download" → return PDF buffer
+ *  1. Load saved RPR session (cookies) — skip login if still valid
+ *  2. If not authenticated: direct login at auth.narrpr.com with RPR credentials
+ *  3. Reports menu → My Templates → RB Sellers Report Template
+ *  4. Fill address in "Select Location" modal → Continue
+ *  5. Wait for preview → fetch PDF from /reports-v2/{uuid}/pdf
  *
- * Env vars required (same as MLS):
- *   MLS_USERNAME  - Flexmls username
- *   MLS_PASSWORD  - Flexmls password
+ * Env vars required:
+ *   RPR_USERNAME  - RPR email (e.g. rbalandin@gmail.com)
+ *   RPR_PASSWORD  - RPR password
  */
 
 import { chromium } from "playwright";
@@ -21,7 +20,8 @@ import { execFileSync } from "child_process";
 
 const BROWSERS_PATH = "/data/playwright";
 const SESSION_FILE = "/data/rpr_session.json";
-const RPR_ENTRY_URL = "https://www.narrpr.com/home?cbcode=NJMOMLS-N2";
+const RPR_LOGIN_URL = "https://auth.narrpr.com/auth/sign-in";
+const RPR_HOME_URL = "https://www.narrpr.com/home";
 const SCREENSHOT_DIR = "/tmp";
 
 // ─── Chromium install (shared pattern with mls.js) ───────────────────────────
@@ -113,112 +113,54 @@ async function screenshot(page, name) {
   } catch {}
 }
 
-// ─── MLS SSO → RPR authentication ────────────────────────────────────────────
-// RPR login requires an email address, but MLS members can access RPR via SSO.
-// We log into Flexmls first (reusing the same MLS credentials), then find and
-// click the RPR link inside Flexmls which redirects us to narrpr.com authenticated.
+// ─── Authentication ───────────────────────────────────────────────────────────
 
-import { ensureAuthenticated as mlsEnsureAuthenticated } from "./mls.js";
-
-async function isRprLoggedIn(page) {
-  const url = page.url();
+function isRprLoggedIn(url) {
   return url.includes("www.narrpr.com") && !url.includes("auth.narrpr.com") && !url.includes("/sign-in");
 }
 
-async function waitForRprLoad(page, timeoutMs = 30000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (await isRprLoggedIn(page)) {
-      const bodyLen = await page.evaluate(() => document.body?.innerText?.length ?? 0).catch(() => 0);
-      if (bodyLen > 100) {
-        console.log("[RPR] Authenticated on RPR, URL:", page.url());
-        return true;
-      }
-    }
-    await page.waitForTimeout(500);
-  }
-  return false;
-}
-
 async function ensureAuthenticated(page, context) {
-  // Try saved RPR session first
+  // Try saved session first
   await loadSession(context);
-  await page.goto(RPR_ENTRY_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.goto(RPR_HOME_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForTimeout(2000);
 
-  if (await isRprLoggedIn(page)) {
+  if (isRprLoggedIn(page.url())) {
     const bodyLen = await page.evaluate(() => document.body?.innerText?.length ?? 0).catch(() => 0);
     if (bodyLen > 200) {
-      console.log("[RPR] Already authenticated via saved RPR session");
+      console.log("[RPR] Already authenticated via saved session");
+      await dismissDialogs(page);
       return;
     }
   }
 
-  console.log("[RPR] RPR session invalid — logging into Flexmls for SSO...");
+  // Direct login with RPR credentials
+  const username = process.env.RPR_USERNAME;
+  const password = process.env.RPR_PASSWORD;
+  if (!username || !password) throw new Error("RPR_USERNAME and RPR_PASSWORD env vars required");
 
-  // Log into Flexmls using existing MLS auth logic
-  await mlsEnsureAuthenticated(page, context);
-  console.log("[RPR] Flexmls authenticated, URL:", page.url());
+  console.log("[RPR] Logging in as", username);
+  await page.goto(RPR_LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForTimeout(1000);
 
-  // Look for RPR link inside Flexmls (app launcher or navigation)
-  const rprLinkSelectors = [
-    'a[href*="narrpr.com"]',
-    'a[href*="rpr"]',
-    'a:has-text("RPR")',
-    'img[alt*="RPR"]',
-    '[title*="RPR"]',
-    '[class*="rpr"]',
-  ];
+  await page.locator('input[name="email"]').fill(username);
+  await page.locator('input[name="password"]').fill(password);
+  await page.locator('button[type="submit"]').click();
 
-  let rprHref = null;
-  for (const sel of rprLinkSelectors) {
-    try {
-      // Check main frame and all child frames
-      for (const frame of page.frames()) {
-        const el = frame.locator(sel).first();
-        if (await el.count() > 0) {
-          rprHref = await el.getAttribute("href").catch(() => null);
-          console.log(`[RPR] Found RPR link (${sel}):`, rprHref);
-          break;
-        }
-      }
-    } catch {}
-    if (rprHref) break;
+  // Wait for redirect to www.narrpr.com
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    if (isRprLoggedIn(page.url())) break;
+    await page.waitForTimeout(500);
   }
 
-  if (rprHref) {
-    console.log("[RPR] Navigating via SSO link:", rprHref);
-    await page.goto(rprHref, { waitUntil: "domcontentloaded", timeout: 30000 });
-  } else {
-    // No link found — navigate to the RPR cbcode URL from within the Flexmls session.
-    // The browser context shares the Flexmls session cookies; even though RPR is a different
-    // domain, the cbcode URL triggers an SSO handshake that the MLS session authorizes.
-    console.log("[RPR] No RPR link found in Flexmls UI, navigating to cbcode URL directly...");
-    await page.goto(RPR_ENTRY_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+  if (!isRprLoggedIn(page.url())) {
+    await screenshot(page, "login_failed");
+    throw new Error(`RPR login failed. URL: ${page.url()}`);
   }
 
-  await page.waitForTimeout(3000);
-  console.log("[RPR] Post-SSO URL:", page.url());
-
-  // If still on auth page, try navigating to the RPR URL directly — sometimes
-  // the cbcode is enough on its own after a fresh Flexmls login.
-  if (!await isRprLoggedIn(page)) {
-    console.log("[RPR] Still not on RPR, trying cbcode URL again after short wait...");
-    await page.waitForTimeout(2000);
-    await page.goto(RPR_ENTRY_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-    await page.waitForTimeout(3000);
-  }
-
-  const ok = await waitForRprLoad(page, 20000);
-  if (!ok) {
-    await screenshot(page, "rpr_login_failed");
-    throw new Error(`RPR SSO failed. Final URL: ${page.url()}`);
-  }
-
+  console.log("[RPR] Logged in, URL:", page.url());
   await saveSession(context);
-  console.log("[RPR] RPR session established via MLS SSO");
-
-  // Dismiss "Another user detected" dialog if present
   await dismissDialogs(page);
 }
 
