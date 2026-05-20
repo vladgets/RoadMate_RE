@@ -11,6 +11,7 @@ import { registerMlsRoutes } from "./mls.js";
 import { registerShowingTimeTestRoutes } from "./showingtime_automation.js";
 import { registerPhoneBridgeRoutes } from "./phone_bridge.js";
 import { registerWhatsAppRoutes } from "./whatsapp.js";
+import { registerRprRoutes } from "./rpr.js";
 import { fileURLToPath } from "url";
 import path from "path";
 
@@ -231,3 +232,4 @@ app.get("/{*splat}", (_req, res) => {
 const httpServer = app.listen(3000, () => console.log("Token server on :3000"));
 registerPhoneBridgeRoutes(app, httpServer);
 registerWhatsAppRoutes(app);
+registerRprRoutes(app);
