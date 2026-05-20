@@ -141,7 +141,7 @@ async function ensureAuthenticated(page, context) {
 
   console.log("[RPR] Logging in as", username);
   await page.goto(RPR_LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(4000);
 
   // Accept cookie consent if present (OneTrust / similar)
   for (const sel of ['button:has-text("Accept Optional")', 'button:has-text("Accept All")', 'button:has-text("Accept Cookies")', '#onetrust-accept-btn-handler']) {
@@ -156,9 +156,9 @@ async function ensureAuthenticated(page, context) {
     } catch {}
   }
 
-  // Angular app — wait for email input to be ready
-  const emailInput = page.locator('input[name="email"]');
-  await emailInput.waitFor({ state: "visible", timeout: 20000 });
+  // Angular app — wait for email input to be ready (try multiple selectors)
+  const emailInput = page.locator('input[name="email"], input[type="email"], input[placeholder*="email" i]').first();
+  await emailInput.waitFor({ state: "visible", timeout: 40000 });
   await emailInput.click();
   await emailInput.pressSequentially(username, { delay: 50 });
   await page.waitForTimeout(300);
