@@ -313,59 +313,40 @@ async function downloadReport(page, context) {
   const downloadBtn = page.locator('a.download-button, button.download-button').first();
   console.log("[RPR] Download button ready — report is fully generated");
 
-  // Step 2: Click Download — this triggers server-side PDF generation on RPR.
-  // After clicking, RPR opens a new tab at /reports-v2/{uuid}/pdf with the full PDF.
+  // Step 2: Derive PDF URL from editor URL and poll until the PDF is ready.
+  // Clicking Download just triggers generation — the PDF URL may return a small
+  // placeholder until the server finishes, so we poll with retries.
   const editorUrl = page.url();
   const uuidMatch = editorUrl.match(/reports-v2\/([^/]+)\/editor/);
+  if (!uuidMatch) throw new Error("Could not extract report UUID from editor URL: " + editorUrl);
 
-  console.log("[RPR] Clicking Download to trigger PDF generation...");
-  const newPagePromise = context.waitForEvent("page", { timeout: 30_000 }).catch(() => null);
-  const downloadPromise = page.waitForEvent("download", { timeout: 30_000 }).catch(() => null);
-  await downloadBtn.click({ timeout: 5000, noWaitAfter: true });
+  const pdfUrl = `https://www.narrpr.com/reports-v2/${uuidMatch[1]}/pdf`;
+  console.log("[RPR] Clicking Download, then polling PDF:", pdfUrl);
 
-  const [newTab, download] = await Promise.all([newPagePromise, downloadPromise]);
+  await downloadBtn.click({ timeout: 5000, noWaitAfter: true }).catch(() => {});
+  await page.waitForTimeout(3000);
 
-  // Strategy 1: new tab opened — fetch PDF URL from it
-  if (newTab) {
-    await newTab.waitForLoadState("domcontentloaded", { timeout: 15000 }).catch(() => {});
-    const tabUrl = newTab.url();
-    console.log("[RPR] New tab URL:", tabUrl);
-    const resp = await context.request.get(tabUrl, { headers: { Referer: "https://www.narrpr.com" } });
-    if (resp.ok()) {
+  // Poll PDF URL up to 90s — RPR generates async so first few fetches may return a placeholder
+  const deadline = Date.now() + 90_000;
+  let attempt = 0;
+  while (Date.now() < deadline) {
+    attempt++;
+    const resp = await context.request.get(pdfUrl, {
+      headers: { Referer: "https://www.narrpr.com" },
+      timeout: 30_000,
+    }).catch(() => null);
+
+    if (resp?.ok()) {
       const buf = await resp.body();
-      console.log(`[RPR] PDF from new tab: ${buf.length} bytes`);
+      console.log(`[RPR] PDF attempt ${attempt}: ${buf.length} bytes`);
       if (buf.length > 50_000) return buf;
     }
-  }
-
-  // Strategy 2: download event fired
-  if (download) {
-    const stream = await download.createReadStream();
-    const buf = await new Promise((resolve, reject) => {
-      const chunks = [];
-      stream.on("data", c => chunks.push(c));
-      stream.on("end", () => resolve(Buffer.concat(chunks)));
-      stream.on("error", reject);
-    });
-    console.log(`[RPR] PDF via download event: ${buf.length} bytes`);
-    if (buf.length > 50_000) return buf;
-  }
-
-  // Strategy 3: derive PDF URL from editor URL, wait for generation then fetch
-  if (uuidMatch) {
-    const pdfUrl = `https://www.narrpr.com/reports-v2/${uuidMatch[1]}/pdf`;
-    console.log("[RPR] Waiting 10s then fetching PDF URL directly:", pdfUrl);
-    await page.waitForTimeout(10_000);
-    const resp = await context.request.get(pdfUrl, { headers: { Referer: "https://www.narrpr.com" }, timeout: 60_000 });
-    if (resp.ok()) {
-      const buf = await resp.body();
-      console.log(`[RPR] PDF from direct URL: ${buf.length} bytes`);
-      if (buf.length > 50_000) return buf;
-    }
+    console.log(`[RPR] PDF not ready yet (attempt ${attempt}), waiting 5s...`);
+    await page.waitForTimeout(5000);
   }
 
   await screenshot(page, "download_failed");
-  throw new Error("Could not obtain a valid PDF (all strategies failed)");
+  throw new Error("PDF never became available after polling 90s");
 }
 
 // ─── Main exported function ───────────────────────────────────────────────────
