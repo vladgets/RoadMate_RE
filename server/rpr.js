@@ -125,7 +125,9 @@ async function ensureAuthenticated(page, context) {
   // Single navigation — session valid = stays on narrpr.com,
   // session invalid = OIDC redirects to auth.narrpr.com with correct params.
   await page.goto(RPR_HOME_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-  await page.waitForTimeout(2000);
+  // Wait for OIDC callback redirect chain to settle (callback → home)
+  await page.waitForURL(url => !url.includes("/auth/callback"), { timeout: 10000 }).catch(() => {});
+  await page.waitForLoadState("load", { timeout: 10000 }).catch(() => {});
   console.log("[RPR] After home nav, URL:", page.url());
 
   if (isRprLoggedIn(page.url())) {
