@@ -162,23 +162,18 @@ async function ensureAuthenticated(page, context) {
     } catch {}
   }
 
-  // Angular app — wait for email input to be ready (try multiple selectors)
+  // Angular app — wait for email input, use fill() to trigger reactive form events
   const emailInput = page.locator('input[name="email"], input[type="email"], input[placeholder*="email" i]').first();
   await emailInput.waitFor({ state: "visible", timeout: 40000 });
-  await emailInput.click();
-  await emailInput.pressSequentially(username, { delay: 50 });
+  await emailInput.fill(username);
   await page.waitForTimeout(300);
 
-  const pwInput = page.locator('input[name="password"]');
-  await pwInput.click();
-  await pwInput.pressSequentially(password, { delay: 50 });
+  const pwInput = page.locator('input[name="password"], input[type="password"]').first();
+  await pwInput.fill(password);
   await page.waitForTimeout(500);
 
-  // Verify the values were typed correctly
-  const typedEmail = await emailInput.inputValue().catch(() => "");
-  const typedPw = await pwInput.inputValue().catch(() => "");
-  console.log("[RPR] Email field value:", typedEmail);
-  console.log("[RPR] Password field length:", typedPw.length);
+  console.log("[RPR] Email:", await emailInput.inputValue().catch(() => ""));
+  console.log("[RPR] Password length:", (await pwInput.inputValue().catch(() => "")).length);
 
   await page.locator('button[type="submit"]').click({ force: true });
   await page.waitForTimeout(2000);
