@@ -302,9 +302,7 @@ async function downloadReport(page, context) {
   // Step 1: Wait for Download button to appear — this is RPR's signal that
   // server-side PDF generation is complete (not just the live preview).
   console.log("[RPR] Waiting for Download button to be enabled...");
-  const downloadBtn = page.locator('a:has-text("Download"), button:has-text("Download")').first();
-  await downloadBtn.waitFor({ state: "visible", timeout: 120_000 });
-  // Wait for button to lose 'disabled'/'is-loading' classes (report fully generated)
+  // Wait for the specific download-button class to appear and become active
   await page.waitForFunction(
     () => {
       const btn = document.querySelector('a.download-button, button.download-button');
@@ -312,6 +310,7 @@ async function downloadReport(page, context) {
     },
     { timeout: 120_000, polling: 2000 }
   );
+  const downloadBtn = page.locator('a.download-button, button.download-button').first();
   console.log("[RPR] Download button ready — report is fully generated");
 
   // Step 2: Click Download — this triggers server-side PDF generation on RPR.
