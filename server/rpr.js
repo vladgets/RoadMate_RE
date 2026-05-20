@@ -141,7 +141,7 @@ async function ensureAuthenticated(page, context) {
 
   console.log("[RPR] Logging in as", username);
   await page.goto(RPR_LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-  await page.waitForTimeout(4000);
+  await page.waitForLoadState("load", { timeout: 15000 }).catch(() => {});
 
   // Accept cookie consent if present (OneTrust / similar)
   for (const sel of ['button:has-text("Accept Optional")', 'button:has-text("Accept All")', 'button:has-text("Accept Cookies")', '#onetrust-accept-btn-handler']) {
