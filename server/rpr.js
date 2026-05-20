@@ -139,9 +139,13 @@ async function ensureAuthenticated(page, context) {
   const password = process.env.RPR_PASSWORD;
   if (!username || !password) throw new Error("RPR_USERNAME and RPR_PASSWORD env vars required");
 
+  // Navigate to home and follow the OIDC redirect — this gives auth.narrpr.com
+  // the correct client_id/redirect_uri params so login completes properly.
   console.log("[RPR] Logging in as", username);
-  await page.goto(RPR_LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-  await page.waitForLoadState("load", { timeout: 15000 }).catch(() => {});
+  await page.goto(RPR_HOME_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+  // Wait for the OIDC redirect to auth.narrpr.com
+  await page.waitForURL(/auth\.narrpr\.com/, { timeout: 15000 }).catch(() => {});
+  console.log("[RPR] Auth URL:", page.url());
 
   // Accept cookie consent if present (OneTrust / similar)
   for (const sel of ['button:has-text("Accept Optional")', 'button:has-text("Accept All")', 'button:has-text("Accept Cookies")', '#onetrust-accept-btn-handler']) {
