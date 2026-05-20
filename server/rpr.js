@@ -120,10 +120,13 @@ function isRprLoggedIn(url) {
 }
 
 async function ensureAuthenticated(page, context) {
-  // Try saved session first
   await loadSession(context);
+
+  // Single navigation — session valid = stays on narrpr.com,
+  // session invalid = OIDC redirects to auth.narrpr.com with correct params.
   await page.goto(RPR_HOME_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForTimeout(2000);
+  console.log("[RPR] After home nav, URL:", page.url());
 
   if (isRprLoggedIn(page.url())) {
     const bodyLen = await page.evaluate(() => document.body?.innerText?.length ?? 0).catch(() => 0);
@@ -134,18 +137,12 @@ async function ensureAuthenticated(page, context) {
     }
   }
 
-  // Direct login with RPR credentials
+  // Not logged in — should now be on auth.narrpr.com with OIDC params
   const username = process.env.RPR_USERNAME;
   const password = process.env.RPR_PASSWORD;
   if (!username || !password) throw new Error("RPR_USERNAME and RPR_PASSWORD env vars required");
 
-  // Navigate to home and follow the OIDC redirect — this gives auth.narrpr.com
-  // the correct client_id/redirect_uri params so login completes properly.
-  console.log("[RPR] Logging in as", username);
-  await page.goto(RPR_HOME_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-  // Wait for the OIDC redirect to auth.narrpr.com
-  await page.waitForURL(/auth\.narrpr\.com/, { timeout: 15000 }).catch(() => {});
-  console.log("[RPR] Auth URL:", page.url());
+  console.log("[RPR] Logging in, current URL:", page.url());
 
   // Accept cookie consent if present (OneTrust / similar)
   for (const sel of ['button:has-text("Accept Optional")', 'button:has-text("Accept All")', 'button:has-text("Accept Cookies")', '#onetrust-accept-btn-handler']) {
