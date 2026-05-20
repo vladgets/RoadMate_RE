@@ -163,20 +163,25 @@ async function ensureAuthenticated(page, context) {
     } catch {}
   }
 
-  // Angular app — wait for email input, use fill() to trigger reactive form events
+  // Angular app — wait for email input, use fill() + blur to trigger reactive form validation
   const emailInput = page.locator('input[name="email"], input[type="email"], input[placeholder*="email" i]').first();
   await emailInput.waitFor({ state: "visible", timeout: 40000 });
   await emailInput.fill(username);
-  await page.waitForTimeout(300);
+  await emailInput.press("Tab"); // triggers blur + Angular validation
 
   const pwInput = page.locator('input[name="password"], input[type="password"]').first();
   await pwInput.fill(password);
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(300);
 
   console.log("[RPR] Email:", await emailInput.inputValue().catch(() => ""));
   console.log("[RPR] Password length:", (await pwInput.inputValue().catch(() => "")).length);
 
-  await page.locator('button[type="submit"]').click({ force: true });
+  const submitBtn = page.locator('button[type="submit"]').first();
+  const isDisabled = await submitBtn.isDisabled().catch(() => false);
+  console.log("[RPR] Submit button disabled:", isDisabled);
+
+  // Press Enter on password field as primary method — more reliable than button click
+  await pwInput.press("Enter");
   await page.waitForTimeout(2000);
   await screenshot(page, "after_login_click");
 
