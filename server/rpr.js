@@ -140,12 +140,42 @@ async function ensureAuthenticated(page, context) {
   if (!username || !password) throw new Error("RPR_USERNAME and RPR_PASSWORD env vars required");
 
   console.log("[RPR] Logging in as", username);
-  await page.goto(RPR_LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-  await page.waitForTimeout(1000);
+  await page.goto(RPR_LOGIN_URL, { waitUntil: "networkidle", timeout: 30000 });
 
-  await page.locator('input[name="email"]').fill(username);
-  await page.locator('input[name="password"]').fill(password);
-  await page.locator('button[type="submit"]').click();
+  // Accept cookie consent if present (OneTrust / similar)
+  for (const sel of ['button:has-text("Accept Optional")', 'button:has-text("Accept All")', 'button:has-text("Accept Cookies")', '#onetrust-accept-btn-handler']) {
+    try {
+      const btn = page.locator(sel).first();
+      if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        console.log("[RPR] Accepting cookie consent...");
+        await btn.click({ timeout: 3000 });
+        await page.waitForTimeout(1000);
+        break;
+      }
+    } catch {}
+  }
+
+  // Angular app — wait for email input to be ready
+  const emailInput = page.locator('input[name="email"]');
+  await emailInput.waitFor({ state: "visible", timeout: 20000 });
+  await emailInput.click();
+  await emailInput.pressSequentially(username, { delay: 50 });
+  await page.waitForTimeout(300);
+
+  const pwInput = page.locator('input[name="password"]');
+  await pwInput.click();
+  await pwInput.pressSequentially(password, { delay: 50 });
+  await page.waitForTimeout(500);
+
+  // Verify the values were typed correctly
+  const typedEmail = await emailInput.inputValue().catch(() => "");
+  const typedPw = await pwInput.inputValue().catch(() => "");
+  console.log("[RPR] Email field value:", typedEmail);
+  console.log("[RPR] Password field length:", typedPw.length);
+
+  await page.locator('button[type="submit"]').click({ force: true });
+  await page.waitForTimeout(2000);
+  await screenshot(page, "after_login_click");
 
   // Wait for redirect to www.narrpr.com
   const deadline = Date.now() + 30000;
@@ -184,19 +214,11 @@ async function dismissDialogs(page) {
 async function generateReport(page, address) {
   await dismissDialogs(page);
 
-  // Step 1: Click "Reports" in the top nav
-  console.log("[RPR] Clicking Reports menu...");
-  const reportsMenu = page.locator('nav a:has-text("Reports"), a:has-text("Reports"), button:has-text("Reports")').first();
-  await reportsMenu.waitFor({ state: "visible", timeout: 15000 });
-  await reportsMenu.click({ timeout: 5000 });
-  await page.waitForTimeout(1000);
-
-  // Step 2: Click "My Templates" in the dropdown
-  console.log("[RPR] Clicking My Templates...");
-  const myTemplatesLink = page.locator('a:has-text("My Templates"), button:has-text("My Templates")').first();
-  await myTemplatesLink.waitFor({ state: "visible", timeout: 8000 });
-  await myTemplatesLink.click({ timeout: 5000 });
-  await page.waitForTimeout(2000);
+  // Navigate directly to the templates page — avoids dropdown timing issues
+  console.log("[RPR] Navigating to My Templates...");
+  await page.goto("https://www.narrpr.com/reports-v2/templates", { waitUntil: "commit", timeout: 30000 }).catch(() => {});
+  await page.waitForTimeout(3000);
+  await dismissDialogs(page);
   console.log("[RPR] Templates page URL:", page.url());
 
   // Step 3: Find and click "RB Sellers Report" template
@@ -206,11 +228,12 @@ async function generateReport(page, address) {
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)).catch(() => {});
   await page.waitForTimeout(500);
 
+  // Target the exact template name within the My Templates table row to avoid
+  // matching the "RB" sidebar tab or other partial matches
   const templateSelectors = [
+    page.locator('td:has-text("RB Sellers Report Template")'),
+    page.locator('td:has-text("RB Sellers Report")'),
     page.getByText("RB Sellers Report Template", { exact: true }),
-    page.getByText("RB Sellers Report", { exact: false }),
-    page.locator(':text-matches("RB Sellers", "i")'),
-    page.locator(':text-matches("RB Seller", "i")'),
   ];
 
   let foundTemplate = false;
@@ -218,7 +241,7 @@ async function generateReport(page, address) {
     try {
       if (await locator.count() > 0 && await locator.first().isVisible({ timeout: 2000 }).catch(() => false)) {
         console.log("[RPR] Clicking RB Sellers Report template...");
-        await locator.first().click({ timeout: 5000 });
+        await locator.first().click({ timeout: 5000, force: true });
         foundTemplate = true;
         break;
       }
@@ -265,70 +288,39 @@ async function generateReport(page, address) {
 // ─── Wait for and download report PDF ────────────────────────────────────────
 
 async function downloadReport(page, context) {
-  // Step 1: Wait for "Generating live preview..." to disappear
-  console.log("[RPR] Waiting for report preview to finish generating...");
-  const previewDeadline = Date.now() + 120_000;
-  while (Date.now() < previewDeadline) {
-    const isGenerating = await page.locator('text="Generating live preview"').isVisible({ timeout: 1000 }).catch(() => false);
-    if (!isGenerating) {
-      console.log("[RPR] Preview generation complete");
-      break;
-    }
-    await page.waitForTimeout(2000);
-  }
+  // Step 1: Wait for Download button to appear — this is RPR's signal that
+  // server-side PDF generation is complete (not just the live preview).
+  console.log("[RPR] Waiting for Download button (report fully generated)...");
+  const downloadBtn = page.locator('a:has-text("Download"), button:has-text("Download")').first();
+  await downloadBtn.waitFor({ state: "visible", timeout: 120_000 });
+  console.log("[RPR] Download button appeared — report is ready");
 
-  // Step 2: Derive PDF URL directly from the editor URL.
-  // Editor URL pattern: /reports-v2/{uuid}/editor?...
-  // PDF URL pattern:    /reports-v2/{uuid}/pdf
-  // This is more reliable than intercepting download events across platforms.
+  // Step 2: Click Download — this triggers server-side PDF generation on RPR.
+  // After clicking, RPR opens a new tab at /reports-v2/{uuid}/pdf with the full PDF.
   const editorUrl = page.url();
   const uuidMatch = editorUrl.match(/reports-v2\/([^/]+)\/editor/);
-  if (uuidMatch) {
-    const pdfUrl = `https://www.narrpr.com/reports-v2/${uuidMatch[1]}/pdf`;
-    console.log("[RPR] Fetching PDF from:", pdfUrl);
 
-    // Wait a moment for server-side PDF generation to complete
-    await page.waitForTimeout(3000);
-
-    const resp = await context.request.get(pdfUrl, {
-      headers: { Referer: "https://www.narrpr.com" },
-      timeout: 60_000,
-    });
-
-    if (resp.ok()) {
-      const pdfBuffer = await resp.body();
-      console.log(`[RPR] PDF fetched: ${pdfBuffer.length} bytes`);
-      return pdfBuffer;
-    }
-    console.warn(`[RPR] PDF URL returned ${resp.status()}, falling back to Download button`);
-  }
-
-  // Fallback: click the Download button and intercept
-  console.log("[RPR] Clicking Download button...");
-  const downloadBtn = page.locator('a:has-text("Download"), button:has-text("Download")').first();
-  await downloadBtn.waitFor({ state: "visible", timeout: 15000 });
-
-  // Listen for new page (new tab) before clicking
+  console.log("[RPR] Clicking Download to trigger PDF generation...");
   const newPagePromise = context.waitForEvent("page", { timeout: 30_000 }).catch(() => null);
   const downloadPromise = page.waitForEvent("download", { timeout: 30_000 }).catch(() => null);
   await downloadBtn.click({ timeout: 5000, noWaitAfter: true });
 
   const [newTab, download] = await Promise.all([newPagePromise, downloadPromise]);
 
+  // Strategy 1: new tab opened — fetch PDF URL from it
   if (newTab) {
     await newTab.waitForLoadState("domcontentloaded", { timeout: 15000 }).catch(() => {});
     const tabUrl = newTab.url();
     console.log("[RPR] New tab URL:", tabUrl);
-    if (tabUrl.includes("/pdf") || tabUrl.includes(".pdf")) {
-      const resp = await context.request.get(tabUrl, { headers: { Referer: "https://www.narrpr.com" } });
-      if (resp.ok()) {
-        const buf = await resp.body();
-        console.log(`[RPR] PDF from new tab: ${buf.length} bytes`);
-        return buf;
-      }
+    const resp = await context.request.get(tabUrl, { headers: { Referer: "https://www.narrpr.com" } });
+    if (resp.ok()) {
+      const buf = await resp.body();
+      console.log(`[RPR] PDF from new tab: ${buf.length} bytes`);
+      if (buf.length > 50_000) return buf;
     }
   }
 
+  // Strategy 2: download event fired
   if (download) {
     const stream = await download.createReadStream();
     const buf = await new Promise((resolve, reject) => {
@@ -338,11 +330,24 @@ async function downloadReport(page, context) {
       stream.on("error", reject);
     });
     console.log(`[RPR] PDF via download event: ${buf.length} bytes`);
-    return buf;
+    if (buf.length > 50_000) return buf;
+  }
+
+  // Strategy 3: derive PDF URL from editor URL, wait for generation then fetch
+  if (uuidMatch) {
+    const pdfUrl = `https://www.narrpr.com/reports-v2/${uuidMatch[1]}/pdf`;
+    console.log("[RPR] Waiting 10s then fetching PDF URL directly:", pdfUrl);
+    await page.waitForTimeout(10_000);
+    const resp = await context.request.get(pdfUrl, { headers: { Referer: "https://www.narrpr.com" }, timeout: 60_000 });
+    if (resp.ok()) {
+      const buf = await resp.body();
+      console.log(`[RPR] PDF from direct URL: ${buf.length} bytes`);
+      if (buf.length > 50_000) return buf;
+    }
   }
 
   await screenshot(page, "download_failed");
-  throw new Error("Could not obtain PDF — check download_failed.png");
+  throw new Error("Could not obtain a valid PDF (all strategies failed)");
 }
 
 // ─── Main exported function ───────────────────────────────────────────────────
