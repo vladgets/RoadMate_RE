@@ -145,7 +145,6 @@ async function ensureAuthenticated(page, context) {
   await loadSession(context);
   await page.goto(RPR_ENTRY_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForTimeout(2000);
-  await screenshot(page, "after_nav");
 
   if (await isRprLoggedIn(page)) {
     const bodyLen = await page.evaluate(() => document.body?.innerText?.length ?? 0).catch(() => 0);
@@ -160,7 +159,6 @@ async function ensureAuthenticated(page, context) {
   // Log into Flexmls using existing MLS auth logic
   await mlsEnsureAuthenticated(page, context);
   console.log("[RPR] Flexmls authenticated, URL:", page.url());
-  await screenshot(page, "mls_logged_in");
 
   // Look for RPR link inside Flexmls (app launcher or navigation)
   const rprLinkSelectors = [
@@ -200,7 +198,6 @@ async function ensureAuthenticated(page, context) {
   }
 
   await page.waitForTimeout(3000);
-  await screenshot(page, "after_sso_nav");
   console.log("[RPR] Post-SSO URL:", page.url());
 
   // If still on auth page, try navigating to the RPR URL directly — sometimes
@@ -210,7 +207,6 @@ async function ensureAuthenticated(page, context) {
     await page.waitForTimeout(2000);
     await page.goto(RPR_ENTRY_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForTimeout(3000);
-    await screenshot(page, "after_cbcode_retry");
   }
 
   const ok = await waitForRprLoad(page, 20000);
@@ -245,7 +241,6 @@ async function dismissDialogs(page) {
 
 async function generateReport(page, address) {
   await dismissDialogs(page);
-  await screenshot(page, "before_reports_menu");
 
   // Step 1: Click "Reports" in the top nav
   console.log("[RPR] Clicking Reports menu...");
@@ -253,7 +248,6 @@ async function generateReport(page, address) {
   await reportsMenu.waitFor({ state: "visible", timeout: 15000 });
   await reportsMenu.click({ timeout: 5000 });
   await page.waitForTimeout(1000);
-  await screenshot(page, "after_reports_menu");
 
   // Step 2: Click "My Templates" in the dropdown
   console.log("[RPR] Clicking My Templates...");
@@ -261,7 +255,6 @@ async function generateReport(page, address) {
   await myTemplatesLink.waitFor({ state: "visible", timeout: 8000 });
   await myTemplatesLink.click({ timeout: 5000 });
   await page.waitForTimeout(2000);
-  await screenshot(page, "after_my_templates");
   console.log("[RPR] Templates page URL:", page.url());
 
   // Step 3: Find and click "RB Sellers Report" template
@@ -298,7 +291,6 @@ async function generateReport(page, address) {
   }
 
   await page.waitForTimeout(1500);
-  await screenshot(page, "after_click_template");
 
   // Step 4: Handle "Select Location" modal — fill address and click Continue
   console.log("[RPR] Handling Select Location modal...");
@@ -309,7 +301,6 @@ async function generateReport(page, address) {
   console.log("[RPR] Filled address:", address);
 
   await page.waitForTimeout(1500);
-  await screenshot(page, "after_fill_address");
 
   // Click first autocomplete suggestion if it appears
   const suggestion = page.locator('[role="option"], [class*="suggestion"], [class*="autocomplete"]').first();
@@ -319,8 +310,6 @@ async function generateReport(page, address) {
     await page.waitForTimeout(1000);
   }
 
-  await screenshot(page, "before_continue");
-
   // Click Continue
   console.log("[RPR] Clicking Continue...");
   const continueBtn = page.locator('button:has-text("Continue")').first();
@@ -328,7 +317,6 @@ async function generateReport(page, address) {
   await continueBtn.click({ timeout: 5000 });
 
   await page.waitForTimeout(2000);
-  await screenshot(page, "after_continue");
   console.log("[RPR] Report generation started, URL:", page.url());
 }
 
@@ -347,13 +335,11 @@ async function downloadReport(page, context) {
     }
     await page.waitForTimeout(2000);
   }
-  await screenshot(page, "preview_ready");
 
   // Step 2: Click the Download button
   console.log("[RPR] Clicking Download button...");
   const downloadBtn = page.locator('a:has-text("Download"), button:has-text("Download")').first();
   await downloadBtn.waitFor({ state: "visible", timeout: 15000 });
-  await screenshot(page, "before_download");
 
   // Intercept download event — RPR generates a PDF server-side and triggers a file download
   let pdfBuffer = null;
@@ -377,7 +363,6 @@ async function downloadReport(page, context) {
 
   // Download event didn't fire — check if a format picker appeared
   await page.waitForTimeout(2000);
-  await screenshot(page, "after_download_click");
 
   // Look for PDF option in a dropdown/modal
   const pdfOption = page.locator('a:has-text("PDF"), button:has-text("PDF"), li:has-text("PDF")').first();
