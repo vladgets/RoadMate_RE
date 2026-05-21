@@ -361,9 +361,23 @@ async function downloadReport(page, context) {
   throw new Error("PDF never became available after polling 90s");
 }
 
+// ─── Request queue — RPR only allows one active session per account ──────────
+
+let _rprQueue = Promise.resolve();
+
+function enqueueRpr(fn) {
+  const result = _rprQueue.then(fn);
+  _rprQueue = result.catch(() => {});
+  return result;
+}
+
 // ─── Main exported function ───────────────────────────────────────────────────
 
-export async function generateRprReport(address) {
+export function generateRprReport(address) {
+  return enqueueRpr(() => _generateRprReport(address));
+}
+
+async function _generateRprReport(address) {
   const browser = await getBrowser();
   const context = await browser.newContext({
     userAgent:
