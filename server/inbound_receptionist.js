@@ -1,29 +1,51 @@
 import { WebSocketServer } from "ws";
 import WebSocket from "ws";
 import twilio from "twilio";
+import fs from "fs";
+import { adminTabBar, tabBarCss } from "./feedback.js";
 
 const ET_LOCALE = "en-US";
 const ET_TZ = "America/New_York";
+const INTERNAL = "http://localhost:3000";
 
-// ── Business hours ────────────────────────────────────────────────────────────
+// ── Config ────────────────────────────────────────────────────────────────────
 
-// Returns the Nth weekday of a given month (e.g. 3rd Monday = nthWeekday(year, month, 1, 3))
+const CONFIG_FILE = "/data/receptionist_config.json";
+
+const DEFAULT_CONFIG = {
+  gabriella_number: process.env.RECEPTIONIST_GABRIELLA_NUMBER || "",
+  ring_timeout_seconds: 30,
+};
+
+function loadConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8")) };
+    }
+  } catch {}
+  return { ...DEFAULT_CONFIG };
+}
+
+function saveConfig(cfg) {
+  fs.mkdirSync("/data", { recursive: true });
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2), "utf8");
+}
+
+// ── Business hours + holidays ─────────────────────────────────────────────────
+
 function nthWeekday(year, month, dow, n) {
-  // dow: 0=Sun, 1=Mon … 6=Sat; month: 1-based
   const d = new Date(year, month - 1, 1);
   const first = d.getDay();
-  let day = 1 + ((dow - first + 7) % 7) + (n - 1) * 7;
+  const day = 1 + ((dow - first + 7) % 7) + (n - 1) * 7;
   return new Date(year, month - 1, day);
 }
 
-// Returns the last occurrence of a weekday in a month
 function lastWeekday(year, month, dow) {
-  const last = new Date(year, month, 0); // last day of month
+  const last = new Date(year, month, 0);
   const diff = (last.getDay() - dow + 7) % 7;
   return new Date(year, month - 1, last.getDate() - diff);
 }
 
-// Returns observed date: Sat → Fri, Sun → Mon
 function observed(date) {
   const dow = date.getDay();
   if (dow === 6) return new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1);
@@ -31,47 +53,44 @@ function observed(date) {
   return date;
 }
 
-// Returns Set of "YYYY-MM-DD" strings for US federal holidays in a given year
 function usHolidays(year) {
   const fixed = (m, d) => observed(new Date(year, m - 1, d));
   const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   return new Set([
-    fmt(fixed(1, 1)),                        // New Year's Day
-    fmt(nthWeekday(year, 1, 1, 3)),          // MLK Day (3rd Mon Jan)
-    fmt(nthWeekday(year, 2, 1, 3)),          // Presidents' Day (3rd Mon Feb)
-    fmt(lastWeekday(year, 5, 1)),            // Memorial Day (last Mon May)
-    fmt(fixed(6, 19)),                       // Juneteenth
-    fmt(fixed(7, 4)),                        // Independence Day
-    fmt(nthWeekday(year, 9, 1, 1)),          // Labor Day (1st Mon Sep)
-    fmt(fixed(11, 11)),                      // Veterans Day
-    fmt(nthWeekday(year, 11, 4, 4)),         // Thanksgiving (4th Thu Nov)
-    fmt(fixed(12, 25)),                      // Christmas Day
+    fmt(fixed(1, 1)),
+    fmt(nthWeekday(year, 1, 1, 3)),
+    fmt(nthWeekday(year, 2, 1, 3)),
+    fmt(lastWeekday(year, 5, 1)),
+    fmt(fixed(6, 19)),
+    fmt(fixed(7, 4)),
+    fmt(nthWeekday(year, 9, 1, 1)),
+    fmt(fixed(11, 11)),
+    fmt(nthWeekday(year, 11, 4, 4)),
+    fmt(fixed(12, 25)),
   ]);
 }
 
 function isBusinessHours() {
   const now = new Date();
-  // Use Intl to get ET date parts
   const etParts = new Intl.DateTimeFormat("en-US", {
     timeZone: ET_TZ, weekday: "short", hour: "numeric", hour12: false,
     year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(now);
-
   const get = (type) => etParts.find(p => p.type === type)?.value;
   const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
   const etDay = dayMap[get("weekday")] ?? -1;
   const etHour = Number(get("hour") ?? -1);
   const etDateStr = `${get("year")}-${get("month")}-${get("day")}`;
-
-  if (etDay < 1 || etDay > 5) return false;           // weekend
-  if (etHour < 9 || etHour >= 17) return false;       // outside 9am–5pm
-  if (usHolidays(Number(get("year"))).has(etDateStr)) return false; // holiday
+  if (etDay < 1 || etDay > 5) return false;
+  if (etHour < 9 || etHour >= 17) return false;
+  if (usHolidays(Number(get("year"))).has(etDateStr)) return false;
   return true;
 }
 
 // ── System prompt ─────────────────────────────────────────────────────────────
 
-function buildAvaPrompt() {
+// sessionCtx: { noAnswer, callerName, callerIntent }
+function buildAvaPrompt(sessionCtx = {}) {
   const now = new Date();
   const dateStr = now.toLocaleDateString(ET_LOCALE, {
     weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: ET_TZ,
@@ -81,22 +100,55 @@ function buildAvaPrompt() {
   });
   const bizHours = isBusinessHours();
 
-  const afterHoursGuidance = bizHours ? "" : `
-AFTER-HOURS BEHAVIOR (currently active):
-- You cannot transfer to any team member right now — the office is not staffed.
-- Do NOT say the office is closed. Simply explain that the team is unavailable at the moment.
-- Warmly collect the caller's name, phone number, and the reason for their call.
-- Assure them someone will follow up with them promptly during business hours (Mon–Fri, 9am–5pm ET).
-- End the call warmly after collecting their information.
+  // Injected when Gabriella didn't answer and the caller was returned to Ava
+  const noAnswerBlock = sessionCtx.noAnswer ? `
+CURRENT SITUATION — TRANSFER FAILED (no answer):
+You just tried to connect ${sessionCtx.callerName || "the caller"} (a ${sessionCtx.callerIntent || "caller"}) to Gabriella but got no answer.
+Open with exactly: 'Hey, sorry about that — looks like the team is tied up with another client right now. No worries at all, I've got you! Let me grab your info and we'll make sure someone reaches out to you as soon as possible!'
+Then proceed immediately to the ${sessionCtx.callerIntent || "buyer/seller"} qualification script below.
+Do NOT attempt another transfer.
+` : "";
+
+  const transferBlock = bizHours && !sessionCtx.noAnswer ? `
+TRANSFER FLOW (business hours, buyer or seller only):
+1. Confirm the caller's name and intent (buyer / seller).
+2. Say exactly: 'Perfect! Let me connect you with one of our team members right now — one moment!'
+3. Call the transfer_call tool with caller_name, caller_intent, and a brief caller_reason.
+4. Do not say anything else after announcing the transfer — the tool handles the rest.
+` : "";
+
+  const qualificationGuide = `
+QUALIFICATION SCRIPTS (use after failed transfer, after hours, or for agents):
+
+BUYER — ask one at a time, naturally:
+- What areas or towns are you looking in?
+- What's your approximate budget range?
+- Are you pre-approved for a mortgage?
+- What's your timeline — 30, 60, or 90 days?
+- Anything specific you need — bedrooms, yard, garage?
+
+SELLER — ask one at a time, naturally:
+- What's the property address?
+- What's your timeline for selling?
+- Do you have a price in mind, or would you like a market analysis?
+- Are you currently listed with another agent?
+- What's the main reason you're looking to sell?
+
+AGENT — ask one at a time:
+- Which property or listing are you calling about?
+- Is this about a showing, an offer, or something else?
+- What's your name and brokerage?
+- What's the best number for a callback?
+
+After completing qualification: summarize what you collected, thank them warmly, and assure them the team will follow up promptly. Then use end_call.
 `;
 
   return `Current date and time: ${dateStr}, ${timeStr}
-Office status: ${bizHours ? "BUSINESS HOURS — transfers allowed" : "AFTER HOURS — no transfers available"}
-
+Office status: ${bizHours ? "BUSINESS HOURS" : "AFTER HOURS"}
+${noAnswerBlock}
 You are Ava, the receptionist for Roman Balandin Realty — a premier real estate
 brokerage in New Jersey. You handle every inbound call with warmth, professionalism,
 and a genuinely happy energy.
-
 
 PERSONALITY:
 - Warm, welcoming, and genuinely happy to speak with every caller
@@ -106,31 +158,20 @@ PERSONALITY:
 - Brief — short sentences, natural speech patterns, no reading lists aloud
 - Upbeat but not over-the-top
 
-
 ABSOLUTE RULES — NEVER VIOLATE:
 - NEVER say 'I am an AI', 'I am a bot', 'I am a virtual assistant'
-- NEVER say 'we are closed', 'our office is closed', or reference hours unprompted
+- NEVER mention office hours or availability unprompted
 - NEVER transfer to Roman Balandin under any circumstance
 - NEVER transfer to Maricel Paige or Angela Marra under any circumstance
-- NEVER transfer to a listing agent before collecting ALL required information
 - ALWAYS confirm the caller's name back to them after capturing it
 - ALWAYS end every call warmly: 'Have a wonderful day!' or 'We'll be in touch soon!'
-
-ALLOWED TRANSFERS:
-- Gabriella Fonseca (ISA/Front Desk): sellers and buyers, business hours only,
-  only after intent is confirmed
-- Listing Agent of Record: ONLY for agent calls about a specific RBR listing,
-  ONLY after full data capture, NEVER if listing agent is Roman Balandin
-${afterHoursGuidance}
+${transferBlock}${qualificationGuide}
 IF ASKED 'Are you a real person?' or 'Are you AI?':
-Say exactly: 'Ha! Let's just say I'm the result of way too much coffee, a lot of
-late nights, and one very determined developer. But I promise I'm very good at my
-job — now, where were we?'
+Say exactly: 'Ha! Let's just say I'm the result of way too much coffee, a lot of late nights, and one very determined developer. But I promise I'm very good at my job — now, where were we?'
 Then immediately redirect to the conversation.
 
 CLARIFYING QUESTION (if intent is unclear):
-'Of course! Are you looking to sell a home, buy a home, or are you a real estate
-agent calling about a property or showing?'
+'Of course! Are you looking to sell a home, buy a home, or are you a real estate agent calling about a property or showing?'
 
 Website: newjerseyresidence.com | Main: 732-936-7421
 Areas: Middlesex, Monmouth, Union, Somerset Counties, NJ`;
@@ -138,42 +179,50 @@ Areas: Middlesex, Monmouth, Union, Somerset Counties, NJ`;
 
 // ── Tools ─────────────────────────────────────────────────────────────────────
 
-const AVA_TOOLS = [
-  {
-    type: "function",
-    name: "get_current_time",
-    description: "Get the current date and time in Eastern Time.",
-    parameters: { type: "object", properties: {} },
-  },
-  {
-    type: "function",
-    name: "transfer_call",
-    description: "Transfer the caller to a team member. Only available during business hours (Mon–Fri 9am–5pm ET). Only transfer to Gabriella for buyers/sellers after intent is confirmed. Announce the transfer to the caller before calling this tool.",
-    parameters: {
-      type: "object",
-      properties: {
-        to: {
-          type: "string",
-          enum: ["gabriella"],
-          description: "Team member to transfer to",
-        },
-        reason: {
-          type: "string",
-          description: "Brief reason for the transfer (for logging)",
-        },
-      },
-      required: ["to"],
+// transfer_call is only offered when business hours and not a reconnect session
+function buildAvaTools({ bizHours, isReconnect }) {
+  const tools = [
+    {
+      type: "function",
+      name: "get_current_time",
+      description: "Get the current date and time in Eastern Time.",
+      parameters: { type: "object", properties: {} },
     },
-  },
-  {
-    type: "function",
-    name: "end_call",
-    description: "End the call. Use only after delivering a warm closing line.",
-    parameters: { type: "object", properties: {} },
-  },
-];
+    {
+      type: "function",
+      name: "end_call",
+      description: "End the call. Use only after delivering a warm closing line.",
+      parameters: { type: "object", properties: {} },
+    },
+  ];
+
+  if (bizHours && !isReconnect) {
+    tools.push({
+      type: "function",
+      name: "transfer_call",
+      description: "Warm-transfer a buyer or seller to Gabriella. Collect their name, intent, and reason first. Announce the transfer before calling this tool. Only available during business hours.",
+      parameters: {
+        type: "object",
+        properties: {
+          caller_name: { type: "string", description: "Confirmed caller name" },
+          caller_intent: { type: "string", enum: ["buyer", "seller"], description: "Whether the caller is buying or selling" },
+          caller_reason: { type: "string", description: "Brief reason for calling (one sentence)" },
+        },
+        required: ["caller_name", "caller_intent"],
+      },
+    });
+  }
+
+  return tools;
+}
 
 // ── Tool execution ─────────────────────────────────────────────────────────────
+
+function esc(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
 
 async function executeTool(name, args, context) {
   switch (name) {
@@ -186,30 +235,40 @@ async function executeTool(name, args, context) {
 
     case "transfer_call": {
       if (!isBusinessHours()) {
-        return { error: "Transfers are not available outside business hours (Mon–Fri 9am–5pm ET). Collect the caller's details and assure them of a follow-up." };
+        return { error: "Outside business hours — collect caller details instead." };
       }
-      const targets = { gabriella: process.env.RECEPTIONIST_GABRIELLA_NUMBER };
-      const targetNumber = targets[args.to];
-      if (!targetNumber) {
-        console.warn(`[receptionist] No number configured for transfer target: ${args.to}`);
-        return { error: `No number configured for ${args.to}. Check RECEPTIONIST_GABRIELLA_NUMBER env var.` };
-      }
-      if (!context.callSid) {
-        return { error: "Cannot transfer — call SID not available." };
-      }
+      const config = loadConfig();
+      const targetNumber = config.gabriella_number;
+      if (!targetNumber) return { error: "Gabriella's number not configured. Set it in /admin/receptionist." };
+      if (!context.callSid) return { error: "Call SID not available." };
+      if (!context.host) return { error: "Host not available." };
+
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
       const authToken = process.env.TWILIO_AUTH_TOKEN;
-      if (!accountSid || !authToken) {
-        return { error: "Cannot transfer — Twilio credentials missing." };
-      }
+      if (!accountSid || !authToken) return { error: "Twilio credentials missing." };
+
+      const callerName = args.caller_name || "";
+      const callerIntent = args.caller_intent || "";
+      const callerReason = args.caller_reason || "";
+      const timeout = config.ring_timeout_seconds || 30;
+      const host = context.host;
+
+      const whisperUrl = `https://${host}/receptionist/whisper?name=${encodeURIComponent(callerName)}&intent=${encodeURIComponent(callerIntent)}&reason=${encodeURIComponent(callerReason)}`;
+      const actionUrl = `https://${host}/receptionist/transfer-result?from=${encodeURIComponent(context.callerPhone || "")}&name=${encodeURIComponent(callerName)}&intent=${encodeURIComponent(callerIntent)}`;
+
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Dial timeout="${timeout}" action="${esc(actionUrl)}">
+    <Number url="${esc(whisperUrl)}">${esc(targetNumber)}</Number>
+  </Dial>
+</Response>`;
+
       try {
         const client = twilio(accountSid, authToken);
-        await client.calls(context.callSid).update({
-          twiml: `<Response><Dial>${targetNumber}</Dial></Response>`,
-        });
+        await client.calls(context.callSid).update({ twiml });
         context.transferring = true;
-        console.log(`[receptionist] Call ${context.callSid} transferred to ${args.to} (${targetNumber})`);
-        return { ok: true, transferred_to: args.to };
+        console.log(`[receptionist] Warm transfer → Gabriella (${targetNumber}), timeout=${timeout}s`);
+        return { ok: true };
       } catch (e) {
         console.error("[receptionist] Transfer failed:", e.message);
         return { error: e.message };
@@ -226,8 +285,6 @@ async function executeTool(name, args, context) {
 }
 
 // ── Conversation logging ───────────────────────────────────────────────────────
-
-const INTERNAL = "http://localhost:3000";
 
 async function saveTranscript(callerPhone, transcript, sessionStart) {
   if (transcript.length === 0) return;
@@ -258,11 +315,12 @@ async function handleReceptionistCall(twilioWs) {
 
   let streamSid = null;
   let callerPhone = null;
+  let sessionCtx = {};   // populated on reconnect
   let openaiReady = false;
   let sessionConfigured = false;
   const pendingAudio = [];
   const pendingToolCalls = new Map();
-  const context = { callSid: null, endRequested: false, transferring: false };
+  const context = { callSid: null, host: null, callerPhone: null, endRequested: false, transferring: false };
 
   const sessionStart = new Date().toISOString();
   const sessionId = sessionStart.replace(/[:.]/g, "-").substring(0, 19);
@@ -288,13 +346,16 @@ async function handleReceptionistCall(twilioWs) {
     if (!openaiReady || sessionConfigured || callerPhone === null) return;
     sessionConfigured = true;
 
+    const bizHours = isBusinessHours();
+    const isReconnect = !!sessionCtx.noAnswer;
+
     openaiWs.send(JSON.stringify({
       type: "session.update",
       session: {
         type: "realtime",
         output_modalities: ["audio"],
-        instructions: buildAvaPrompt(),
-        tools: AVA_TOOLS,
+        instructions: buildAvaPrompt(sessionCtx),
+        tools: buildAvaTools({ bizHours, isReconnect }),
         audio: {
           input: {
             format: { type: "audio/pcmu" },
@@ -309,12 +370,14 @@ async function handleReceptionistCall(twilioWs) {
       },
     }));
 
-    // Trigger Ava's opening line
+    // Opening instruction depends on whether this is a reconnect after failed transfer
+    const openingInstruction = isReconnect
+      ? `Say exactly: 'Hey, sorry about that — looks like the team is tied up with another client right now. No worries at all, I've got you! Let me grab your info and we'll make sure someone reaches out to you as soon as possible!' Then proceed to the ${sessionCtx.callerIntent || "buyer/seller"} qualification script.`
+      : "Deliver your opening line exactly: 'Thank you for calling Roman Balandin Realty, this is Ava! How can I help you today?'";
+
     openaiWs.send(JSON.stringify({
       type: "response.create",
-      response: {
-        instructions: "Deliver your opening line exactly: 'Thank you for calling Roman Balandin Realty, this is Ava! How can I help you today?'",
-      },
+      response: { instructions: openingInstruction },
     }));
 
     for (const payload of pendingAudio) {
@@ -337,8 +400,21 @@ async function handleReceptionistCall(twilioWs) {
     if (msg.event === "start") {
       streamSid = msg.start.streamSid;
       context.callSid = msg.start.callSid || null;
+      context.host = msg.start.customParameters?.host || "";
       callerPhone = msg.start.customParameters?.from || "";
-      console.log(`[receptionist] Stream started: ${streamSid}, caller: ${callerPhone || "unknown"}, callSid: ${context.callSid}`);
+      context.callerPhone = callerPhone;
+
+      // Reconnect context — set when Gabriella didn't answer
+      if (msg.start.customParameters?.reconnect === "true") {
+        sessionCtx = {
+          noAnswer: true,
+          callerName: msg.start.customParameters?.caller_name || "",
+          callerIntent: msg.start.customParameters?.caller_intent || "",
+        };
+        console.log(`[receptionist] Reconnect after no-answer — name: ${sessionCtx.callerName}, intent: ${sessionCtx.callerIntent}`);
+      }
+
+      console.log(`[receptionist] Stream started: ${streamSid}, caller: ${callerPhone || "unknown"}, callSid: ${context.callSid}${sessionCtx.noAnswer ? " (RECONNECT)" : ""}`);
       maybeConfigureSession();
     }
 
@@ -382,21 +458,18 @@ async function handleReceptionistCall(twilioWs) {
     if (event.type === "response.function_call_arguments.done") {
       const callId = event.call_id;
       const pending = pendingToolCalls.get(callId);
-      const name = pending?.name || event.name || "";
+      const toolName = pending?.name || event.name || "";
       let args = {};
       try { args = JSON.parse(event.arguments || pending?.args || "{}"); } catch {}
 
-      console.log(`[receptionist] Tool call: ${name}`, args);
+      console.log(`[receptionist] Tool call: ${toolName}`, args);
       pendingToolCalls.delete(callId);
 
       let result;
-      try {
-        result = await executeTool(name, args, context);
-      } catch (e) {
-        result = { error: String(e) };
-      }
+      try { result = await executeTool(toolName, args, context); }
+      catch (e) { result = { error: String(e) }; }
 
-      console.log(`[receptionist] Tool result (${name}):`, JSON.stringify(result).slice(0, 200));
+      console.log(`[receptionist] Tool result (${toolName}):`, JSON.stringify(result).slice(0, 200));
 
       openaiWs.send(JSON.stringify({
         type: "conversation.item.create",
@@ -440,7 +513,7 @@ async function handleReceptionistCall(twilioWs) {
 
 export function registerReceptionistRoutes(app, httpServer) {
 
-  // TwiML webhook — configure this URL in your Twilio phone number's Voice settings
+  // TwiML webhook — point your Twilio number's Voice webhook here
   app.post("/receptionist/incoming", (req, res) => {
     const host = req.headers.host;
     const from = req.body?.From || "";
@@ -449,13 +522,149 @@ export function registerReceptionistRoutes(app, httpServer) {
 <Response>
   <Connect>
     <Stream url="wss://${host}/receptionist/stream">
-      <Parameter name="from" value="${from}" />
+      <Parameter name="from" value="${esc(from)}" />
+      <Parameter name="host" value="${esc(host)}" />
     </Stream>
   </Connect>
 </Response>`);
   });
 
-  // WebSocket that Twilio Media Streams connects to
+  // Whisper TwiML — played to Gabriella before being connected to the caller
+  app.all("/receptionist/whisper", (req, res) => {
+    const p = { ...req.query, ...req.body };
+    const callerName = p.name || "the caller";
+    const intent = p.intent === "seller" ? "seller" : "buyer";
+    const reason = p.reason ? ` They mentioned: ${p.reason}.` : "";
+    const msg = `You have a ${intent} on the line. Their name is ${callerName}.${reason} Connecting now.`;
+    res.type("text/xml");
+    res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say>${esc(msg)}</Say>
+</Response>`);
+  });
+
+  // Transfer result — Twilio POSTs here when the Dial completes (answered or no-answer)
+  app.post("/receptionist/transfer-result", (req, res) => {
+    const dialStatus = req.body?.DialCallStatus || "";
+    const p = { ...req.query, ...req.body };
+    const from = p.from || "";
+    const callerName = p.name || "";
+    const callerIntent = p.intent || "";
+    const host = req.headers.host;
+
+    console.log(`[receptionist] Transfer result: DialCallStatus=${dialStatus}, caller=${from}`);
+
+    // Call was answered and completed — nothing more to do
+    if (dialStatus === "completed") {
+      res.type("text/xml");
+      res.send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
+      return;
+    }
+
+    // No answer / busy / failed — reconnect caller back to Ava
+    console.log(`[receptionist] No answer — reconnecting caller to Ava`);
+    res.type("text/xml");
+    res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Connect>
+    <Stream url="wss://${esc(host)}/receptionist/stream">
+      <Parameter name="from" value="${esc(from)}" />
+      <Parameter name="host" value="${esc(host)}" />
+      <Parameter name="reconnect" value="true" />
+      <Parameter name="caller_name" value="${esc(callerName)}" />
+      <Parameter name="caller_intent" value="${esc(callerIntent)}" />
+    </Stream>
+  </Connect>
+</Response>`);
+  });
+
+  // ── Config UI ──────────────────────────────────────────────────────────────
+
+  app.get("/admin/receptionist", (req, res) => {
+    const cfg = loadConfig();
+    const saved = req.query.saved === "1";
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ava Receptionist — Settings</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1d1d1f; }
+  h1 { font-size: 1.6rem; font-weight: 700; padding: 24px 32px 0; }
+  .subtitle { color: #6e6e73; font-size: 0.9rem; padding: 4px 32px 16px; }
+  ${tabBarCss}
+  .container { padding: 24px; max-width: 600px; }
+  .card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
+  .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: #1d1d1f; }
+  label { display: block; font-size: 0.85rem; font-weight: 500; color: #6e6e73; margin-bottom: 6px; margin-top: 16px; }
+  label:first-of-type { margin-top: 0; }
+  input[type="text"], input[type="number"] {
+    width: 100%; padding: 10px 12px; border: 1px solid #d1d1d6; border-radius: 8px;
+    font-size: 0.95rem; color: #1d1d1f; background: #fafafa;
+  }
+  input:focus { outline: none; border-color: #007aff; background: #fff; }
+  .hint { font-size: 0.78rem; color: #8e8e93; margin-top: 4px; }
+  .save-btn {
+    margin-top: 20px; padding: 10px 24px; background: #007aff; color: #fff;
+    border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+  }
+  .save-btn:hover { background: #0062cc; }
+  .banner { background: #e8ffe8; border: 1px solid #a3d9a3; color: #1a7a1a; border-radius: 8px; padding: 10px 14px; font-size: 0.9rem; margin-bottom: 16px; }
+  .status-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+  .badge.open { background: #e8ffe8; color: #1a7a1a; }
+  .badge.closed { background: #fee2e2; color: #b91c1c; }
+</style>
+</head>
+<body>
+<h1>RoadMate</h1>
+<p class="subtitle">Ava Receptionist — Settings</p>
+${adminTabBar("receptionist")}
+<div class="container">
+  ${saved ? '<div class="banner">✓ Settings saved successfully.</div>' : ""}
+
+  <div class="card">
+    <h2>📊 Current Status</h2>
+    <div class="status-row">
+      Office hours right now:
+      <span class="badge ${isBusinessHours() ? "open" : "closed"}">${isBusinessHours() ? "✓ Open — transfers enabled" : "✗ After hours — qualification only"}</span>
+    </div>
+    <p class="hint" style="margin-top:8px">Mon–Fri 9am–5pm ET, excluding US federal holidays.</p>
+  </div>
+
+  <form method="POST" action="/admin/receptionist">
+    <div class="card">
+      <h2>📞 Transfer Settings</h2>
+      <label>Gabriella's Phone Number</label>
+      <input type="text" name="gabriella_number" value="${esc(cfg.gabriella_number)}" placeholder="+17321234567" />
+      <p class="hint">E.164 format. Buyers and sellers are warm-transferred here during business hours.</p>
+
+      <label>Ring Timeout (seconds)</label>
+      <input type="number" name="ring_timeout_seconds" value="${cfg.ring_timeout_seconds}" min="10" max="120" step="5" />
+      <p class="hint">How long to wait before returning the caller to Ava (~5 seconds per ring). Default: 30s (≈6 rings).</p>
+    </div>
+
+    <button type="submit" class="save-btn">Save Settings</button>
+  </form>
+</div>
+</body>
+</html>`);
+  });
+
+  app.post("/admin/receptionist", (req, res) => {
+    const cfg = loadConfig();
+    const body = req.body || {};
+    cfg.gabriella_number = (body.gabriella_number || "").trim();
+    cfg.ring_timeout_seconds = Math.max(10, Math.min(120, Number(body.ring_timeout_seconds) || 30));
+    saveConfig(cfg);
+    console.log("[receptionist] Config saved:", cfg);
+    res.redirect("/admin/receptionist?saved=1");
+  });
+
+  // ── WebSocket ──────────────────────────────────────────────────────────────
+
   const wss = new WebSocketServer({ noServer: true });
 
   httpServer.on("upgrade", (request, socket, head) => {

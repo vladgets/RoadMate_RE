@@ -54,6 +54,7 @@ function adminTabBar(active, rightHtml = "") {
 <nav class="tab-bar">
   <a href="/admin/conversations" class="tab${active === "conversations" ? " active" : ""}">💬 Conversations</a>
   <a href="/admin/feedback" class="tab${active === "feedback" ? " active" : ""}">📣 Feedback</a>
+  <a href="/admin/receptionist" class="tab${active === "receptionist" ? " active" : ""}">📞 Receptionist</a>
   ${rightHtml ? `<div class="tab-bar-right">${rightHtml}</div>` : ""}
 </nav>`;
 }
