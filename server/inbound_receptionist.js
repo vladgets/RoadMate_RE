@@ -5,6 +5,21 @@ import twilio from "twilio";
 const ET_LOCALE = "en-US";
 const ET_TZ = "America/New_York";
 
+// ── Business hours ────────────────────────────────────────────────────────────
+
+function isBusinessHours() {
+  const now = new Date();
+  // Use Intl to get ET day-of-week (0=Sun … 6=Sat) and hour (0–23)
+  const etParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: ET_TZ, weekday: "short", hour: "numeric", hour12: false,
+  }).formatToParts(now);
+  const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const etDay = dayMap[etParts.find(p => p.type === "weekday")?.value] ?? -1;
+  const etHour = Number(etParts.find(p => p.type === "hour")?.value ?? -1);
+  // Monday–Friday, 9:00–16:59 ET
+  return etDay >= 1 && etDay <= 5 && etHour >= 9 && etHour < 17;
+}
+
 // ── System prompt ─────────────────────────────────────────────────────────────
 
 function buildAvaPrompt() {
@@ -15,8 +30,19 @@ function buildAvaPrompt() {
   const timeStr = now.toLocaleTimeString(ET_LOCALE, {
     hour: "numeric", minute: "2-digit", timeZone: ET_TZ, timeZoneName: "short",
   });
+  const bizHours = isBusinessHours();
+
+  const afterHoursGuidance = bizHours ? "" : `
+AFTER-HOURS BEHAVIOR (currently active):
+- You cannot transfer to any team member right now — the office is not staffed.
+- Do NOT say the office is closed. Simply explain that the team is unavailable at the moment.
+- Warmly collect the caller's name, phone number, and the reason for their call.
+- Assure them someone will follow up with them promptly during business hours (Mon–Fri, 9am–5pm ET).
+- End the call warmly after collecting their information.
+`;
 
   return `Current date and time: ${dateStr}, ${timeStr}
+Office status: ${bizHours ? "BUSINESS HOURS — transfers allowed" : "AFTER HOURS — no transfers available"}
 
 You are Ava, the receptionist for Roman Balandin Realty — a premier real estate
 brokerage in New Jersey. You handle every inbound call with warmth, professionalism,
@@ -41,25 +67,21 @@ ABSOLUTE RULES — NEVER VIOLATE:
 - ALWAYS confirm the caller's name back to them after capturing it
 - ALWAYS end every call warmly: 'Have a wonderful day!' or 'We'll be in touch soon!'
 
-
 ALLOWED TRANSFERS:
 - Gabriella Fonseca (ISA/Front Desk): sellers and buyers, business hours only,
   only after intent is confirmed
 - Listing Agent of Record: ONLY for agent calls about a specific RBR listing,
   ONLY after full data capture, NEVER if listing agent is Roman Balandin
-
-
+${afterHoursGuidance}
 IF ASKED 'Are you a real person?' or 'Are you AI?':
 Say exactly: 'Ha! Let's just say I'm the result of way too much coffee, a lot of
 late nights, and one very determined developer. But I promise I'm very good at my
 job — now, where were we?'
 Then immediately redirect to the conversation.
 
-
 CLARIFYING QUESTION (if intent is unclear):
 'Of course! Are you looking to sell a home, buy a home, or are you a real estate
 agent calling about a property or showing?'
-
 
 Website: newjerseyresidence.com | Main: 732-936-7421
 Areas: Middlesex, Monmouth, Union, Somerset Counties, NJ`;
@@ -77,7 +99,7 @@ const AVA_TOOLS = [
   {
     type: "function",
     name: "transfer_call",
-    description: "Transfer the caller to a team member. Only transfer to Gabriella for buyers/sellers during business hours after intent is confirmed. Announce the transfer to the caller before calling this tool.",
+    description: "Transfer the caller to a team member. Only available during business hours (Mon–Fri 9am–5pm ET). Only transfer to Gabriella for buyers/sellers after intent is confirmed. Announce the transfer to the caller before calling this tool.",
     parameters: {
       type: "object",
       properties: {
@@ -114,6 +136,9 @@ async function executeTool(name, args, context) {
       };
 
     case "transfer_call": {
+      if (!isBusinessHours()) {
+        return { error: "Transfers are not available outside business hours (Mon–Fri 9am–5pm ET). Collect the caller's details and assure them of a follow-up." };
+      }
       const targets = { gabriella: process.env.RECEPTIONIST_GABRIELLA_NUMBER };
       const targetNumber = targets[args.to];
       if (!targetNumber) {
