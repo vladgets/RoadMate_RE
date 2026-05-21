@@ -221,17 +221,15 @@ app.post("/generate", async (req, res) => {
   }
 });
 
-// Serve Flutter web build as static files (API routes above take priority).
-const webBuildPath = path.join(__dirname, "..", "build", "web");
-app.use(express.static(webBuildPath));
-
-// SPA fallback: Flutter uses client-side routing, serve index.html for unknown paths.
-app.get("/{*splat}", (_req, res) => {
-  res.sendFile(path.join(webBuildPath, "index.html"));
-});
-
 const httpServer = app.listen(3000, () => console.log("Token server on :3000"));
 registerPhoneBridgeRoutes(app, httpServer);
 registerReceptionistRoutes(app, httpServer);
 registerWhatsAppRoutes(app);
 registerRprRoutes(app);
+
+// Static + SPA fallback — must be last so admin/API routes take priority
+const webBuildPath = path.join(__dirname, "..", "build", "web");
+app.use(express.static(webBuildPath));
+app.get("/{*splat}", (_req, res) => {
+  res.sendFile(path.join(webBuildPath, "index.html"));
+});
