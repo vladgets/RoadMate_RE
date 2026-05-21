@@ -199,11 +199,16 @@ export function registerWhatsAppRoutes(app) {
 
           // Generate report in background, send result via outbound Twilio message
           generateRprReport(address).then(async result => {
+            let outboundContent;
             if (result.ok) {
+              outboundContent = `Here is your RPR market analysis report for ${address}: ${result.pdfUrl}`;
               await sendOutboundWhatsApp(to, from, `Here is your RPR market analysis report for ${address}:`, result.pdfUrl);
             } else {
-              await sendOutboundWhatsApp(to, from, `Sorry, I was unable to generate the RPR report for ${address}. Please try again later.`);
+              outboundContent = `Sorry, I was unable to generate the RPR report for ${address}. Please try again later.`;
+              await sendOutboundWhatsApp(to, from, outboundContent);
             }
+            log.push({ id: `${from}-${log.length}-a`, role: "assistant", content: outboundContent, timestamp: new Date().toISOString() });
+            await saveConversation(from, log);
           }).catch(e => console.error("[whatsapp] RPR background error:", e.message));
 
           return res.send(twimlReply(ack));
