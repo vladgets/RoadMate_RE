@@ -7,17 +7,66 @@ const ET_TZ = "America/New_York";
 
 // ── Business hours ────────────────────────────────────────────────────────────
 
+// Returns the Nth weekday of a given month (e.g. 3rd Monday = nthWeekday(year, month, 1, 3))
+function nthWeekday(year, month, dow, n) {
+  // dow: 0=Sun, 1=Mon … 6=Sat; month: 1-based
+  const d = new Date(year, month - 1, 1);
+  const first = d.getDay();
+  let day = 1 + ((dow - first + 7) % 7) + (n - 1) * 7;
+  return new Date(year, month - 1, day);
+}
+
+// Returns the last occurrence of a weekday in a month
+function lastWeekday(year, month, dow) {
+  const last = new Date(year, month, 0); // last day of month
+  const diff = (last.getDay() - dow + 7) % 7;
+  return new Date(year, month - 1, last.getDate() - diff);
+}
+
+// Returns observed date: Sat → Fri, Sun → Mon
+function observed(date) {
+  const dow = date.getDay();
+  if (dow === 6) return new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1);
+  if (dow === 0) return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+  return date;
+}
+
+// Returns Set of "YYYY-MM-DD" strings for US federal holidays in a given year
+function usHolidays(year) {
+  const fixed = (m, d) => observed(new Date(year, m - 1, d));
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return new Set([
+    fmt(fixed(1, 1)),                        // New Year's Day
+    fmt(nthWeekday(year, 1, 1, 3)),          // MLK Day (3rd Mon Jan)
+    fmt(nthWeekday(year, 2, 1, 3)),          // Presidents' Day (3rd Mon Feb)
+    fmt(lastWeekday(year, 5, 1)),            // Memorial Day (last Mon May)
+    fmt(fixed(6, 19)),                       // Juneteenth
+    fmt(fixed(7, 4)),                        // Independence Day
+    fmt(nthWeekday(year, 9, 1, 1)),          // Labor Day (1st Mon Sep)
+    fmt(fixed(11, 11)),                      // Veterans Day
+    fmt(nthWeekday(year, 11, 4, 4)),         // Thanksgiving (4th Thu Nov)
+    fmt(fixed(12, 25)),                      // Christmas Day
+  ]);
+}
+
 function isBusinessHours() {
   const now = new Date();
-  // Use Intl to get ET day-of-week (0=Sun … 6=Sat) and hour (0–23)
+  // Use Intl to get ET date parts
   const etParts = new Intl.DateTimeFormat("en-US", {
     timeZone: ET_TZ, weekday: "short", hour: "numeric", hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(now);
+
+  const get = (type) => etParts.find(p => p.type === type)?.value;
   const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-  const etDay = dayMap[etParts.find(p => p.type === "weekday")?.value] ?? -1;
-  const etHour = Number(etParts.find(p => p.type === "hour")?.value ?? -1);
-  // Monday–Friday, 9:00–16:59 ET
-  return etDay >= 1 && etDay <= 5 && etHour >= 9 && etHour < 17;
+  const etDay = dayMap[get("weekday")] ?? -1;
+  const etHour = Number(get("hour") ?? -1);
+  const etDateStr = `${get("year")}-${get("month")}-${get("day")}`;
+
+  if (etDay < 1 || etDay > 5) return false;           // weekend
+  if (etHour < 9 || etHour >= 17) return false;       // outside 9am–5pm
+  if (usHolidays(Number(get("year"))).has(etDateStr)) return false; // holiday
+  return true;
 }
 
 // ── System prompt ─────────────────────────────────────────────────────────────
