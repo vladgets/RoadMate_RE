@@ -474,12 +474,12 @@ async function handleCall(twilioWs) {
     openaiWs.send(JSON.stringify({
       type: "session.update",
       session: {
+        type: "realtime",
         turn_detection: { type: "server_vad" },
         input_audio_format: "g711_ulaw",
         output_audio_format: "g711_ulaw",
         voice: "marin",
         instructions: buildSystemPrompt(callerInfo),
-        modalities: ["text", "audio"],
         tools: PHONE_TOOLS,
         input_audio_transcription: { model: "whisper-1" },
       },
@@ -497,7 +497,7 @@ async function handleCall(twilioWs) {
 
     openaiWs.send(JSON.stringify({
       type: "response.create",
-      response: { modalities: ["text", "audio"], instructions: greetInstruction },
+      response: { instructions: greetInstruction },
     }));
 
     for (const payload of pendingAudio) {

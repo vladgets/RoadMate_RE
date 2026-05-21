@@ -290,12 +290,12 @@ async function handleReceptionistCall(twilioWs) {
     openaiWs.send(JSON.stringify({
       type: "session.update",
       session: {
+        type: "realtime",
         turn_detection: { type: "server_vad" },
         input_audio_format: "g711_ulaw",
         output_audio_format: "g711_ulaw",
         voice: "shimmer",
         instructions: buildAvaPrompt(),
-        modalities: ["text", "audio"],
         tools: AVA_TOOLS,
         input_audio_transcription: { model: "whisper-1" },
       },
@@ -305,7 +305,6 @@ async function handleReceptionistCall(twilioWs) {
     openaiWs.send(JSON.stringify({
       type: "response.create",
       response: {
-        modalities: ["text", "audio"],
         instructions: "Deliver your opening line exactly: 'Thank you for calling Roman Balandin Realty, this is Ava! How can I help you today?'",
       },
     }));
