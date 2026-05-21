@@ -648,6 +648,12 @@ ${adminTabBar("receptionist")}
   ${saved ? '<div class="banner">✓ Settings saved successfully.</div>' : ""}
 
   <div class="card">
+    <h2>📞 Inbound Call Number</h2>
+    <div style="font-size:1.3rem;font-weight:700;letter-spacing:0.02em;margin-bottom:6px">+1 (978) 396-5164</div>
+    <p class="hint">This is the Twilio number callers dial to reach Ava. Configure the Voice webhook in Twilio to point to <code style="background:#f2f2f7;padding:2px 5px;border-radius:4px">/receptionist/incoming</code>.</p>
+  </div>
+
+  <div class="card">
     <h2>📊 Current Status</h2>
     <div class="status-row">
       Office hours right now:

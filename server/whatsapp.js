@@ -307,6 +307,14 @@ ${adminTabBar("whatsapp")}
 <div class="container">
   ${saved ? '<div class="banner">✓ Settings saved successfully.</div>' : ""}
 
+  <div class="card">
+    <h2>💬 WhatsApp Number</h2>
+    <div style="font-size:1.3rem;font-weight:700;letter-spacing:0.02em;margin-bottom:6px">+1 (415) 523-8886</div>
+    <p class="hint" style="margin-bottom:10px">This is the Twilio WhatsApp Sandbox number. To use it, send the message below once from WhatsApp:</p>
+    <div style="display:inline-block;background:#f2f2f7;border-radius:8px;padding:8px 14px;font-family:monospace;font-size:0.95rem;font-weight:600;color:#1d1d1f;letter-spacing:0.01em">join deer-play</div>
+    <p class="hint" style="margin-top:8px">Send that message to the number above from WhatsApp to join the sandbox and start chatting.</p>
+  </div>
+
   <form method="POST" action="/admin/whatsapp">
     <div class="card">
       <h2>📄 Knowledge Base</h2>
