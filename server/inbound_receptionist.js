@@ -15,7 +15,20 @@ const CONFIG_FILE = "/data/receptionist_config.json";
 const DEFAULT_CONFIG = {
   gabriella_number: process.env.RECEPTIONIST_GABRIELLA_NUMBER || "",
   ring_timeout_seconds: 30,
+  voice: "marin",
 };
+
+// Voices confirmed available on the OpenAI Realtime API, curated for a receptionist persona
+const REALTIME_VOICES = [
+  { id: "marin",   label: "Marin",   desc: "Warm, professional female — current default" },
+  { id: "coral",   label: "Coral",   desc: "Friendly, conversational female" },
+  { id: "shimmer", label: "Shimmer", desc: "Bright, upbeat female" },
+  { id: "sage",    label: "Sage",    desc: "Calm, measured female" },
+  { id: "alloy",   label: "Alloy",   desc: "Neutral, clear — gender-neutral" },
+  { id: "ash",     label: "Ash",     desc: "Warm, conversational — gender-neutral" },
+  { id: "echo",    label: "Echo",    desc: "Neutral male" },
+  { id: "verse",   label: "Verse",   desc: "Expressive, dynamic male" },
+];
 
 function loadConfig() {
   try {
@@ -348,6 +361,8 @@ async function handleReceptionistCall(twilioWs) {
 
     const bizHours = isBusinessHours();
     const isReconnect = !!sessionCtx.noAnswer;
+    const cfg = loadConfig();
+    const voice = REALTIME_VOICES.find(v => v.id === cfg.voice) ? cfg.voice : DEFAULT_CONFIG.voice;
 
     openaiWs.send(JSON.stringify({
       type: "session.update",
@@ -364,7 +379,7 @@ async function handleReceptionistCall(twilioWs) {
           },
           output: {
             format: { type: "audio/pcmu" },
-            voice: "marin",
+            voice,
           },
         },
       },
@@ -612,6 +627,13 @@ export function registerReceptionistRoutes(app, httpServer) {
   }
   .save-btn:hover { background: #0062cc; }
   .banner { background: #e8ffe8; border: 1px solid #a3d9a3; color: #1a7a1a; border-radius: 8px; padding: 10px 14px; font-size: 0.9rem; margin-bottom: 16px; }
+  .voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .voice-option { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1.5px solid #d1d1d6; border-radius: 8px; cursor: pointer; transition: border-color 0.15s; }
+  .voice-option input[type="radio"] { display: none; }
+  .voice-option.selected { border-color: #007aff; background: #f0f7ff; }
+  .voice-option:hover:not(.selected) { border-color: #aeaeb2; }
+  .voice-name { font-size: 0.9rem; font-weight: 600; color: #1d1d1f; }
+  .voice-desc { font-size: 0.75rem; color: #6e6e73; }
   .status-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
   .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
   .badge.open { background: #e8ffe8; color: #1a7a1a; }
@@ -646,6 +668,20 @@ ${adminTabBar("receptionist")}
       <p class="hint">How long to wait before returning the caller to Ava (~5 seconds per ring). Default: 30s (≈6 rings).</p>
     </div>
 
+    <div class="card">
+      <h2>🎙️ Ava's Voice</h2>
+      <label>Voice</label>
+      <div class="voice-grid">
+        ${REALTIME_VOICES.map(v => `
+        <label class="voice-option ${v.id === cfg.voice ? "selected" : ""}">
+          <input type="radio" name="voice" value="${v.id}" ${v.id === cfg.voice ? "checked" : ""} onchange="this.closest('.voice-grid').querySelectorAll('.voice-option').forEach(el=>el.classList.remove('selected')); this.closest('.voice-option').classList.add('selected')">
+          <span class="voice-name">${v.label}</span>
+          <span class="voice-desc">${v.desc}</span>
+        </label>`).join("")}
+      </div>
+      <p class="hint" style="margin-top:12px">Takes effect on the next incoming call.</p>
+    </div>
+
     <button type="submit" class="save-btn">Save Settings</button>
   </form>
 </div>
@@ -658,6 +694,7 @@ ${adminTabBar("receptionist")}
     const body = req.body || {};
     cfg.gabriella_number = (body.gabriella_number || "").trim();
     cfg.ring_timeout_seconds = Math.max(10, Math.min(120, Number(body.ring_timeout_seconds) || 30));
+    cfg.voice = REALTIME_VOICES.find(v => v.id === body.voice) ? body.voice : DEFAULT_CONFIG.voice;
     saveConfig(cfg);
     console.log("[receptionist] Config saved:", cfg);
     res.redirect("/admin/receptionist?saved=1");
