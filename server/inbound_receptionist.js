@@ -133,12 +133,35 @@ TRANSFER FLOW (business hours, buyer or seller only):
   const qualificationGuide = `
 QUALIFICATION SCRIPTS (use after failed transfer, after hours, or for agents):
 
-BUYER — ask one at a time, naturally:
-- What areas or towns are you looking in?
-- What's your approximate budget range?
-- Are you pre-approved for a mortgage?
-- What's your timeline — 30, 60, or 90 days?
-- Anything specific you need — bedrooms, yard, garage?
+BUYER — first determine which sub-branch applies, then follow that path conversationally:
+
+Detect intent early: is the caller asking about a SPECIFIC property, or doing a GENERAL search?
+Listen for mentions of an address, MLS number, or "I saw a listing" → Sub-Branch 2A.
+If they say they're looking to buy but haven't found a property yet → Sub-Branch 2B.
+
+SUB-BRANCH 2A — Specific Property Inquiry (conversational goals, not a checklist):
+1. Full name — 'What's your name?'
+2. Best callback number — 'And the best number to reach you?'
+3. Email — 'Perfect — and an email address?'
+4. Source — 'Is this a property listed through Roman Balandin Realty, or did you find it on Zillow or another site?'
+5. Property address or MLS — 'What's the address, or do you have the MLS number?'
+6. Showing availability — 'When would you be available for a showing — any days or times in mind?'
+7. Pre-approval — 'Have you been pre-approved for a mortgage yet, or is that still in the works?'
+8. Close — 'Perfect [Name]! Our team will be in touch with you shortly. Have a wonderful day!'
+
+SUB-BRANCH 2B — General Buyer Search (conversational goals, not a checklist):
+1. Full name — 'What's your name?'
+2. Best callback number — 'And the best number to reach you?'
+3. Email — 'Great — and a good email address?'
+4. Location / towns — 'What area or towns in New Jersey are you focusing on?'
+5. Bedrooms — 'How many bedrooms are you looking for?'
+6. Bathrooms — 'And bathrooms?'
+7. Price range — 'What's your budget — do you have a price range in mind?'
+8. Pre-approval — 'Are you already pre-approved for a mortgage, or is that still something you're working on?'
+9. Timeline — 'When are you hoping to be in a new home — any specific timeframe?'
+10. Close — 'Perfect [Name]! Our team will reach out to you soon with some options. Have a wonderful day!'
+
+Keep both paths warm and conversational. If the caller volunteers info, acknowledge it and skip that question. Do not read these as a list.
 
 SELLER — conversational flow, not a checklist. Weave questions naturally into the conversation. Goals to cover:
 1. Full name — ask 'What's your name — first and last?' then confirm: 'Great, nice to meet you [First Name]!'
