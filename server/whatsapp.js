@@ -93,7 +93,7 @@ function twimlReplyWithMedia(message, mediaUrl) {
 async function sendOutboundWhatsApp(to, message, mediaUrl = null) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_WHATSAPP_NUMBER;
+  const from = process.env.TWILIO_PHONE_NUMBER;
   if (!accountSid || !authToken || !from) { console.warn("[whatsapp] Twilio creds missing, cannot send outbound"); return; }
   const client = twilio(accountSid, authToken);
   const params = { from, to, body: message };
