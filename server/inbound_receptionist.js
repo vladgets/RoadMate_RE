@@ -280,12 +280,7 @@ async function handleReceptionistCall(twilioWs) {
 
   const openaiWs = new WebSocket(
     "wss://api.openai.com/v1/realtime?model=gpt-realtime-mini-2025-12-15",
-    {
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "OpenAI-Beta": "realtime=v1",
-      },
-    }
+    { headers: { Authorization: `Bearer ${OPENAI_API_KEY}` } }
   );
 
   function maybeConfigureSession() {
