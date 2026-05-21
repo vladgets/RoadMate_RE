@@ -265,13 +265,14 @@ async function handleReceptionistCall(twilioWs) {
   const context = { callSid: null, endRequested: false, transferring: false };
 
   const sessionStart = new Date().toISOString();
+  const sessionId = sessionStart.replace(/[:.]/g, "-").substring(0, 19);
   const transcript = [];
   let msgSeq = 0;
 
   function addTranscriptMsg(role, content) {
     if (!content?.trim()) return;
     transcript.push({
-      id: `receptionist_${++msgSeq}`,
+      id: `receptionist_${sessionId}_${++msgSeq}`,
       role,
       content: content.trim(),
       timestamp: new Date().toISOString(),

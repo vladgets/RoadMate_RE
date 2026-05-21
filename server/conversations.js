@@ -30,8 +30,8 @@ async function getLocationFromIp(ip) {
 }
 
 function buildFilename(clientId, platform, sessionStart) {
-  // Phone calls always use the same server-side client_id, so include timestamp for uniqueness
-  if (platform === "phone") {
+  // Phone/receptionist calls always use the same server-side client_id, so include timestamp for uniqueness
+  if (platform === "phone" || platform === "receptionist") {
     const ts = (sessionStart || new Date().toISOString()).replace(/[:.]/g, "-").substring(0, 19);
     return `${clientId}_${platform}_${ts}.json`;
   }
