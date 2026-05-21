@@ -207,14 +207,22 @@ async function ensureAuthenticated(page, context) {
 }
 
 async function dismissDialogs(page) {
-  const closeBtn = page.locator('button:has-text("Close"), button:has-text("OK"), button:has-text("Dismiss"), .cdk-overlay-backdrop ~ * button').first();
-  try {
-    if (await closeBtn.count() > 0 && await closeBtn.isVisible({ timeout: 3000 })) {
-      console.log("[RPR] Dismissing dialog...");
-      await closeBtn.click({ timeout: 3000 });
-      await page.waitForTimeout(1000);
-    }
-  } catch {}
+  const selectors = [
+    'button:has-text("Close")',
+    'button:has-text("OK")',
+    'button:has-text("Dismiss")',
+    '.cdk-overlay-backdrop ~ * button',
+  ];
+  for (const sel of selectors) {
+    try {
+      const btn = page.locator(sel).first();
+      if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        console.log("[RPR] Dismissing dialog:", sel);
+        await btn.click({ timeout: 3000 });
+        await page.waitForTimeout(500);
+      }
+    } catch {}
+  }
 }
 
 // ─── Navigate to report via Reports menu ─────────────────────────────────────
@@ -235,6 +243,10 @@ async function generateReport(page, address) {
 
   // Step 3: Find and click "RB Sellers Report" template
   console.log("[RPR] Looking for RB Sellers Report template...");
+
+  // Dismiss any delayed dialogs (e.g. "Another user detected") before searching
+  await page.waitForTimeout(2000);
+  await dismissDialogs(page);
 
   // Scroll to bottom to ensure My Templates section is visible
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)).catch(() => {});
