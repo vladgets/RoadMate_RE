@@ -556,6 +556,11 @@ async function handleCall(twilioWs) {
     let event;
     try { event = JSON.parse(raw); } catch { return; }
 
+    // Barge-in: caller started speaking — flush Twilio's audio buffer immediately
+    if (event.type === "input_audio_buffer.speech_started" && streamSid) {
+      twilioWs.send(JSON.stringify({ event: "clear", streamSid }));
+    }
+
     // Audio → send back to caller
     if (event.type === "response.output_audio.delta" && event.delta && streamSid) {
       twilioWs.send(JSON.stringify({
