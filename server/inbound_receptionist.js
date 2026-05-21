@@ -291,13 +291,20 @@ async function handleReceptionistCall(twilioWs) {
       type: "session.update",
       session: {
         type: "realtime",
-        turn_detection: { type: "server_vad" },
-        input_audio_format: "g711_ulaw",
-        output_audio_format: "g711_ulaw",
-        voice: "shimmer",
+        output_modalities: ["audio"],
         instructions: buildAvaPrompt(),
         tools: AVA_TOOLS,
-        input_audio_transcription: { model: "whisper-1" },
+        audio: {
+          input: {
+            format: { type: "audio/pcmu" },
+            turn_detection: { type: "server_vad" },
+            transcription: { model: "whisper-1" },
+          },
+          output: {
+            format: { type: "audio/pcmu" },
+            voice: "shimmer",
+          },
+        },
       },
     }));
 
@@ -353,7 +360,7 @@ async function handleReceptionistCall(twilioWs) {
     let event;
     try { event = JSON.parse(raw); } catch { return; }
 
-    if (event.type === "response.audio.delta" && event.delta && streamSid) {
+    if (event.type === "response.output_audio.delta" && event.delta && streamSid) {
       twilioWs.send(JSON.stringify({
         event: "media",
         streamSid,
@@ -405,7 +412,7 @@ async function handleReceptionistCall(twilioWs) {
       addTranscriptMsg("user", event.transcript);
     }
 
-    if (event.type === "response.audio_transcript.done") {
+    if (event.type === "response.output_audio_transcript.done") {
       addTranscriptMsg("assistant", event.transcript);
     }
 
