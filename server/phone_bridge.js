@@ -651,22 +651,6 @@ function loadCallerInfo(callerPhone) {
 
 export function registerPhoneBridgeRoutes(app, httpServer) {
 
-  // TwiML webhook — Twilio POSTs here when someone dials the number
-  app.post("/call/incoming", (req, res) => {
-    const host = req.headers.host;
-    const from = req.body?.From || "";
-    res.type("text/xml");
-    res.send(`<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Connect>
-    <Stream url="wss://${host}/call/stream">
-      <Parameter name="direction" value="inbound" />
-      <Parameter name="from" value="${from}" />
-    </Stream>
-  </Connect>
-</Response>`);
-  });
-
   // TwiML served when outbound call is answered (Twilio POSTs by default)
   app.all("/call/outbound/twiml", (req, res) => {
     const host = req.headers.host;
