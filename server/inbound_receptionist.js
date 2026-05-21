@@ -302,7 +302,7 @@ async function handleReceptionistCall(twilioWs) {
           },
           output: {
             format: { type: "audio/pcmu" },
-            voice: "shimmer",
+            voice: "marin",
           },
         },
       },
