@@ -390,6 +390,7 @@ async function handleReceptionistCall(twilioWs) {
   const sessionId = sessionStart.replace(/[:.]/g, "-").substring(0, 19);
   const transcript = [];
   let msgSeq = 0;
+  let lastAssistantTranscript = "";
 
   function addTranscriptMsg(role, content) {
     if (!content?.trim()) return;
@@ -558,7 +559,31 @@ async function handleReceptionistCall(twilioWs) {
     }
 
     if (event.type === "response.output_audio_transcript.done") {
-      addTranscriptMsg("assistant", event.transcript);
+      lastAssistantTranscript = event.transcript || "";
+      addTranscriptMsg("assistant", lastAssistantTranscript);
+    }
+
+    // Auto-disconnect when the assistant naturally says goodbye
+    // (fallback for when the AI concludes without explicitly calling end_call)
+    if (event.type === "response.done" && !context.endRequested && !context.transferring) {
+      const text = lastAssistantTranscript.toLowerCase();
+      const goodbyeSignals = [
+        "have a wonderful day",
+        "have a great day",
+        "thanks so much for calling roman balandin",
+        "team will be in touch",
+        "team will reach out",
+        "reaching out to you shortly",
+        "we'll be in touch soon",
+        "someone will reach out",
+      ];
+      if (goodbyeSignals.some(s => text.includes(s))) {
+        console.log("[receptionist] Goodbye detected — auto-ending call");
+        context.endRequested = true;
+        setTimeout(() => {
+          if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close();
+        }, 3500);
+      }
     }
 
     if (event.type === "error") {
