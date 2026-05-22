@@ -16,6 +16,7 @@ const DEFAULT_CONFIG = {
   gabriella_number: process.env.RECEPTIONIST_GABRIELLA_NUMBER || "",
   ring_timeout_seconds: 30,
   voice: "marin",
+  feedback_tool_enabled: true,
 };
 
 // Voices confirmed available on the OpenAI Realtime API, curated for a receptionist persona
@@ -102,7 +103,7 @@ function isBusinessHours() {
 
 // ── System prompt ─────────────────────────────────────────────────────────────
 
-// sessionCtx: { noAnswer, callerName, callerIntent, callerPhone }
+// sessionCtx: { noAnswer, callerName, callerIntent, callerPhone, feedbackEnabled }
 function buildAvaPrompt(sessionCtx = {}) {
   const now = new Date();
   const dateStr = now.toLocaleDateString(ET_LOCALE, {
@@ -208,6 +209,7 @@ GENERAL RULES FOR ALL SCRIPTS:
 - If the caller volunteers info, acknowledge it and skip that question.
 - Always confirm the caller's name back after capturing it.
 - After completing any script, use end_call.
+${sessionCtx.feedbackEnabled ? `- If a caller wants to leave a comment, suggestion, or compliment, use the leave_feedback tool immediately. Thank them warmly and continue the conversation normally. Callers may leave multiple pieces of feedback in one call.` : ""}
 `;
 
   return `Current date and time: ${dateStr}, ${timeStr}
@@ -244,7 +246,7 @@ Areas: Middlesex, Monmouth, Union, Somerset Counties, NJ`;
 // ── Tools ─────────────────────────────────────────────────────────────────────
 
 // transfer_call is only offered when business hours and not a reconnect session
-function buildAvaTools({ bizHours, isReconnect }) {
+function buildAvaTools({ bizHours, isReconnect, cfg }) {
   const tools = [
     {
       type: "function",
@@ -273,6 +275,24 @@ function buildAvaTools({ bizHours, isReconnect }) {
           caller_reason: { type: "string", description: "Brief reason for calling (one sentence)" },
         },
         required: ["caller_name", "caller_intent"],
+      },
+    });
+  }
+
+  if (cfg.feedback_tool_enabled !== false) {
+    tools.push({
+      type: "function",
+      name: "leave_feedback",
+      description: "Record feedback, a comment, suggestion, or compliment from the caller. Use whenever the caller wants to share their thoughts. The call continues normally after this — callers may submit multiple pieces of feedback in one call.",
+      parameters: {
+        type: "object",
+        properties: {
+          feedback_text: {
+            type: "string",
+            description: "The caller's feedback in their own words.",
+          },
+        },
+        required: ["feedback_text"],
       },
     });
   }
@@ -342,6 +362,25 @@ async function executeTool(name, args, context) {
     case "end_call":
       context.endRequested = true;
       return { ok: true };
+
+    case "leave_feedback": {
+      const feedbackText = (args.feedback_text || "").trim();
+      if (!feedbackText) return { error: "No feedback text provided." };
+      const clientId = "receptionist_" + (context.callerPhone || "unknown").replace(/\D/g, "");
+      try {
+        const r = await fetch(`${INTERNAL}/feedback`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ client_id: clientId, platform: "receptionist", text: feedbackText }),
+        });
+        const d = await r.json();
+        if (!d.ok) return { error: d.error || "Failed to save feedback." };
+        console.log(`[receptionist] Feedback from ${context.callerPhone || "unknown"}: ${feedbackText.slice(0, 100)}`);
+        return { ok: true };
+      } catch (e) {
+        return { error: e.message };
+      }
+    }
 
     default:
       return { error: `Tool '${name}' is not available.` };
@@ -415,14 +454,15 @@ async function handleReceptionistCall(twilioWs) {
     const isReconnect = !!sessionCtx.noAnswer;
     const cfg = loadConfig();
     const voice = REALTIME_VOICES.find(v => v.id === cfg.voice) ? cfg.voice : DEFAULT_CONFIG.voice;
+    const feedbackEnabled = cfg.feedback_tool_enabled !== false;
 
     openaiWs.send(JSON.stringify({
       type: "session.update",
       session: {
         type: "realtime",
         output_modalities: ["audio"],
-        instructions: buildAvaPrompt({ ...sessionCtx, callerPhone }),
-        tools: buildAvaTools({ bizHours, isReconnect }),
+        instructions: buildAvaPrompt({ ...sessionCtx, callerPhone, feedbackEnabled }),
+        tools: buildAvaTools({ bizHours, isReconnect, cfg }),
         audio: {
           input: {
             format: { type: "audio/pcmu" },
@@ -719,6 +759,16 @@ export function registerReceptionistRoutes(app, httpServer) {
   .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
   .badge.open { background: #e8ffe8; color: #1a7a1a; }
   .badge.closed { background: #fee2e2; color: #b91c1c; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f2f2f7; }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-size: 0.9rem; font-weight: 500; color: #1d1d1f; }
+  .toggle-sublabel { font-size: 0.78rem; color: #8e8e93; margin-top: 2px; }
+  .toggle-switch { position: relative; width: 44px; height: 26px; flex-shrink: 0; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: #c7c7cc; border-radius: 26px; cursor: pointer; transition: background 0.2s; }
+  .toggle-slider:before { content: ""; position: absolute; height: 20px; width: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .toggle-switch input:checked + .toggle-slider { background: #34c759; }
+  .toggle-switch input:checked + .toggle-slider:before { transform: translateX(18px); }
 </style>
 </head>
 <body>
@@ -769,6 +819,20 @@ ${adminTabBar("receptionist")}
       <p class="hint" style="margin-top:12px">Takes effect on the next incoming call.</p>
     </div>
 
+    <div class="card">
+      <h2>⚙️ Features</h2>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Feedback Tool</div>
+          <div class="toggle-sublabel">Callers can leave comments or suggestions during the call. Saved to Feedback logs.</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" name="feedback_tool_enabled" value="1" ${cfg.feedback_tool_enabled !== false ? "checked" : ""}>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
     <button type="submit" class="save-btn">Save Settings</button>
   </form>
 </div>
@@ -782,6 +846,7 @@ ${adminTabBar("receptionist")}
     cfg.gabriella_number = (body.gabriella_number || "").trim();
     cfg.ring_timeout_seconds = Math.max(10, Math.min(120, Number(body.ring_timeout_seconds) || 30));
     cfg.voice = REALTIME_VOICES.find(v => v.id === body.voice) ? body.voice : DEFAULT_CONFIG.voice;
+    cfg.feedback_tool_enabled = body.feedback_tool_enabled === "1";
     saveConfig(cfg);
     console.log("[receptionist] Config saved:", cfg);
     res.redirect("/admin/receptionist?saved=1");
