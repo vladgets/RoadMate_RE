@@ -406,7 +406,12 @@ async function executeTool(name, args, context) {
         const r = await fetch(`${INTERNAL}/feedback`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ client_id: clientId, platform: "receptionist", text: feedbackText }),
+          body: JSON.stringify({
+            client_id: clientId,
+            platform: "receptionist",
+            text: feedbackText,
+            location: formatPhoneForSpeech(context.callerPhone),
+          }),
         });
         const d = await r.json();
         if (!d.ok) return { error: d.error || "Failed to save feedback." };

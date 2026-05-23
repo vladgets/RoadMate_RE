@@ -80,7 +80,7 @@ export function registerFeedbackRoutes(app) {
   app.post("/feedback", async (req, res) => {
     try {
       ensureDir();
-      const { client_id, platform, text } = req.body || {};
+      const { client_id, platform, text, location: locationOverride } = req.body || {};
       if (!client_id || !text) {
         return res.status(400).json({ ok: false, error: "client_id and text required" });
       }
@@ -90,7 +90,7 @@ export function registerFeedbackRoutes(app) {
       const fpath = path.join(FEEDBACK_DIR, fname);
 
       const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-      const location = await getLocationFromIp(ip);
+      const location = locationOverride || await getLocationFromIp(ip);
 
       const data = {
         client_id,
