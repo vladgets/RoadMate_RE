@@ -624,21 +624,21 @@ async function handleReceptionistCall(twilioWs) {
       addTranscriptMsg("assistant", lastAssistantTranscript);
     }
 
-    // Auto-disconnect when the assistant naturally says goodbye
+    // Auto-disconnect when the assistant clearly says goodbye
     // (fallback for when the AI concludes without explicitly calling end_call)
+    // Rules: only match unambiguous farewell phrases; never fire if the response
+    // ends with a question (Ava is still waiting for the caller's answer).
     if (event.type === "response.done" && !context.endRequested && !context.transferring) {
-      const text = lastAssistantTranscript.toLowerCase();
-      const goodbyeSignals = [
+      const text = lastAssistantTranscript.toLowerCase().trim();
+      const endsWithQuestion = text.endsWith("?");
+      const clearFarewells = [
         "have a wonderful day",
         "have a great day",
-        "thanks so much for calling roman balandin",
-        "team will be in touch",
-        "team will reach out",
-        "reaching out to you shortly",
-        "we'll be in touch soon",
-        "someone will reach out",
+        "have a good day",
+        "have a nice day",
+        "thanks so much for calling roman balandin realty",
       ];
-      if (goodbyeSignals.some(s => text.includes(s))) {
+      if (!endsWithQuestion && clearFarewells.some(s => text.includes(s))) {
         console.log("[receptionist] Goodbye detected — auto-ending call");
         context.endRequested = true;
         const accountSid = process.env.TWILIO_ACCOUNT_SID;
