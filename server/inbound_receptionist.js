@@ -138,9 +138,10 @@ TRANSFER FLOW (business hours, buyer or seller only):
 
   const qualificationGuide = `
 CALLER CLASSIFICATION — do this immediately after your opening greeting:
-Listen carefully to why the caller is reaching out. Ask if unclear:
-'Of course! Are you looking to sell a home, buy a home, or are you a real estate agent calling about a property or showing?'
-Then route to the correct script below. If the caller doesn't fit any category (wrong number, vendor, other), collect their name and callback number, ask what they need, and let them know the team will follow up.
+Listen carefully to why the caller is reaching out.
+- If their FIRST message already makes intent clear (buyer, seller, agent) — skip the classification question entirely and go DIRECTLY to the correct script. Never ask what they want if they just told you.
+- If intent is unclear after their opening, ask: 'Of course! Are you looking to sell a home, buy a home, or are you a real estate agent calling about a property or showing?'
+- If the caller doesn't fit any category (wrong number, vendor, other), collect their name and callback number, ask what they need, and let them know the team will follow up.
 
 ${phoneNote}
 
@@ -210,6 +211,11 @@ GENERAL RULES FOR ALL SCRIPTS:
 - Always confirm the caller's name back after capturing it.
 - After completing any script, use end_call.
 ${sessionCtx.feedbackEnabled ? `- If a caller wants to leave a comment, suggestion, or compliment, use the leave_feedback tool immediately. Thank them warmly and continue the conversation normally. Callers may leave multiple pieces of feedback in one call.` : ""}
+
+IF A CALLER ASKS TO SPEAK TO A PERSON OR A SPECIFIC PERSON:
+- Do NOT transfer immediately. Say warmly: 'Of course! I just need to grab a couple of quick details so I can make sure the right person is ready for you.'
+- Collect at minimum their full name and whether they are a buyer or seller.
+- Then proceed with the standard transfer flow.
 `;
 
   return `Current date and time: ${dateStr}, ${timeStr}
