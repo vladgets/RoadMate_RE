@@ -359,9 +359,25 @@ async function executeTool(name, args, context) {
       }
     }
 
-    case "end_call":
+    case "end_call": {
       context.endRequested = true;
+      if (context.callSid) {
+        const accountSid = process.env.TWILIO_ACCOUNT_SID;
+        const authToken = process.env.TWILIO_AUTH_TOKEN;
+        if (accountSid && authToken) {
+          try {
+            const client = twilio(accountSid, authToken);
+            await client.calls(context.callSid).update({
+              twiml: `<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>`,
+            });
+            console.log(`[receptionist] Call ${context.callSid} hung up via Twilio API`);
+          } catch (e) {
+            console.error("[receptionist] Hangup API failed:", e.message);
+          }
+        }
+      }
       return { ok: true };
+    }
 
     case "leave_feedback": {
       const feedbackText = (args.feedback_text || "").trim();
@@ -587,10 +603,15 @@ async function handleReceptionistCall(twilioWs) {
         type: "conversation.item.create",
         item: { type: "function_call_output", call_id: callId, output: JSON.stringify(result) },
       }));
-      openaiWs.send(JSON.stringify({ type: "response.create" }));
+
+      // Don't trigger another response when the call is ending or transferring —
+      // the AI has already said its closing line before calling the tool.
+      if (!context.endRequested && !context.transferring) {
+        openaiWs.send(JSON.stringify({ type: "response.create" }));
+      }
 
       if (context.endRequested || context.transferring) {
-        setTimeout(() => twilioWs.close(), 2500);
+        setTimeout(() => { if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close(); }, 2500);
       }
     }
 
@@ -620,9 +641,22 @@ async function handleReceptionistCall(twilioWs) {
       if (goodbyeSignals.some(s => text.includes(s))) {
         console.log("[receptionist] Goodbye detected — auto-ending call");
         context.endRequested = true;
-        setTimeout(() => {
-          if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close();
-        }, 3500);
+        const accountSid = process.env.TWILIO_ACCOUNT_SID;
+        const authToken = process.env.TWILIO_AUTH_TOKEN;
+        if (context.callSid && accountSid && authToken) {
+          try {
+            const client = twilio(accountSid, authToken);
+            await client.calls(context.callSid).update({
+              twiml: `<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>`,
+            });
+            console.log(`[receptionist] Call ${context.callSid} hung up after goodbye`);
+          } catch (e) {
+            console.error("[receptionist] Goodbye hangup failed:", e.message);
+            setTimeout(() => { if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close(); }, 3500);
+          }
+        } else {
+          setTimeout(() => { if (twilioWs.readyState === WebSocket.OPEN) twilioWs.close(); }, 3500);
+        }
       }
     }
 
