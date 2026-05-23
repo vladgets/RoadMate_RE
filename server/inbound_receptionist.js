@@ -440,6 +440,7 @@ async function handleReceptionistCall(twilioWs) {
   const pendingAudio = [];
   const pendingToolCalls = new Map();
   const context = { callSid: null, host: null, callerPhone: null, endRequested: false, transferring: false };
+  let bargeInTimer = null; // confirmed only after speech persists past the delay
 
   const sessionStart = new Date().toISOString();
   const sessionId = sessionStart.replace(/[:.]/g, "-").substring(0, 19);
@@ -560,9 +561,24 @@ async function handleReceptionistCall(twilioWs) {
     let event;
     try { event = JSON.parse(raw); } catch { return; }
 
-    // Barge-in: caller started speaking — flush Twilio's audio buffer immediately
+    // Barge-in: wait 300ms to confirm it's real speech, not background noise.
+    // If speech_stopped fires before the timer, cancel — it was just a brief noise.
     if (event.type === "input_audio_buffer.speech_started" && streamSid) {
-      twilioWs.send(JSON.stringify({ event: "clear", streamSid }));
+      if (!bargeInTimer) {
+        bargeInTimer = setTimeout(() => {
+          bargeInTimer = null;
+          if (streamSid && twilioWs.readyState === WebSocket.OPEN) {
+            twilioWs.send(JSON.stringify({ event: "clear", streamSid }));
+          }
+        }, 300);
+      }
+    }
+
+    if (event.type === "input_audio_buffer.speech_stopped") {
+      if (bargeInTimer) {
+        clearTimeout(bargeInTimer);
+        bargeInTimer = null;
+      }
     }
 
     if (event.type === "response.output_audio.delta" && event.delta && streamSid) {
