@@ -142,9 +142,8 @@ TRANSFER FLOW (business hours, buyer or seller only):
 ` : "";
 
   const callerPhone = sessionCtx.callerPhone || "";
-  const callerPhoneFormatted = formatPhoneForSpeech(callerPhone);
   const phoneNote = callerPhone
-    ? `CALLER'S PHONE (from caller ID): ${callerPhoneFormatted} — You already have this. Do NOT ask for it. Instead confirm: 'I already have your number on file — is ${callerPhoneFormatted} the best one to reach you?' If they say yes, move on. If they give a different number, note that instead.`
+    ? `CALLER'S PHONE (from caller ID): ${callerPhone} — You already have this. Do NOT ask for it. Instead confirm: 'I already have your number on file — is ${callerPhone} the best one to reach you?' If they say yes, move on. If they give a different number, note that instead.`
     : `CALLER'S PHONE: Not available from caller ID — ask for it normally.`;
 
   const qualificationGuide = `
