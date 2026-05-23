@@ -103,6 +103,16 @@ function isBusinessHours() {
 
 // ── System prompt ─────────────────────────────────────────────────────────────
 
+// Format a US phone number for natural speech — strips +1, returns (NXX) NXX-XXXX
+function formatPhoneForSpeech(phone) {
+  const digits = (phone || "").replace(/\D/g, "");
+  const local = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (local.length === 10) {
+    return `(${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6)}`;
+  }
+  return phone;
+}
+
 // sessionCtx: { noAnswer, callerName, callerIntent, callerPhone, feedbackEnabled }
 function buildAvaPrompt(sessionCtx = {}) {
   const now = new Date();
@@ -132,8 +142,9 @@ TRANSFER FLOW (business hours, buyer or seller only):
 ` : "";
 
   const callerPhone = sessionCtx.callerPhone || "";
+  const callerPhoneFormatted = formatPhoneForSpeech(callerPhone);
   const phoneNote = callerPhone
-    ? `CALLER'S PHONE (from caller ID): ${callerPhone} — You already have this. Do NOT ask for it. Instead confirm: 'I already have your number on file — is ${callerPhone} the best one to reach you?' If they say yes, move on. If they give a different number, note that instead.`
+    ? `CALLER'S PHONE (from caller ID): ${callerPhoneFormatted} — You already have this. Do NOT ask for it. Instead confirm: 'I already have your number on file — is ${callerPhoneFormatted} the best one to reach you?' If they say yes, move on. If they give a different number, note that instead.`
     : `CALLER'S PHONE: Not available from caller ID — ask for it normally.`;
 
   const qualificationGuide = `
@@ -211,6 +222,8 @@ GENERAL RULES FOR ALL SCRIPTS:
 - Always confirm the caller's name back after capturing it.
 - After completing any script, use end_call.
 ${sessionCtx.feedbackEnabled ? `- If a caller wants to leave a comment, suggestion, or compliment, use the leave_feedback tool immediately. Thank them warmly and continue the conversation normally. Callers may leave multiple pieces of feedback in one call.` : ""}
+
+PHONE NUMBERS — when reading any phone number back to the caller, never say 'plus one' or recite the +1 prefix. Read it as a 10-digit US number: area code first, then the number (e.g. '(732) 936-7421').
 
 IF A CALLER ASKS TO SPEAK TO A PERSON OR A SPECIFIC PERSON:
 - Do NOT transfer immediately. Say warmly: 'Of course! I just need to grab a couple of quick details so I can make sure the right person is ready for you.'
